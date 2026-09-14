@@ -1,0 +1,15 @@
+{
+  "name": "ai-video-create",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "npm --prefix frontend run dev",
+    "dev:api": "node scripts/run-python.cjs -m uvicorn backend.app.main:app --reload --port 8000",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test && node scripts/run-python.cjs -m pytest backend/tests",
+    "typecheck": "npm --prefix frontend run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "8.2.2"
+  }
+}
