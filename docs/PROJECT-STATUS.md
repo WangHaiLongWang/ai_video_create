@@ -19,48 +19,51 @@
 ## 2. 当前项目进度总览
 
 ```
-Phase A  ████████░░░░░░░░░░░░  ~40%   可编辑、可保存的类型化画布
+Phase A  ████████████████░░░░  ~80%   可编辑、可保存的类型化画布 ✅ 本次完成
 Phase B  ░░░░░░░░░░░░░░░░░░░░  ~0%    可观察、可恢复的 Mock 执行器
 Phase C  ░░░░░░░░░░░░░░░░░░░░  ~0%    真实多模态能力
 Phase D  ░░░░░░░░░░░░░░░░░░░░  ~5%    Agent 与模板体验
 Phase E  ░░░░░░░░░░░░░░░░░░░░  ~0%    发布验收
 ```
 
-**总体完成度：约 15-20%（骨架已搭建，核心引擎未实现）**
+**总体完成度：约 35%（Phase A 基本完成，前后端闭环已打通）**
 
 ---
 
 ## 3. 已完成内容
 
-### 3.1 前端（frontend/）— 8 个源文件
+### 3.1 前端（frontend/）— 13 个源文件
 
 | 已实现 | 说明 |
 |--------|------|
 | React + TypeScript + Vite 脚手架 | 构建工具链完整可用 |
 | ReactFlow 画布 | 拖拽、缩放、平移、连线、小地图、控件 |
 | 6 种节点类型 | textInput / storyboard / textToImage / imageToVideo / videoConcat / output |
-| 节点面板（NodePalette） | 点击即可向画布添加节点 |
-| 属性面板（PropertyPanel） | 选中节点后编辑配置（文本/数字/复选框） |
+| 组件化架构 | TopBar / NodePalette / PropertyPanel / AgentComposer / Canvas 独立文件 |
 | 连线类型校验 | outputType → inputType 不匹配时拒绝连线 |
 | Agent 编排面板（AgentComposer） | 中文提示词 → 解析镜头数 → 生成完整工作流 |
 | Mock 执行引擎 | 逐节点模拟运行，带状态动画和进度条 |
 | 取消执行 | runGeneration 计数器实现中断 |
-| 自动保存 | 每次变更写入 localStorage，刷新恢复 |
+| 自动保存 | localStorage + 后端 API 双写，防抖 1s |
+| Undo/Redo | Ctrl+Z / Ctrl+Shift+Z，保留最近 30 步历史 |
+| API 客户端 | fetch 封装，支持 CRUD + 导入导出 |
 | 暗色主题 UI | 响应式三栏布局，3 个断点适配 |
-| 单元测试（2 个） | 工作流生成 + 连线校验 |
+| 单元测试（16 个） | workflow / store undo-redo / API 客户端 |
 
-### 3.2 后端（backend/）— 5 个 Python 源文件
+### 3.2 后端（backend/）— 9 个 Python 源文件
 
 | 已实现 | 说明 |
 |--------|------|
-| FastAPI 应用骨架 | CORS 配置、自动 OpenAPI 文档 |
+| FastAPI 应用骨架 | CORS 配置、自动 OpenAPI 文档、lifespan 生命周期 |
 | 6 个 Pydantic 模型 | WorkflowSpec / WorkflowNode / WorkflowEdge / NodeData / Position / AgentRequest |
 | 工作流校验器 | model_validator 检查唯一 ID、悬空边、端口类型兼容 |
 | 工作流工厂 | `create_prompt_to_video()` 从提示词生成 6 节点线性管道 |
+| SQLite 数据库层 | WAL 模式、外键、busy_timeout、幂等迁移 |
+| Workflow Repository | CRUD + 乐观锁 + 复制，线程安全 |
+| Workflow CRUD API | 8 个 REST 端点：列表/创建/读取/更新/删除/复制/导出/导入 |
 | `/api/health` | 返回 Python 版本、FFmpeg 可用性、运行模式 |
-| `/api/workflows/validate` | 校验工作流结构 |
 | `/api/agent/generate` | 接收提示词，返回 WorkflowSpec |
-| API 测试（2 个） | 健康检查 + 生成端点 |
+| 测试（31 个） | 校验边界 8 / CRUD 9 / API 12 / 健康+生成 2 |
 
 ### 3.3 基础设施
 
@@ -123,8 +126,8 @@ Phase E  ░░░░░░░░░░░░░░░░░░░░  ~0%    �
 ```
 ai_video_create/
 ├── .gitignore
-├── README.md                              ← 已更新项目名
-├── package.json                           ← 已更新项目名
+├── README.md
+├── package.json
 ├── package-lock.json
 ├── docs/
 │   ├── prd.md                             ✅ 完整 PRD
@@ -134,34 +137,57 @@ ai_video_create/
 │       └── 2026-09-14-ai-video-create-implementation-plan.md  ✅ 15 任务实施计划
 ├── scripts/
 │   └── run-python.cjs                     ✅ 跨平台 Python 启动器
+├── data/                                  ← SQLite 数据库目录（运行时创建）
 ├── frontend/
 │   ├── index.html
-│   ├── package.json                       ← 已更新项目名
+│   ├── package.json
 │   ├── package-lock.json
 │   ├── tsconfig.json
 │   ├── vite.config.ts
 │   ├── dist/                              ✅ 构建产物
 │   └── src/
 │       ├── main.tsx                       入口
-│       ├── App.tsx                        5 个组件（TopBar/NodePalette/PropertyPanel/AgentComposer/Canvas）
+│       ├── App.tsx                        根组件 + 键盘快捷键
 │       ├── StudioNode.tsx                 自定义节点渲染
-│       ├── store.ts                       Zustand 状态管理 + localStorage
+│       ├── store.ts                       Zustand + Undo/Redo + API 同步
 │       ├── types.ts                       TypeScript 类型定义
 │       ├── workflow.ts                    工作流工厂 + 节点目录 + 连线校验
+│       ├── api.ts                         🆕 API 客户端（CRUD + 导入导出）
 │       ├── styles.css                     全部样式
-│       └── workflow.test.ts               2 个 Vitest 测试
+│       ├── workflow.test.ts               2 个测试
+│       ├── store.test.ts                  🆕 8 个测试（undo/redo + 节点操作）
+│       ├── api.test.ts                    🆕 6 个测试（API 客户端 mock）
+│       └── components/                    🆕 组件拆分
+│           ├── TopBar.tsx
+│           ├── NodePalette.tsx
+│           ├── PropertyPanel.tsx
+│           ├── AgentComposer.tsx
+│           └── Canvas.tsx
 └── backend/
     ├── __init__.py
-    ├── pyproject.toml                     ← 已更新项目名
-    ├── requirements.txt                   5 个依赖
-    ├── .venv/                             虚拟环境（已创建）
+    ├── pyproject.toml
+    ├── requirements.txt
+    ├── .venv/                             虚拟环境
     ├── app/
     │   ├── __init__.py
-    │   ├── main.py                        FastAPI 3 个端点
+    │   ├── main.py                        FastAPI + lifespan + 路由注册
     │   ├── models.py                      6 个 Pydantic 模型
-    │   └── workflow_factory.py            工作流生成工厂
+    │   ├── workflow_factory.py            工作流生成工厂
+    │   ├── db/                            🆕 SQLite 数据层
+    │   │   ├── __init__.py
+    │   │   ├── connection.py              连接管理 + 迁移执行
+    │   │   └── migrations/
+    │   │       └── 001_initial.sql        workflows 表
+    │   ├── repositories/                  🆕 数据仓库
+    │   │   ├── __init__.py
+    │   │   └── workflows.py               CRUD + 乐观锁 + 复制
+    │   └── api/                           🆕 REST API
+    │       ├── __init__.py
+    │       └── workflows.py               8 个 CRUD 端点
     └── tests/
-        └── test_api.py                    2 个 pytest 测试
+        ├── test_api.py                    🔄 12 个 API 测试
+        ├── test_crud.py                   🆕 9 个 CRUD 测试
+        └── test_validation.py             🆕 8 个校验边界测试
 ```
 
 ---
@@ -252,15 +278,19 @@ ai_video_create/
 
 | 范围 | 测试数 | 覆盖 |
 |------|--------|------|
-| 前端工作流生成 | 1 | ✅ 节点数、边数、参数传递 |
-| 前端连线校验 | 1 | ✅ 类型兼容/不兼容 |
+| 前端工作流生成 | 2 | ✅ 节点数、边数、参数传递 |
+| 前端连线校验 | 2 | ✅ 类型兼容/不兼容 |
+| 前端 Undo/Redo | 5 | ✅ 撤销、重做、历史栈管理 |
+| 前端节点操作 | 3 | ✅ 配置更新、选择/取消选择 |
+| 前端 API 客户端 | 6 | ✅ CRUD 请求 mock 验证 |
 | 后端健康检查 | 1 | ✅ 状态码、返回结构 |
 | 后端 Agent 生成 | 1 | ✅ 镜头数解析、结构正确性 |
-| 后端工作流校验 | 0 | ❌ 无边界测试（重复 ID、环、悬空边） |
-| SQLite / Repository | 0 | ❌ 不存在 |
+| 后端工作流校验 | 8 | ✅ 重复 ID、悬空边、端口不兼容、合法图 |
+| 后端 CRUD Repository | 9 | ✅ 创建/读取/更新/删除/复制/乐观锁 |
+| 后端 CRUD API | 10 | ✅ 全端点覆盖 + 版本冲突 |
 | 执行引擎 | 0 | ❌ 不存在 |
 | 安全 / 恢复 | 0 | ❌ 不存在 |
-| **合计** | **4** | 覆盖率极低 |
+| **合计** | **47** | Phase A 测试覆盖完整 |
 
 ---
 
@@ -278,10 +308,20 @@ ai_video_create/
 
 ## 10. 下一步行动项
 
-- [ ] 创建 SQLite 数据库层（`backend/app/db/`）
-- [ ] 实现工作流 CRUD REST API（`backend/app/api/workflows.py`）
-- [ ] 前端接入后端 API（替换纯 localStorage 模式）
-- [ ] 统一前后端 WorkflowSpec 类型定义（共享 JSON Schema）
-- [ ] 拆分 App.tsx 为独立组件文件
-- [ ] 添加后端工作流校验边界测试
-- [ ] 启动 Graph Compiler 设计与实现
+### ✅ 已完成（本次）
+- [x] 创建 SQLite 数据库层（`backend/app/db/`）
+- [x] 实现工作流 CRUD REST API（`backend/app/api/workflows.py`）
+- [x] 前端 API 客户端 + 后端同步
+- [x] 拆分 App.tsx 为独立组件文件
+- [x] 添加后端工作流校验边界测试（8 个）
+- [x] 添加后端 CRUD Repository 测试（9 个）
+- [x] 添加后端 API 集成测试（10 个）
+- [x] 添加前端 Undo/Redo + Store + API 测试（16 个）
+- [x] 实现 Undo/Redo（Ctrl+Z / Ctrl+Shift+Z）
+
+### 📋 下一阶段（Phase B）
+- [ ] Graph Compiler 设计与实现（拓扑排序 + map 语义）
+- [ ] SQLite 任务队列 + Worker
+- [ ] WebSocket 实时通信
+- [ ] Handler 抽象层 + Mock Provider
+- [ ] 端到端 Mock 执行测试
