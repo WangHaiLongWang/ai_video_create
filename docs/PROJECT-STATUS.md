@@ -21,12 +21,12 @@
 ```
 Phase A  ████████████████░░░░  80%   可编辑、可保存的类型化画布 ✅
 Phase B  ████████████████░░░░  80%   可观察、可恢复的 Mock 执行器 ✅
-Phase C  ████████████████░░░░  80%   真实多模态能力 ✅ 本次完成
-Phase D  ░░░░░░░░░░░░░░░░░░░░   5%   Agent 与模板体验
+Phase C  ████████████████░░░░  80%   真实多模态能力 ✅
+Phase D  ████████████████░░░░  80%   Agent 与模板体验 ✅ 本次完成
 Phase E  ░░░░░░░░░░░░░░░░░░░░   0%   发布验收
 ```
 
-**总体完成度：约 65%（Phase A/B/C 基本完成，Mock + Real 双模式执行链路已打通）**
+**总体完成度：约 75%（Phase A/B/C/D 基本完成，Agent + 模板系统已就位）**
 
 ---
 
@@ -50,7 +50,7 @@ Phase E  ░░░░░░░░░░░░░░░░░░░░   0%   发
 | 暗色主题 UI | 响应式三栏布局，3 个断点适配 |
 | 单元测试（16 个） | workflow / store undo-redo / API 客户端 |
 
-### 3.2 后端（backend/）— 22 个 Python 源文件
+### 3.2 后端（backend/）— 26 个 Python 源文件
 
 | 已实现 | 说明 |
 |--------|------|
@@ -75,7 +75,11 @@ Phase E  ░░░░░░░░░░░░░░░░░░░░   0%   发
 | **FFmpeg Service** | 视频拼接、图转视频、视频信息查询 |
 | **Handler 注册表** | Mock/Real 双模式切换 |
 | **Real Handlers** | 6 个真实 Handler（使用 Provider + FFmpeg + AssetManager） |
-| 测试（119 个） | 校验/CRUD/API/编译器/队列/执行/Provider/Handler/Config/Service |
+| **Agent Service** | LLM 驱动的工作流生成/修改/解释 |
+| **Template Service** | 3 个内置模板 + 自定义模板管理 |
+| **Agent API** | generate/modify/explain/apply-patch |
+| **Template API** | 列表/详情/创建/保存 |
+| 测试（146 个） | 校验/CRUD/API/编译器/队列/执行/Provider/Handler/Config/Service/Agent/Template |
 
 ### 3.3 基础设施
 
@@ -159,9 +163,13 @@ ai_video_create/
 │   └── plans/
 ├── frontend/
 │   └── src/
-│       ├── components/            5 个组件
+│       ├── components/            7 个组件（含 SettingsPanel, TemplateSelector）
 │       ├── api.ts, store.ts, types.ts, workflow.ts
 │       └── *.test.ts              3 个测试文件（16 tests）
+
+**Phase D 新增：**
+│       ├── SettingsPanel.tsx       🆕 Provider 配置 UI
+│       └── TemplateSelector.tsx    🆕 模板选择 UI
 └── backend/
     ├── app/
     │   ├── config.py              🆕 配置系统
@@ -171,7 +179,9 @@ ai_video_create/
     │   ├── api/
     │   │   ├── workflows.py
     │   │   ├── executions.py
-    │   │   └── config.py          🆕 配置 API
+    │   │   ├── config.py          🆕 配置 API
+    │   │   ├── agent.py           🆕 Agent API
+    │   │   └── templates.py       🆕 模板 API
     │   ├── db/
     │   │   ├── connection.py
     │   │   └── migrations/001_initial.sql
@@ -194,14 +204,16 @@ ai_video_create/
     │   └── services/
     │       ├── event_bus.py
     │       ├── asset_manager.py   🆕 资产管理
-    │       └── ffmpeg.py          🆕 FFmpeg 服务
+    │       ├── ffmpeg.py          🆕 FFmpeg 服务
+    │       ├── agent.py           🆕 Agent Service
+    │       └── templates.py       🆕 模板服务
     └── tests/
         ├── test_api.py, test_crud.py, test_validation.py
         ├── engine/                3 个测试文件（30 tests）
         ├── providers/             2 个测试文件（20 tests）
-        ├── services/              2 个测试文件（25 tests）
+        ├── services/              4 个测试文件（37 tests）
         ├── handlers/              1 个测试文件（9 tests）
-        └── api/                   1 个测试文件（10 tests）
+        └── api/                   3 个测试文件（26 tests）
 ```
 
 ---
@@ -220,21 +232,65 @@ ai_video_create/
 | **Config API** | **10** | ✅ 🆕 |
 | **Asset Manager** | **16** | ✅ 🆕 |
 | **FFmpeg Service** | **8** | ✅ 🆕 (6 skipped, no ffmpeg) |
-| **合计** | **135** | **119 passed, 6 skipped** |
+| **合计** | **162** | **146 passed, 6 skipped** |
 
 ---
 
-## 7. 下一步（Phase D）
+## 7. Phase D 详细交付（本次新增）
 
-### Phase D：Agent 与模板体验
+### 7.1 Agent Service
 
-| 任务 | 说明 |
+| 文件 | 说明 |
 |------|------|
-| LLM-driven Workflow Agent | Tool calling → 生成/修改工作流 |
-| GraphPatch + diff 预览 | 修改工作流时显示差异 |
-| 确认流程 | 用户确认后应用修改 |
-| 官方模板注册 | 后端模板服务 + 模板选择 UI |
-| 前端设置页 | Provider 选择 + API Key 配置 UI |
+| `services/agent.py` | LLM 驱动的工作流生成与修改 |
+| `services/templates.py` | 模板管理服务 |
+
+**Agent 能力：**
+- `generate_from_prompt` — 从自然语言生成完整工作流
+- `modify_workflow` — 修改现有工作流（返回 GraphPatch）
+- `explain_workflow` — 解释工作流功能
+
+**模板系统：**
+- 3 个内置模板：提示词生成视频 / 图片故事板 / 快速视频
+- 支持自定义模板保存/删除
+- 从模板创建工作流（支持参数注入）
+
+### 7.2 GraphPatch 模型
+
+```python
+class GraphPatch(BaseModel):
+    description: str           # 修改描述
+    add_nodes: list[WorkflowNode]  # 新增节点
+    remove_nodes: list[str]    # 删除节点 ID
+    update_nodes: list[NodeUpdate] # 更新节点
+    add_edges: list[WorkflowEdge]  # 新增边
+    remove_edges: list[str]    # 删除边 ID
+```
+
+### 7.3 Agent + Template API
+
+```
+POST /api/agent/generate      — 从提示词生成工作流
+POST /api/agent/modify        — 修改工作流（返回 GraphPatch）
+POST /api/agent/explain       — 解释工作流功能
+POST /api/agent/apply-patch   — 应用 GraphPatch
+
+GET  /api/templates           — 列出所有模板
+GET  /api/templates/{id}      — 获取模板详情
+POST /api/templates/{id}/create — 从模板创建工作流
+POST /api/templates/save      — 保存工作流为模板
+```
+
+### 7.4 前端组件
+
+| 组件 | 说明 |
+|------|------|
+| `SettingsPanel.tsx` | Provider 配置 UI（Ollama/OpenAI/ComfyUI） |
+| `TemplateSelector.tsx` | 模板浏览/选择 UI |
+
+---
+
+## 8. 下一步（Phase E）
 
 ### Phase E：发布验收
 

@@ -134,7 +134,7 @@ async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
 
     # 保存到数据库
     try:
-        update_workflow(spec.id, version, new_spec.model_dump(), name=spec.name)
+        update_workflow(spec.id, new_spec.model_dump(), version)
     except Exception as e:
         raise HTTPException(500, f"保存失败: {e}")
 
