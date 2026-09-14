@@ -49,9 +49,7 @@ class TestEndToEndPipeline:
         assert len(workflow["edges"]) >= 3
 
         # 3. 执行工作流
-        exec_resp = client.post("/api/executions/start", json={
-            "workflow_id": workflow_id,
-        })
+        exec_resp = client.post(f"/api/executions/{workflow_id}/start")
         # 执行可能返回 200 或 201
         assert exec_resp.status_code in (200, 201)
         execution = exec_resp.json()
