@@ -8,25 +8,9 @@ from typing import Protocol, Any
 
 from backend.app.engine.queue import claim_task, complete_task, fail_task, heartbeat, recover_orphans
 from backend.app.services.event_bus import emit_event
+from backend.app.handlers import get_handler
 
 logger = logging.getLogger(__name__)
-
-
-class NodeHandler(Protocol):
-    """节点执行器协议。"""
-    async def execute(self, task: dict, context: dict) -> dict: ...
-
-
-# Handler 注册表
-_handlers: dict[str, NodeHandler] = {}
-
-
-def register_handler(kind: str, handler: NodeHandler) -> None:
-    _handlers[kind] = handler
-
-
-def get_handler(kind: str) -> NodeHandler | None:
-    return _handlers.get(kind)
 
 
 class Worker:

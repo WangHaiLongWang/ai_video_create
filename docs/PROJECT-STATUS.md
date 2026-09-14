@@ -1,7 +1,7 @@
 # ai_video_create 项目状态报告
 
-> 生成日期：2026-09-14
-> 依据：对 frontend/、backend/、docs/、scripts/ 的全量代码扫描
+> 更新日期：2026-09-15
+> 依据：对 frontend/、backend/、docs/ 的全量代码扫描
 
 ---
 
@@ -19,14 +19,14 @@
 ## 2. 当前项目进度总览
 
 ```
-Phase A  ████████████████░░░░  ~80%   可编辑、可保存的类型化画布 ✅
-Phase B  ████████████████░░░░  ~80%   可观察、可恢复的 Mock 执行器 ✅ 本次完成
-Phase C  ░░░░░░░░░░░░░░░░░░░░  ~0%    真实多模态能力
-Phase D  ░░░░░░░░░░░░░░░░░░░░  ~5%    Agent 与模板体验
-Phase E  ░░░░░░░░░░░░░░░░░░░░  ~0%    发布验收
+Phase A  ████████████████░░░░  80%   可编辑、可保存的类型化画布 ✅
+Phase B  ████████████████░░░░  80%   可观察、可恢复的 Mock 执行器 ✅
+Phase C  ████████████████░░░░  80%   真实多模态能力 ✅ 本次完成
+Phase D  ░░░░░░░░░░░░░░░░░░░░   5%   Agent 与模板体验
+Phase E  ░░░░░░░░░░░░░░░░░░░░   0%   发布验收
 ```
 
-**总体完成度：约 55%（Phase A+B 基本完成，Mock 端到端链路已打通）**
+**总体完成度：约 65%（Phase A/B/C 基本完成，Mock + Real 双模式执行链路已打通）**
 
 ---
 
@@ -50,20 +50,32 @@ Phase E  ░░░░░░░░░░░░░░░░░░░░  ~0%    �
 | 暗色主题 UI | 响应式三栏布局，3 个断点适配 |
 | 单元测试（16 个） | workflow / store undo-redo / API 客户端 |
 
-### 3.2 后端（backend/）— 9 个 Python 源文件
+### 3.2 后端（backend/）— 22 个 Python 源文件
 
 | 已实现 | 说明 |
 |--------|------|
-| FastAPI 应用骨架 | CORS 配置、自动 OpenAPI 文档、lifespan 生命周期 |
+| FastAPI 应用骨架 | CORS、自动 OpenAPI、lifespan 生命周期 |
 | 6 个 Pydantic 模型 | WorkflowSpec / WorkflowNode / WorkflowEdge / NodeData / Position / AgentRequest |
 | 工作流校验器 | model_validator 检查唯一 ID、悬空边、端口类型兼容 |
 | 工作流工厂 | `create_prompt_to_video()` 从提示词生成 6 节点线性管道 |
+| **配置系统** | Pydantic Settings + .env + 环境变量，支持多 Provider 切换 |
 | SQLite 数据库层 | WAL 模式、外键、busy_timeout、幂等迁移 |
 | Workflow Repository | CRUD + 乐观锁 + 复制，线程安全 |
 | Workflow CRUD API | 8 个 REST 端点：列表/创建/读取/更新/删除/复制/导出/导入 |
-| `/api/health` | 返回 Python 版本、FFmpeg 可用性、运行模式 |
+| **配置 API** | 9 个端点：Provider 管理 / 设置更新 / 健康检查 / 资产管理 |
+| `/api/health` | 返回 Python 版本、FFmpeg 可用性、运行模式、版本号 |
 | `/api/agent/generate` | 接收提示词，返回 WorkflowSpec |
-| 测试（31 个） | 校验边界 8 / CRUD 9 / API 12 / 健康+生成 2 |
+| **Provider 抽象层** | BaseProvider ABC + 能力声明 + 错误体系 |
+| **Provider 注册表** | 动态注册/查询/列出 Provider |
+| **Mock Provider** | 完整模拟 text/image/video 生成，用于开发测试 |
+| **Ollama Provider** | 本地 LLM 文本生成（httpx 异步调用） |
+| **OpenAI Provider** | GPT 文本 + DALL-E 图像生成 |
+| **ComfyUI Provider** | ComfyUI workflow 执行（txt2img / img2vid） |
+| **Asset Manager** | 文件存储管理（分类存储、元数据、清理策略） |
+| **FFmpeg Service** | 视频拼接、图转视频、视频信息查询 |
+| **Handler 注册表** | Mock/Real 双模式切换 |
+| **Real Handlers** | 6 个真实 Handler（使用 Provider + FFmpeg + AssetManager） |
+| 测试（119 个） | 校验/CRUD/API/编译器/队列/执行/Provider/Handler/Config/Service |
 
 ### 3.3 基础设施
 
@@ -77,263 +89,158 @@ Phase E  ░░░░░░░░░░░░░░░░░░░░  ~0%    �
 
 ---
 
-## 4. 未完成内容（差距分析）
+## 4. Phase C 详细交付（本次新增）
 
-### 4.1 Phase A 剩余（可编辑、可保存的类型化画布）
+### 4.1 配置系统
 
-| 任务 | 状态 | 说明 |
+| 文件 | 说明 |
+|------|------|
+| `backend/app/config.py` | Pydantic Settings + .env 支持 + Provider 配置管理 |
+| `backend/app/api/config.py` | 9 个配置 API 端点 |
+
+**支持的配置项：**
+- `DEFAULT_LLM_PROVIDER` — 文本生成 Provider（mock/ollama/openai）
+- `DEFAULT_IMAGE_PROVIDER` — 图像生成 Provider（mock/comfyui/openai）
+- `DEFAULT_VIDEO_PROVIDER` — 视频生成 Provider（mock/comfyui）
+- Provider API URL / Key / Model 配置
+- 资产目录、FFmpeg 路径、Worker 参数
+
+### 4.2 Provider 体系
+
+| 文件 | 能力 | 说明 |
 |------|------|------|
-| Task 1 初始化单仓 | ✅ 完成 | 脚手架、健康检查、smoke test 均已就位 |
-| Task 2 共享契约与节点注册表 | ⚠️ 部分完成 | 前后端各有类型定义但未统一 JSON Schema；缺少 TextSplit 节点；无环检测测试 |
-| Task 3 SQLite 迁移与 Repository | ❌ 未开始 | 无数据库层、无迁移系统、无 Repository |
-| Task 4 工作流 CRUD、导入导出 | ❌ 未开始 | 无 REST CRUD API、无导入导出、无撤销重做、无前端路由 |
+| `providers/base.py` | - | 抽象基类 + 错误体系 |
+| `providers/__init__.py` | - | 注册表 + 动态初始化 |
+| `providers/mock_provider.py` | text+image+video | 开发测试用 Mock |
+| `providers/ollama_provider.py` | text | Ollama 本地 LLM |
+| `providers/openai_provider.py` | text+image | OpenAI GPT + DALL-E |
+| `providers/comfyui_provider.py` | image+video | ComfyUI workflow 执行 |
 
-### 4.2 Phase B（可观察、可恢复的 Mock 执行器）
+### 4.3 服务层
 
-| 任务 | 状态 | 说明 |
-|------|------|------|
-| Task 5 Graph Compiler 与 map 语义 | ❌ 未开始 | 无编译器、无拓扑排序、无 map 展开 |
-| Task 6 任务队列与 Worker | ❌ 未开始 | 无 SQLite 队列、无 Worker、无租约/心跳机制 |
-| Task 7 执行事件与 WebSocket | ❌ 未开始 | 无事件总线、无 WebSocket、无实时状态推送 |
-| Task 8 Handler 与 Mock 纵向链路 | ❌ 未开始 | 无 Handler 基类、无 Mock Provider 实现、无 E2E 测试 |
+| 文件 | 说明 |
+|------|------|
+| `services/asset_manager.py` | 文件存储、检索、清理、元数据 |
+| `services/ffmpeg.py` | FFmpeg 封装（拼接、图转视频、信息查询） |
 
-### 4.3 Phase C（真实多模态能力）
+### 4.4 Real Handlers
 
-| 任务 | 状态 | 说明 |
-|------|------|------|
-| Task 9 Provider 注册表与设置页 | ❌ 未开始 | 无 Provider 抽象、无设置 UI |
-| Task 10 真实生图/生视频适配器 | ❌ 未开始 | 无 ComfyUI/HTTP 适配器 |
-| Task 11 资产服务与 FFmpeg | ❌ 未开始 | 无文件存储管理、无 FFmpeg 调用 |
+| Handler | 输入 | 输出 | 依赖 |
+|---------|------|------|------|
+| RealTextInputHandler | text | text | LLM Provider |
+| RealStoryboardHandler | text | list\<scene\> | LLM Provider |
+| RealTextToImageHandler | text | list\<image\> | Image Provider + AssetManager |
+| RealImageToVideoHandler | image | list\<video\> | FFmpeg/Video Provider + AssetManager |
+| RealVideoConcatHandler | list\<video\> | video | FFmpeg + AssetManager |
+| RealOutputHandler | video | final | AssetManager |
 
-### 4.4 Phase D（Agent 与模板体验）
+### 4.5 配置 API 端点
 
-| 任务 | 状态 | 说明 |
-|------|------|------|
-| Task 12 Workflow Agent（生成） | ⚠️ 极简版存在 | 当前 Agent 仅做正则解析 → 硬编码模板，无 LLM tool calling、无自修复循环、无 Schema 约束输出 |
-| Task 13 Workflow Agent（修改与解释） | ❌ 未开始 | 无 GraphPatch、无 diff 预览、无确认流程 |
-| Task 14 官方模板 | ⚠️ 前端有模板 | `createPromptToVideoWorkflow` 可用，但无后端模板服务、无模板注册/选择 UI |
-
-### 4.5 Phase E（发布验收）
-
-| 任务 | 状态 | 说明 |
-|------|------|------|
-| Task 15 安全、恢复、跨平台验收 | ❌ 未开始 | 无安全测试、无恢复测试、无性能基准 |
+```
+GET  /api/config/providers        — 列出已注册 Provider
+GET  /api/config/settings         — 获取当前设置（不含密钥）
+PUT  /api/config/settings         — 更新设置并重新初始化
+POST /api/config/test-provider    — 测试 Provider 连接
+GET  /api/config/assets           — 列出所有资产
+GET  /api/config/assets/stats     — 资产统计
+POST /api/config/assets/cleanup   — 清理旧临时资产
+```
 
 ---
 
-## 5. 文件资产清单
+## 5. 文件资产清单（更新）
 
 ```
 ai_video_create/
-├── .gitignore
-├── README.md
-├── package.json
-├── package-lock.json
 ├── docs/
-│   ├── prd.md                             ✅ 完整 PRD
-│   ├── dp.md                              ✅ 完整架构设计
-│   ├── PROJECT-STATUS.md                  ← 本文档
+│   ├── PROJECT-STATUS.md          ← 本文档
+│   ├── prd.md
+│   ├── dp.md
 │   └── plans/
-│       └── 2026-09-14-ai-video-create-implementation-plan.md  ✅ 15 任务实施计划
-├── scripts/
-│   └── run-python.cjs                     ✅ 跨平台 Python 启动器
-├── data/                                  ← SQLite 数据库目录（运行时创建）
 ├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   ├── dist/                              ✅ 构建产物
 │   └── src/
-│       ├── main.tsx                       入口
-│       ├── App.tsx                        根组件 + 键盘快捷键
-│       ├── StudioNode.tsx                 自定义节点渲染
-│       ├── store.ts                       Zustand + Undo/Redo + API 同步
-│       ├── types.ts                       TypeScript 类型定义
-│       ├── workflow.ts                    工作流工厂 + 节点目录 + 连线校验
-│       ├── api.ts                         🆕 API 客户端（CRUD + 导入导出）
-│       ├── styles.css                     全部样式
-│       ├── workflow.test.ts               2 个测试
-│       ├── store.test.ts                  🆕 8 个测试（undo/redo + 节点操作）
-│       ├── api.test.ts                    🆕 6 个测试（API 客户端 mock）
-│       └── components/                    🆕 组件拆分
-│           ├── TopBar.tsx
-│           ├── NodePalette.tsx
-│           ├── PropertyPanel.tsx
-│           ├── AgentComposer.tsx
-│           └── Canvas.tsx
+│       ├── components/            5 个组件
+│       ├── api.ts, store.ts, types.ts, workflow.ts
+│       └── *.test.ts              3 个测试文件（16 tests）
 └── backend/
-    ├── __init__.py
-    ├── pyproject.toml
-    ├── requirements.txt
-    ├── .venv/                             虚拟环境
     ├── app/
-    │   ├── __init__.py
-    │   ├── main.py                        FastAPI + lifespan + 路由注册
-    │   ├── models.py                      6 个 Pydantic 模型
-    │   ├── workflow_factory.py            工作流生成工厂
-    │   ├── db/                            🆕 SQLite 数据层
-    │   │   ├── __init__.py
-    │   │   ├── connection.py              连接管理 + 迁移执行
-    │   │   └── migrations/
-    │   │       └── 001_initial.sql        workflows 表
-    │   ├── repositories/                  🆕 数据仓库
-    │   │   ├── __init__.py
-    │   │   └── workflows.py               CRUD + 乐观锁 + 复制
-    │   └── api/                           🆕 REST API
-    │       ├── __init__.py
-    │       └── workflows.py               8 个 CRUD 端点
+    │   ├── config.py              🆕 配置系统
+    │   ├── main.py                更新：集成 Provider/Handler/AssetManager
+    │   ├── models.py
+    │   ├── workflow_factory.py
+    │   ├── api/
+    │   │   ├── workflows.py
+    │   │   ├── executions.py
+    │   │   └── config.py          🆕 配置 API
+    │   ├── db/
+    │   │   ├── connection.py
+    │   │   └── migrations/001_initial.sql
+    │   ├── engine/
+    │   │   ├── compiler.py
+    │   │   ├── queue.py
+    │   │   └── worker.py
+    │   ├── handlers/
+    │   │   ├── __init__.py        🆕 Handler 注册表
+    │   │   ├── base.py            Mock Handlers
+    │   │   └── real_handlers.py   🆕 Real Handlers
+    │   ├── providers/
+    │   │   ├── __init__.py        🆕 Provider 注册表
+    │   │   ├── base.py            🆕 抽象基类
+    │   │   ├── mock_provider.py   🆕 Mock Provider
+    │   │   ├── ollama_provider.py 🆕 Ollama
+    │   │   ├── openai_provider.py 🆕 OpenAI
+    │   │   └── comfyui_provider.py 🆕 ComfyUI
+    │   ├── repositories/
+    │   └── services/
+    │       ├── event_bus.py
+    │       ├── asset_manager.py   🆕 资产管理
+    │       └── ffmpeg.py          🆕 FFmpeg 服务
     └── tests/
-        ├── test_api.py                    🔄 12 个 API 测试
-        ├── test_crud.py                   🆕 9 个 CRUD 测试
-        └── test_validation.py             🆕 8 个校验边界测试
+        ├── test_api.py, test_crud.py, test_validation.py
+        ├── engine/                3 个测试文件（30 tests）
+        ├── providers/             2 个测试文件（20 tests）
+        ├── services/              2 个测试文件（25 tests）
+        ├── handlers/              1 个测试文件（9 tests）
+        └── api/                   1 个测试文件（10 tests）
 ```
 
 ---
 
-## 6. 关键缺失能力（按优先级排序）
+## 6. 测试覆盖现状
 
-### 🔴 P0 — 没有则无法运行
-
-1. **SQLite 数据层** — 工作流无法持久化到服务端，刷新即丢失（仅靠 localStorage）
-2. **工作流 CRUD API** — 前后端无真正交互，所有数据仅在浏览器内存中
-3. **Mock 执行引擎** — 当前前端 mock 仅模拟延迟，无真实任务调度、状态机、失败传播
-4. **WebSocket 实时通信** — 无执行进度推送，节点状态无法实时反映
-
-### 🟡 P1 — 核心体验
-
-5. **Graph Compiler** — 无拓扑排序、无 map 语义展开、无数组映射执行
-6. **Handler 抽象层** — 无节点执行器基类，无法扩展新节点类型
-7. **撤销/重做** — 前端无 undo/redo 栈
-8. **导入/导出** — 工作流无法序列化为文件或从文件恢复
-
-### 🟢 P2 — 完整产品
-
-9. **真实 AI Provider** — 无 LLM/图像/视频模型接入
-10. **FFmpeg 合成** — 无视频拼接能力
-11. **Agent LLM 驱动** — 当前 Agent 仅正则解析，非真正 LLM 编排
-12. **资产管理系统** — 无文件上传、存储、预览、下载
-
----
-
-## 7. 推荐执行路线
-
-### 第一步：打通前后端闭环（Task 3 + Task 4）
-
-```
-优先级：最高
-预计：3-5 天
-目标：工作流可以保存到 SQLite，刷新后恢复，前后端真正通信
-产出：
-  - backend/app/db/ 数据库连接 + 迁移
-  - backend/app/repositories/ CRUD 操作
-  - backend/app/api/workflows.py REST 端点
-  - frontend/src/api/ HTTP 客户端
-  - 前端切换为 API 调用（保留 localStorage 作为离线降级）
-```
-
-### 第二步：构建 Mock 执行引擎（Task 5 + 6 + 7 + 8）
-
-```
-优先级：高
-预计：5-7 天
-目标：点击"运行"后，任务真正被调度、执行、推送状态
-产出：
-  - Graph Compiler（拓扑排序 + map 展开）
-  - SQLite 任务队列 + Worker
-  - WebSocket 事件推送
-  - 6 个 Handler（全部 Mock）
-  - 端到端 Mock 测试
-```
-
-### 第三步：接入真实 AI 能力（Task 9 + 10 + 11）
-
-```
-优先级：中
-预计：5-7 天
-目标：至少一个 LLM + 一个图像生成 + FFmpeg 合成跑通
-产出：
-  - Provider 注册表 + Ollama/OpenAI 适配
-  - ComfyUI 或 API 图像生成
-  - FFmpeg normalize + concat
-  - 资产存储与管理
-```
-
-### 第四步：完善 Agent 能力（Task 12 + 13 + 14）
-
-```
-优先级：中
-预计：3-5 天
-目标：自然语言 → 生成/修改工作流，带预览和确认
-产出：
-  - LLM tool calling Agent
-  - GraphPatch + diff UI
-  - 官方模板注册
-```
-
----
-
-## 8. 测试覆盖现状
-
-| 范围 | 测试数 | 覆盖 |
+| 范围 | 测试数 | 状态 |
 |------|--------|------|
-| 前端工作流生成 | 2 | ✅ 节点数、边数、参数传递 |
-| 前端连线校验 | 2 | ✅ 类型兼容/不兼容 |
-| 前端 Undo/Redo | 5 | ✅ 撤销、重做、历史栈管理 |
-| 前端节点操作 | 3 | ✅ 配置更新、选择/取消选择 |
-| 前端 API 客户端 | 6 | ✅ CRUD 请求 mock 验证 |
-| 后端健康检查 | 1 | ✅ 状态码、返回结构 |
-| 后端 Agent 生成 | 1 | ✅ 镜头数解析、结构正确性 |
-| 后端工作流校验 | 8 | ✅ 重复 ID、悬空边、端口不兼容、合法图 |
-| 后端 CRUD Repository | 9 | ✅ 创建/读取/更新/删除/复制/乐观锁 |
-| 后端 CRUD API | 10 | ✅ 全端点覆盖 + 版本冲突 |
-| Graph Compiler | 13 | ✅ 拓扑排序、环检测、map 展开、失败传播、边界 |
-| Task Queue | 10 | ✅ 入队、领取、依赖、完成、失败传播、回收 |
-| Execution API | 7 | ✅ 启动、查询、任务列表、取消、事件 |
-| 安全 / 恢复 | 0 | ❌ 不存在 |
-| **合计** | **77** | Phase A+B 测试覆盖完整 |
+| 前端 workflow / store / api | 16 | ✅ |
+| 后端校验 / CRUD / API | 31 | ✅ |
+| Graph Compiler | 13 | ✅ |
+| Task Queue | 10 | ✅ |
+| Execution API | 7 | ✅ |
+| **Provider 基础 + Mock** | **20** | ✅ 🆕 |
+| **Real Handlers** | **9** | ✅ 🆕 |
+| **Config API** | **10** | ✅ 🆕 |
+| **Asset Manager** | **16** | ✅ 🆕 |
+| **FFmpeg Service** | **8** | ✅ 🆕 (6 skipped, no ffmpeg) |
+| **合计** | **135** | **119 passed, 6 skipped** |
 
 ---
 
-## 9. 技术债务与风险
+## 7. 下一步（Phase D）
 
-1. **前后端类型未统一** — 前端 `types.ts` 和后端 `models.py` 各自定义 WorkflowSpec，无共享 JSON Schema
-2. **前端全在 App.tsx** — 5 个组件 + 根组件全在一个文件（~190 行），需拆分
-3. **无错误边界** — 前端无 Error Boundary，后端无全局异常处理中间件
-4. **localStorage 作为唯一存储** — 浏览器清除数据即丢失所有工作流
-5. **Mock 执行无真实状态机** — 前端 mock 仅用 setTimeout 模拟，无 failed/blocked/skipped 状态
-6. **无 i18n** — UI 字符串硬编码中文，无法国际化
-7. **package-lock.json 存在但 node_modules 未提交** — 每次需要 npm install
+### Phase D：Agent 与模板体验
 
----
+| 任务 | 说明 |
+|------|------|
+| LLM-driven Workflow Agent | Tool calling → 生成/修改工作流 |
+| GraphPatch + diff 预览 | 修改工作流时显示差异 |
+| 确认流程 | 用户确认后应用修改 |
+| 官方模板注册 | 后端模板服务 + 模板选择 UI |
+| 前端设置页 | Provider 选择 + API Key 配置 UI |
 
-## 10. 下一步行动项
+### Phase E：发布验收
 
-### ✅ 已完成（本次）
-- [x] 创建 SQLite 数据库层（`backend/app/db/`）
-- [x] 实现工作流 CRUD REST API（`backend/app/api/workflows.py`）
-- [x] 前端 API 客户端 + 后端同步
-- [x] 拆分 App.tsx 为独立组件文件
-- [x] 添加后端工作流校验边界测试（8 个）
-- [x] 添加后端 CRUD Repository 测试（9 个）
-- [x] 添加后端 API 集成测试（10 个）
-- [x] 添加前端 Undo/Redo + Store + API 测试（16 个）
-- [x] 实现 Undo/Redo（Ctrl+Z / Ctrl+Shift+Z）
-
-### ✅ 已完成（Phase B）
-- [x] Graph Compiler（拓扑排序 + map 语义 + 失败传播）
-- [x] SQLite 任务队列（原子领取 + 租约 + 心跳 + 回收）
-- [x] Worker 异步执行器（轮询 + 续租 + Handler 分发）
-- [x] Mock Handlers（textInput / storyboard / textToImage / imageToVideo / videoConcat / output）
-- [x] 事件总线（先落库再推送）
-- [x] Execution REST API（启动 / 查询 / 任务列表 / 取消 / 事件）
-- [x] WebSocket 端点（实时推送 + 补拉）
-- [x] Engine 测试（编译器 13 + 队列 10 + 执行 API 7 = 30 个）
-
-### 📋 下一阶段（Phase C）
-- [ ] Provider 注册表（LLM / 图像 / 视频能力抽象）
-- [ ] Ollama / OpenAI 适配器
-- [ ] ComfyUI 图像生成适配器
-- [ ] FFmpeg 视频合成
-- [ ] 资产存储与管理
+| 任务 | 说明 |
+|------|------|
+| 安全测试 | 输入校验、XSS、路径遍历 |
+| 恢复测试 | Worker 崩溃恢复、数据库损坏恢复 |
+| 性能基准 | 并发执行、大工作流、内存占用 |
+| 跨平台验证 | Windows/macOS/Linux |

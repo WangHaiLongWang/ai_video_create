@@ -13,20 +13,9 @@ from pydantic import BaseModel
 from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
 from backend.app.engine.queue import get_tasks_by_execution, enqueue_tasks
-from backend.app.engine.worker import Worker, register_handler
+from backend.app.engine.worker import Worker
 from backend.app.services.event_bus import emit_event, subscribe, unsubscribe, get_events
-from backend.app.handlers.base import (
-    TextInputHandler, StoryboardHandler, TextToImageHandler,
-    ImageToVideoHandler, VideoConcatHandler, OutputHandler,
-)
-
-# 注册 Mock Handlers
-register_handler("textInput", TextInputHandler())
-register_handler("storyboard", StoryboardHandler())
-register_handler("textToImage", TextToImageHandler())
-register_handler("imageToVideo", ImageToVideoHandler())
-register_handler("videoConcat", VideoConcatHandler())
-register_handler("output", OutputHandler())
+from backend.app.handlers import get_handler
 
 router = APIRouter(prefix="/api/executions", tags=["executions"])
 
