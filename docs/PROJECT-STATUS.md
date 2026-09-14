@@ -19,14 +19,14 @@
 ## 2. 当前项目进度总览
 
 ```
-Phase A  ████████████████░░░░  ~80%   可编辑、可保存的类型化画布 ✅ 本次完成
-Phase B  ░░░░░░░░░░░░░░░░░░░░  ~0%    可观察、可恢复的 Mock 执行器
+Phase A  ████████████████░░░░  ~80%   可编辑、可保存的类型化画布 ✅
+Phase B  ████████████████░░░░  ~80%   可观察、可恢复的 Mock 执行器 ✅ 本次完成
 Phase C  ░░░░░░░░░░░░░░░░░░░░  ~0%    真实多模态能力
 Phase D  ░░░░░░░░░░░░░░░░░░░░  ~5%    Agent 与模板体验
 Phase E  ░░░░░░░░░░░░░░░░░░░░  ~0%    发布验收
 ```
 
-**总体完成度：约 35%（Phase A 基本完成，前后端闭环已打通）**
+**总体完成度：约 55%（Phase A+B 基本完成，Mock 端到端链路已打通）**
 
 ---
 
@@ -288,9 +288,11 @@ ai_video_create/
 | 后端工作流校验 | 8 | ✅ 重复 ID、悬空边、端口不兼容、合法图 |
 | 后端 CRUD Repository | 9 | ✅ 创建/读取/更新/删除/复制/乐观锁 |
 | 后端 CRUD API | 10 | ✅ 全端点覆盖 + 版本冲突 |
-| 执行引擎 | 0 | ❌ 不存在 |
+| Graph Compiler | 13 | ✅ 拓扑排序、环检测、map 展开、失败传播、边界 |
+| Task Queue | 10 | ✅ 入队、领取、依赖、完成、失败传播、回收 |
+| Execution API | 7 | ✅ 启动、查询、任务列表、取消、事件 |
 | 安全 / 恢复 | 0 | ❌ 不存在 |
-| **合计** | **47** | Phase A 测试覆盖完整 |
+| **合计** | **77** | Phase A+B 测试覆盖完整 |
 
 ---
 
@@ -319,9 +321,19 @@ ai_video_create/
 - [x] 添加前端 Undo/Redo + Store + API 测试（16 个）
 - [x] 实现 Undo/Redo（Ctrl+Z / Ctrl+Shift+Z）
 
-### 📋 下一阶段（Phase B）
-- [ ] Graph Compiler 设计与实现（拓扑排序 + map 语义）
-- [ ] SQLite 任务队列 + Worker
-- [ ] WebSocket 实时通信
-- [ ] Handler 抽象层 + Mock Provider
-- [ ] 端到端 Mock 执行测试
+### ✅ 已完成（Phase B）
+- [x] Graph Compiler（拓扑排序 + map 语义 + 失败传播）
+- [x] SQLite 任务队列（原子领取 + 租约 + 心跳 + 回收）
+- [x] Worker 异步执行器（轮询 + 续租 + Handler 分发）
+- [x] Mock Handlers（textInput / storyboard / textToImage / imageToVideo / videoConcat / output）
+- [x] 事件总线（先落库再推送）
+- [x] Execution REST API（启动 / 查询 / 任务列表 / 取消 / 事件）
+- [x] WebSocket 端点（实时推送 + 补拉）
+- [x] Engine 测试（编译器 13 + 队列 10 + 执行 API 7 = 30 个）
+
+### 📋 下一阶段（Phase C）
+- [ ] Provider 注册表（LLM / 图像 / 视频能力抽象）
+- [ ] Ollama / OpenAI 适配器
+- [ ] ComfyUI 图像生成适配器
+- [ ] FFmpeg 视频合成
+- [ ] 资产存储与管理
