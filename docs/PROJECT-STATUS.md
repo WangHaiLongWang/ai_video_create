@@ -244,7 +244,7 @@ Phase D 应评为“后端概念验证完成，用户体验未接入”。
 
 Phase E 未通过，不能标记发布就绪。
 
-### 4.7 本次改进（Phase E 基线修复）
+### 4.7 本次改进（Phase E 基线修复 + 集成收敛）
 
 | 改进项 | 说明 | 状态 |
 |--------|------|------|
@@ -252,20 +252,26 @@ Phase E 未通过，不能标记发布就绪。
 | **Worker 结果持久化** | `complete_task()` 接受 result 参数，存入 `result_json` 列 | ✅ 完成 |
 | **执行收敛** | `_check_execution_convergence()` 检查所有任务完成后更新 executions.status | ✅ 完成 |
 | **上游结果传递** | Worker 获取上游任务结果，通过 context 传递给 Handler | ✅ 完成 |
-| **数据库迁移** | 002_add_result_column.sql 添加 result_json, task_count, completed_count | ✅ 完成 |
+| **数据库迁移** | 002_add_result_column.sql + 003_add_assets_table.sql | ✅ 完成 |
 | **迁移幂等** | init_db() 逐语句执行，忽略 duplicate column 错误 | ✅ 完成 |
+| **Assets 表** | 资产血缘追踪，支持 execution/node/task/scene 过滤 | ✅ 完成 |
+| **Assets API** | CRUD + 血缘查询 + 统计，7 个端点 | ✅ 完成 |
+| **前端执行 API** | store.ts 调用后端 execution API，支持轮询状态 | ✅ 完成 |
+| **前端 Agent/模板接入** | TopBar 挂载 SettingsPanel/TemplateSelector | ✅ 完成 |
+| **独立 Provider 配置** | LLM/Image/Video Provider 独立选择 | ✅ 完成 |
+| **前端 API 客户端** | 完整的执行/Agent/模板/资产/配置 API 封装 | ✅ 完成 |
 
-**测试结果：205 passed, 6 skipped**
+**测试结果：212 passed, 6 skipped**
 
 ## 5. 分阶段完成度
 
 | 阶段 | 当前估值 | 已有成果 | 未通过的关键门禁 |
 |---|---:|---|---|
-| Phase A 类型化画布与持久化 | **60%** | 画布、六节点、前端类型校验、localStorage、CRUD、乐观锁、Undo/Redo | 后端无法启动；共享 Schema 缺失；导入导出 UI 缺失；更新绕过模型校验 |
-| Phase B Mock 执行器 | **45%** | 编译器、SQLite task、单 Worker、事件/WebSocket 后端、Mock Handler、**结果持久化、执行收敛** | 前端未接执行 API；无 retry；取消不可靠；无 scene_id 映射 |
-| Phase C 真实多模态 | **30%** | 四类 Provider、Real Handler、AssetManager、FFmpeg service | 混合 Provider 装配错误；无资产血缘；未验证真实成片 |
-| Phase D Agent 与模板 | **30%** | AgentService、GraphPatch、三模板、API、孤立 UI 组件 | 前端未接入；无 schema/tool calling；无 diff/确认；模板不持久化 |
-| Phase E 发布验收 | **25%** | 测试目录、**安全中间件已注册**、**Worker 结果持久化**、执行收敛、**205 测试通过** | 三平台/真实媒体/浏览器 E2E 未完成 |
+| Phase A 类型化画布与持久化 | **65%** | 画布、六节点、前端类型校验、localStorage、CRUD、乐观锁、Undo/Redo | 共享 Schema 缺失；更新绕过模型校验 |
+| Phase B Mock 执行器 | **55%** | 编译器、SQLite task、单 Worker、事件/WebSocket 后端、Mock Handler、**结果持久化、执行收敛、前端执行 API** | 无 retry；无 scene_id 映射 |
+| Phase C 真实多模态 | **40%** | 四类 Provider、Real Handler、AssetManager、FFmpeg service、**Assets 表/API、独立 Provider 配置** | 未验证真实成片 |
+| Phase D Agent 与模板 | **45%** | AgentService、GraphPatch、三模板、API、**前端 SettingsPanel/TemplateSelector 已挂载** | 无 schema/tool calling；模板不持久化 |
+| Phase E 发布验收 | **35%** | 测试目录、**安全中间件已注册**、**212 测试通过**、**前端完整 API 客户端** | 三平台/真实媒体/浏览器 E2E 未完成 |
 
 这里的百分比不是工时比例，而是各阶段验收标准的满足比例。项目不应继续按 A→B→C→D→E 线性添加新模块；当前最需要的是回到主链路做集成收敛。
 

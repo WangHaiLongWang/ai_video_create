@@ -1,8 +1,11 @@
 """FastAPI application entry point."""
 
+import logging
 import shutil
 import sys
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +16,7 @@ from .api.workflows import router as workflows_router
 from .api.config import router as config_router
 from .api.agent import router as agent_router
 from .api.templates import router as templates_router
+from .api.assets import router as assets_router
 from .db.connection import close_connection, init_db
 from .models import AgentRequest, WorkflowSpec
 from .workflow_factory import create_prompt_to_video
@@ -32,13 +36,44 @@ async def lifespan(app: FastAPI):
     # Load configuration
     settings = get_settings()
 
-    # Initialize providers
-    init_providers(
-        mock=(settings.DEFAULT_LLM_PROVIDER.value == "mock"),
-        ollama_url=settings.OLLAMA_API_URL if settings.DEFAULT_LLM_PROVIDER.value == "ollama" else None,
-        openai_key=settings.OPENAI_API_KEY if settings.DEFAULT_LLM_PROVIDER.value == "openai" else None,
-        comfyui_url=settings.COMFYUI_API_URL if settings.DEFAULT_IMAGE_PROVIDER.value == "comfyui" else None,
-    )
+    # Initialize providers — 每个能力独立选择 Provider
+    from .providers import init_providers as _init_providers
+    from .providers.mock_provider import MockProvider
+    from .providers.base import ProviderCapabilities
+
+    # 始终注册 Mock Provider（作为 fallback）
+    from .providers import register_provider
+    register_provider(MockProvider())
+
+    # 根据 LLM Provider 设置注册文本生成 Provider
+    if settings.DEFAULT_LLM_PROVIDER == "ollama":
+        try:
+            from .providers.ollama_provider import OllamaProvider
+            register_provider(OllamaProvider(api_url=settings.OLLAMA_API_URL))
+        except Exception as e:
+            logger.warning(f"Failed to register Ollama provider: {e}")
+    elif settings.DEFAULT_LLM_PROVIDER == "openai":
+        try:
+            from .providers.openai_provider import OpenAIProvider
+            register_provider(OpenAIProvider(api_key=settings.OPENAI_API_KEY))
+        except Exception as e:
+            logger.warning(f"Failed to register OpenAI provider: {e}")
+
+    # 根据 Image Provider 设置注册图像生成 Provider
+    if settings.DEFAULT_IMAGE_PROVIDER == "comfyui":
+        try:
+            from .providers.comfyui_provider import ComfyUIProvider
+            register_provider(ComfyUIProvider(api_url=settings.COMFYUI_API_URL))
+        except Exception as e:
+            logger.warning(f"Failed to register ComfyUI provider: {e}")
+    elif settings.DEFAULT_IMAGE_PROVIDER == "openai":
+        # OpenAI 同时支持文本和图像，已在上面注册
+        pass
+
+    # 根据 Video Provider 设置注册视频生成 Provider
+    if settings.DEFAULT_VIDEO_PROVIDER == "comfyui":
+        # ComfyUI 已在上面注册
+        pass
 
     # Initialize handlers (mock or real based on config)
     use_mock = (settings.DEFAULT_LLM_PROVIDER.value == "mock")
@@ -74,6 +109,7 @@ app.include_router(executions_router)
 app.include_router(config_router)
 app.include_router(agent_router)
 app.include_router(templates_router)
+app.include_router(assets_router)
 
 # Mount static files for serving assets
 try:

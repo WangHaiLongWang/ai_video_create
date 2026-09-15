@@ -2,7 +2,7 @@ import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type Edge
 import { create } from 'zustand'
 import * as api from './api'
 import { createPromptToVideoWorkflow, validateConnection } from './workflow'
-import type { StudioNode, WorkflowSpec } from './types'
+import type { RunStatus, StudioNode, WorkflowSpec } from './types'
 
 const STORAGE_KEY = 'ai-video-create.workflow.v1'
 const MAX_HISTORY = 30
@@ -22,6 +22,15 @@ function persistLocal(workflow: WorkflowSpec) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(workflow))
 }
 
+interface ExecutionState {
+  executionId: string | null
+  status: string
+  taskCount: number
+  completedCount: number
+  tasks: Map<string, api.TaskResponse>
+  events: api.ExecutionEvent[]
+}
+
 interface StudioState {
   workflow: WorkflowSpec
   selectedNodeId: string | null
@@ -29,6 +38,7 @@ interface StudioState {
   runMessage: string
   serverVersion: number | null
   isDirty: boolean
+  execution: ExecutionState | null
 
   // History
   past: WorkflowSpec[]
@@ -41,7 +51,7 @@ interface StudioState {
   onConnect: (connection: Connection) => void
   selectNode: (id: string | null) => void
   updateConfig: (key: string, value: string | number | boolean) => void
-  runMock: () => Promise<void>
+  runExecution: () => Promise<void>
   stopRun: () => void
   undo: () => void
   redo: () => void
@@ -54,6 +64,7 @@ interface StudioState {
 
 let runGeneration = 0
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+let pollTimer: ReturnType<typeof setTimeout> | null = null
 
 function pushHistory(state: StudioState, workflow: WorkflowSpec): Pick<StudioState, 'past' | 'future'> {
   const past = [...state.past, state.workflow].slice(-MAX_HISTORY)
@@ -74,6 +85,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   runMessage: '准备执行',
   serverVersion: null,
   isDirty: false,
+  execution: null,
   past: [],
   future: [],
 
@@ -120,33 +132,154 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     return { workflow, isDirty: true, ...history }
   }),
 
-  runMock: async () => {
+  runExecution: async () => {
     const generation = ++runGeneration
+    const { workflow, serverVersion } = get()
+
+    // 先保存到服务器
     set((state) => ({
       isRunning: true,
-      runMessage: '正在编译工作流',
+      runMessage: '正在保存工作流...',
       workflow: { ...state.workflow, nodes: state.workflow.nodes.map((node) => ({ ...node, data: { ...node.data, status: 'waiting' } })) },
     }))
-    for (const node of get().workflow.nodes) {
+
+    try {
+      // 如果未保存到服务器，先创建
+      if (serverVersion === null) {
+        const result = await api.createWorkflow(workflow as unknown as Record<string, unknown>)
+        set({ serverVersion: result.version, isDirty: false })
+      } else if (get().isDirty) {
+        const result = await api.updateWorkflow(
+          workflow.id,
+          workflow as unknown as Record<string, unknown>,
+          serverVersion,
+        )
+        set({ serverVersion: result.version, isDirty: false })
+      }
+
       if (generation !== runGeneration) return
-      set((state) => ({
-        runMessage: `正在执行：${node.data.label}`,
-        workflow: { ...state.workflow, nodes: state.workflow.nodes.map((item) => item.id === node.id ? { ...item, data: { ...item.data, status: 'running' } } : item) },
-      }))
-      await new Promise((resolve) => setTimeout(resolve, node.data.kind === 'imageToVideo' ? 1100 : 650))
+
+      // 启动执行
+      set({ runMessage: '正在启动执行...' })
+      const execResult = await api.startExecution(workflow.id)
+
       if (generation !== runGeneration) return
-      set((state) => ({
-        workflow: { ...state.workflow, nodes: state.workflow.nodes.map((item) => item.id === node.id ? { ...item, data: { ...item.data, status: 'completed' } } : item) },
-      }))
+
+      // 初始化执行状态
+      const executionState: ExecutionState = {
+        executionId: execResult.id,
+        status: execResult.status,
+        taskCount: execResult.task_count,
+        completedCount: 0,
+        tasks: new Map(),
+        events: [],
+      }
+      set({ execution: executionState, runMessage: `执行已启动，${execResult.task_count} 个任务` })
+
+      // 轮询执行状态
+      const pollLoop = async () => {
+        const currentExec = get().execution
+        if (!currentExec?.executionId || generation !== runGeneration) return
+
+        try {
+          const tasks = await api.getExecutionTasks(currentExec.executionId)
+          if (generation !== runGeneration) return
+
+          const taskMap = new Map<string, api.TaskResponse>()
+          let completedCount = 0
+
+          for (const task of tasks) {
+            taskMap.set(task.id, task)
+            if (task.status === 'completed') completedCount++
+          }
+
+          // 更新节点状态
+          const updatedNodes = get().workflow.nodes.map((node) => {
+            const nodeTasks = tasks.filter((t) => t.node_id === node.id)
+            if (nodeTasks.length === 0) return node
+
+            const allCompleted = nodeTasks.every((t) => t.status === 'completed')
+            const anyFailed = nodeTasks.some((t) => t.status === 'failed')
+            const anyRunning = nodeTasks.some((t) => t.status === 'running')
+
+            let status: RunStatus = node.data.status
+            if (allCompleted) status = 'completed'
+            else if (anyFailed) status = 'failed'
+            else if (anyRunning) status = 'running'
+
+            return { ...node, data: { ...node.data, status } }
+          })
+
+          set((state) => ({
+            workflow: { ...state.workflow, nodes: updatedNodes },
+            execution: state.execution ? {
+              ...state.execution,
+              tasks: taskMap,
+              completedCount,
+            } : null,
+            runMessage: `执行中: ${completedCount}/${tasks.length} 任务完成`,
+          }))
+
+          // 检查是否完成
+          const execStatus = await api.getExecution(currentExec.executionId)
+          if (generation !== runGeneration) return
+
+          if (execStatus.status === 'completed' || execStatus.status === 'failed') {
+            set({
+              isRunning: false,
+              runMessage: execStatus.status === 'completed' ? '执行完成' : '执行失败',
+              execution: get().execution ? { ...get().execution!, status: execStatus.status } : null,
+            })
+            return
+          }
+
+          // 继续轮询
+          if (generation === runGeneration) {
+            pollTimer = setTimeout(pollLoop, 1000)
+          }
+
+        } catch (err) {
+          console.error('轮询执行状态失败:', err)
+          if (generation === runGeneration) {
+            pollTimer = setTimeout(pollLoop, 2000)
+          }
+        }
+      }
+
+      // 开始轮询
+      pollLoop()
+
+    } catch (err) {
+      console.error('执行失败:', err)
+      set({
+        isRunning: false,
+        runMessage: `执行失败: ${err instanceof Error ? err.message : '未知错误'}`,
+        execution: null,
+      })
     }
-    set({ isRunning: false, runMessage: '执行完成，6 个节点均已生成结果' })
   },
 
-  stopRun: () => {
+  stopRun: async () => {
     runGeneration += 1
+    if (pollTimer) {
+      clearTimeout(pollTimer)
+      pollTimer = null
+    }
+
+    // 取消后端执行
+    const { execution } = get()
+    if (execution?.executionId) {
+      try {
+        await api.cancelExecution(execution.executionId)
+      } catch (err) {
+        console.warn('取消执行失败:', err)
+      }
+    }
+
     set((state) => ({
       isRunning: false,
       runMessage: '执行已取消',
+      execution: state.execution ? { ...state.execution, status: 'cancelled' } : null,
       workflow: { ...state.workflow, nodes: state.workflow.nodes.map((node) => node.data.status === 'running' || node.data.status === 'waiting' ? { ...node, data: { ...node.data, status: 'idle' } } : node) },
     }))
   },

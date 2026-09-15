@@ -47,6 +47,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .icon-button { padding: 0 8px !important; }
 .run-button { border-color: var(--accent) !important; color: var(--accent-ink) !important; background: var(--accent); font-weight: 700; }
 .stop-button { border-color: #d47868 !important; background: #3a211d; color: #ffd7cf; }
+.execution-status { display: flex; align-items: center; gap: 12px; margin-left: 16px; padding: 4px 12px; background: #1a2e1a; border: 1px solid #2d5a2d; border-radius: 6px; font-size: 12px; color: #7dce7d; }
+.execution-status span:first-child { color: #a0d8a0; }
 
 .palette, .properties { min-height: 0; background: var(--surface); }
 .palette { grid-column: 1; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
