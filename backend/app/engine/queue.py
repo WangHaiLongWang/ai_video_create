@@ -118,30 +118,48 @@ def complete_task(task_id: str, result: dict | None = None) -> None:
     _check_execution_convergence(task_id)
 
 
-def fail_task(task_id: str, error: str = "") -> list[str]:
-    """标记任务失败，传播到下游。"""
+def fail_task(task_id: str, error: str = "", max_retries: int = 3) -> list[str]:
+    """标记任务失败，支持重试，传播到下游。"""
     conn = get_connection()
     now = _now_iso()
-    conn.execute(
-        "UPDATE tasks SET status = 'failed', error = ?, completed_at = ? WHERE id = ?",
-        (error, now, task_id),
-    )
-    # 传播：所有依赖此任务的 pending 任务标记为 skipped
-    cursor = conn.execute(
-        "UPDATE tasks SET status = 'skipped', completed_at = ? "
-        "WHERE status = 'pending' AND id IN ("
-        "  SELECT t.id FROM tasks t "
-        "  WHERE EXISTS (SELECT 1 FROM json_each(t.depends_on_json) WHERE value = ?)"
-        ")",
-        (now, task_id),
-    )
-    conn.commit()
-    # 返回被跳过的任务 ids
-    skipped = conn.execute(
-        "SELECT id FROM tasks WHERE status = 'skipped' AND completed_at = ?",
-        (now,),
-    ).fetchall()
-    return [r["id"] for r in skipped]
+
+    # 获取当前任务的重试次数
+    row = conn.execute(
+        "SELECT attempt FROM tasks WHERE id = ?", (task_id,)
+    ).fetchone()
+    attempt = (row["attempt"] if row else 0) + 1
+
+    if attempt < max_retries:
+        # 可重试：重置为 pending，增加 attempt 计数
+        conn.execute(
+            "UPDATE tasks SET status = 'pending', error = ?, attempt = ?, "
+            "worker_id = NULL, lease_until = NULL, started_at = NULL WHERE id = ?",
+            (error, attempt, task_id),
+        )
+        conn.commit()
+        return []
+    else:
+        # 超过最大重试次数：标记为失败，传播到下游
+        conn.execute(
+            "UPDATE tasks SET status = 'failed', error = ?, attempt = ?, completed_at = ? WHERE id = ?",
+            (error, attempt, now, task_id),
+        )
+        # 传播：所有依赖此任务的 pending 任务标记为 skipped
+        cursor = conn.execute(
+            "UPDATE tasks SET status = 'skipped', completed_at = ? "
+            "WHERE status = 'pending' AND id IN ("
+            "  SELECT t.id FROM tasks t "
+            "  WHERE EXISTS (SELECT 1 FROM json_each(t.depends_on_json) WHERE value = ?)"
+            ")",
+            (now, task_id),
+        )
+        conn.commit()
+        # 返回被跳过的任务 ids
+        skipped = conn.execute(
+            "SELECT id FROM tasks WHERE status = 'skipped' AND completed_at = ?",
+            (now,),
+        ).fetchall()
+        return [r["id"] for r in skipped]
 
 
 def cancel_task(task_id: str) -> None:

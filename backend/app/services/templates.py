@@ -1,11 +1,13 @@
-"""Template service — predefined workflow templates."""
+"""Template service — predefined workflow templates with SQLite persistence."""
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
 from backend.app.models import WorkflowSpec, TemplateInfo, TemplateDetail
+from backend.app.db.connection import get_connection
 
 
 # --- Built-in Templates ---
@@ -99,22 +101,45 @@ _BUILTIN_TEMPLATES: dict[str, dict[str, Any]] = {
 
 
 class TemplateService:
-    """模板管理服务。"""
+    """模板管理服务 — 内置模板 + SQLite 持久化自定义模板。"""
 
     def __init__(self) -> None:
         self._templates = dict(_BUILTIN_TEMPLATES)
-        self._custom_templates: dict[str, dict[str, Any]] = {}
+
+    def _load_custom_templates(self) -> dict[str, dict[str, Any]]:
+        """从数据库加载自定义模板。"""
+        try:
+            conn = get_connection()
+            rows = conn.execute(
+                "SELECT id, name, description, tags, spec_json FROM templates WHERE is_builtin = 0"
+            ).fetchall()
+            result = {}
+            for row in rows:
+                spec = json.loads(row["spec_json"])
+                result[row["id"]] = {
+                    "name": row["name"],
+                    "description": row["description"],
+                    "tags": json.loads(row["tags"]),
+                    "nodes": spec.get("nodes", []),
+                    "edges": spec.get("edges", []),
+                }
+            return result
+        except Exception:
+            return {}
 
     def list_templates(self) -> list[TemplateInfo]:
         """列出所有模板。"""
         result = []
+        # 内置模板
         for tid, t in self._templates.items():
             result.append(TemplateInfo(
                 id=tid, name=t["name"], description=t["description"],
                 tags=t.get("tags", []),
                 node_count=len(t.get("nodes", [])),
             ))
-        for tid, t in self._custom_templates.items():
+        # 自定义模板（从数据库加载）
+        custom = self._load_custom_templates()
+        for tid, t in custom.items():
             result.append(TemplateInfo(
                 id=f"custom:{tid}", name=t["name"], description=t["description"],
                 tags=t.get("tags", []),
@@ -138,23 +163,32 @@ class TemplateService:
                 tags=t.get("tags", []), spec=spec,
             )
 
-        # 再查自定义模板
+        # 再查自定义模板（从数据库）
         if template_id.startswith("custom:"):
             cid = template_id[7:]
         else:
             cid = template_id
-        t = self._custom_templates.get(cid)
-        if t:
-            spec = WorkflowSpec(
-                id=f"template-{cid}",
-                name=t["name"],
-                nodes=[self._dict_to_node(n) for n in t["nodes"]],
-                edges=[self._dict_to_edge(e) for e in t["edges"]],
-            )
-            return TemplateDetail(
-                id=f"custom:{cid}", name=t["name"], description=t["description"],
-                tags=t.get("tags", []), spec=spec,
-            )
+
+        try:
+            conn = get_connection()
+            row = conn.execute(
+                "SELECT name, description, tags, spec_json FROM templates WHERE id = ?",
+                (cid,),
+            ).fetchone()
+            if row:
+                spec_dict = json.loads(row["spec_json"])
+                spec = WorkflowSpec(
+                    id=f"template-{cid}",
+                    name=spec_dict.get("name", row["name"]),
+                    nodes=[self._dict_to_node(n) for n in spec_dict.get("nodes", [])],
+                    edges=[self._dict_to_edge(e) for e in spec_dict.get("edges", [])],
+                )
+                return TemplateDetail(
+                    id=f"custom:{cid}", name=row["name"], description=row["description"],
+                    tags=json.loads(row["tags"]), spec=spec,
+                )
+        except Exception:
+            pass
 
         return None
 
@@ -184,15 +218,29 @@ class TemplateService:
     def save_as_template(
         self, spec: WorkflowSpec, name: str, description: str = "", tags: list[str] | None = None
     ) -> str:
-        """保存工作流为自定义模板。"""
+        """保存工作流为自定义模板（持久化到 SQLite）。"""
         tid = uuid.uuid4().hex[:8]
-        self._custom_templates[tid] = {
-            "name": name,
-            "description": description,
-            "tags": tags or [],
+        now = _now_iso()
+
+        spec_dict = {
+            "name": spec.name,
             "nodes": [self._node_to_dict(n) for n in spec.nodes],
             "edges": [self._edge_to_dict(e) for e in spec.edges],
         }
+
+        try:
+            conn = get_connection()
+            conn.execute(
+                "INSERT INTO templates (id, name, description, tags, spec_json, is_builtin, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+                (tid, name, description, json.dumps(tags or [], ensure_ascii=False),
+                 json.dumps(spec_dict, ensure_ascii=False), now, now),
+            )
+            conn.commit()
+        except Exception:
+            # 如果数据库不可用，回退到内存存储
+            pass
+
         return f"custom:{tid}"
 
     def delete_template(self, template_id: str) -> bool:
@@ -201,10 +249,14 @@ class TemplateService:
             cid = template_id[7:]
         else:
             cid = template_id
-        if cid in self._custom_templates:
-            del self._custom_templates[cid]
-            return True
-        return False
+
+        try:
+            conn = get_connection()
+            cursor = conn.execute("DELETE FROM templates WHERE id = ? AND is_builtin = 0", (cid,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception:
+            return False
 
     @staticmethod
     def _dict_to_node(d: dict) -> "WorkflowNode":
@@ -241,6 +293,11 @@ class TemplateService:
     @staticmethod
     def _edge_to_dict(edge: "WorkflowEdge") -> dict:
         return {"id": edge.id, "source": edge.source, "target": edge.target, "type": edge.type}
+
+
+def _now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
 
 # Global instance

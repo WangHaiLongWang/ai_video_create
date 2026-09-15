@@ -93,7 +93,9 @@ class TestFail:
         claim_task("worker-1")
         complete_task("t1")
         claim_task("worker-1")
-        skipped = fail_task("t2", "分镜生成失败")
+        # 多次失败以超过 max_retries，触发传播
+        for _ in range(3):
+            skipped = fail_task("t2", "分镜生成失败")
         # t3 依赖 t2，应该被 skipped
         assert "t3" in skipped
         t3 = get_task("t3")

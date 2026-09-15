@@ -210,9 +210,10 @@ class TestTaskFailureRecovery:
         ]
         enqueue_tasks("wf-fail", self.execution_id, tasks)
 
-        # 领取并失败 task-root
+        # 领取并多次失败 task-root 以超过 max_retries
         claim_task("worker-1", lease_seconds=30)
-        skipped = fail_task("task-root", "Simulated failure")
+        for _ in range(3):
+            skipped = fail_task("task-root", "Simulated failure")
 
         # task-child 应该被跳过
         assert "task-child" in skipped
@@ -228,7 +229,9 @@ class TestTaskFailureRecovery:
         enqueue_tasks("wf-fail", self.execution_id, tasks)
 
         claim_task("worker-1", lease_seconds=30)
-        fail_task("task-err", "Custom error message")
+        # 多次失败以超过 max_retries
+        for _ in range(3):
+            fail_task("task-err", "Custom error message")
 
         task = get_task("task-err")
         assert task["status"] == "failed"

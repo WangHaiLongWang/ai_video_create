@@ -252,7 +252,7 @@ Phase E 未通过，不能标记发布就绪。
 | **Worker 结果持久化** | `complete_task()` 接受 result 参数，存入 `result_json` 列 | ✅ 完成 |
 | **执行收敛** | `_check_execution_convergence()` 检查所有任务完成后更新 executions.status | ✅ 完成 |
 | **上游结果传递** | Worker 获取上游任务结果，通过 context 传递给 Handler | ✅ 完成 |
-| **数据库迁移** | 002_add_result_column.sql + 003_add_assets_table.sql | ✅ 完成 |
+| **数据库迁移** | 002-005: result_column, assets_table, templates_table, attempt_column | ✅ 完成 |
 | **迁移幂等** | init_db() 逐语句执行，忽略 duplicate column 错误 | ✅ 完成 |
 | **Assets 表** | 资产血缘追踪，支持 execution/node/task/scene 过滤 | ✅ 完成 |
 | **Assets API** | CRUD + 血缘查询 + 统计，7 个端点 | ✅ 完成 |
@@ -260,6 +260,11 @@ Phase E 未通过，不能标记发布就绪。
 | **前端 Agent/模板接入** | TopBar 挂载 SettingsPanel/TemplateSelector | ✅ 完成 |
 | **独立 Provider 配置** | LLM/Image/Video Provider 独立选择 | ✅ 完成 |
 | **前端 API 客户端** | 完整的执行/Agent/模板/资产/配置 API 封装 | ✅ 完成 |
+| **配置 env_prefix** | `AI_VIDEO_` 前缀避免环境变量污染 | ✅ 完成 |
+| **模板持久化** | 自定义模板存储到 SQLite templates 表 | ✅ 完成 |
+| **任务重试** | fail_task 支持 max_retries=3，超过后传播失败 | ✅ 完成 |
+| **.env.example** | 完整的环境变量配置示例 | ✅ 完成 |
+| **默认 HOST** | 改为 127.0.0.1（安全要求）| ✅ 完成 |
 
 **测试结果：212 passed, 6 skipped**
 

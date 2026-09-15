@@ -54,16 +54,18 @@ class Settings(BaseSettings):
     # Worker settings
     WORKER_POLL_INTERVAL: float = 0.5
     WORKER_LEASE_SECONDS: int = 30
+    WORKER_COUNT: int = 1
 
     # Database
     DB_PATH: str = "data/ai_video_create.db"
 
     # Server
-    HOST: str = "0.0.0.0"
+    HOST: str = "127.0.0.1"
     PORT: int = 8000
     DEBUG: bool = False
 
     model_config = {
+        "env_prefix": "AI_VIDEO_",
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
