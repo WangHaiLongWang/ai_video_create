@@ -39,6 +39,14 @@ export function TopBar() {
         </div>
         {isRunning && execution && (
           <div className="execution-status">
+            <span
+              className={`ws-indicator ws-${execution.socketStatus}`}
+              title={
+                execution.socketStatus === 'connected' ? 'WebSocket 已连接' :
+                execution.socketStatus === 'connecting' ? 'WebSocket 连接中...' :
+                'WebSocket 已断开'
+              }
+            />
             <span>{runMessage}</span>
             <span>{execution.completedCount}/{execution.taskCount} 任务</span>
           </div>

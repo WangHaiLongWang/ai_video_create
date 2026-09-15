@@ -96,6 +96,7 @@ export interface TaskResponse {
 }
 
 export interface ExecutionEvent {
+  event_id?: string
   execution_id: string
   node_id: string
   type: string
@@ -152,6 +153,15 @@ export interface GraphPatch {
   remove_edges: string[]
 }
 
+export interface AgentPreviewResponse {
+  status: string
+  spec?: WorkflowSpec
+  patch?: GraphPatch
+  diff?: string
+  warnings: string[]
+  destructive: boolean
+}
+
 export function agentGenerate(prompt: string, options?: { scenes?: number; style?: string }): Promise<WorkflowSpec> {
   return apiRequest('/agent/generate', {
     method: 'POST',
@@ -159,8 +169,25 @@ export function agentGenerate(prompt: string, options?: { scenes?: number; style
   })
 }
 
+export function agentGeneratePreview(prompt: string): Promise<AgentPreviewResponse> {
+  return apiRequest('/agent/generate-preview', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  })
+}
+
 export function agentModify(workflowId: string, instruction: string): Promise<{ patch: GraphPatch }> {
   return apiRequest('/agent/modify', {
+    method: 'POST',
+    body: JSON.stringify({ workflow_id: workflowId, instruction }),
+  })
+}
+
+export function agentModifyPreview(
+  workflowId: string,
+  instruction: string,
+): Promise<AgentPreviewResponse> {
+  return apiRequest('/agent/modify-preview', {
     method: 'POST',
     body: JSON.stringify({ workflow_id: workflowId, instruction }),
   })
@@ -173,10 +200,14 @@ export function agentExplain(workflowId: string): Promise<{ explanation: string 
   })
 }
 
-export function agentApplyPatch(workflowId: string, patch: GraphPatch): Promise<WorkflowSpec> {
+export function agentApplyPatch(
+  workflowId: string,
+  patch: GraphPatch,
+  expectedVersion?: number,
+): Promise<WorkflowSpec> {
   return apiRequest('/agent/apply-patch', {
     method: 'POST',
-    body: JSON.stringify({ workflow_id: workflowId, patch }),
+    body: JSON.stringify({ workflow_id: workflowId, patch, expected_version: expectedVersion }),
   })
 }
 
@@ -189,6 +220,8 @@ export interface TemplateInfo {
   node_count: number
   is_builtin: boolean
 }
+
+export type TemplateSummary = TemplateInfo
 
 export interface TemplateDetail extends TemplateInfo {
   nodes: Record<string, unknown>[]

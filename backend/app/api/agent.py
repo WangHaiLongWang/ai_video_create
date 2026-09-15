@@ -16,6 +16,37 @@ from backend.app.db.connection import get_connection
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 
+def _generate_diff(spec: WorkflowSpec, patch: GraphPatch) -> str:
+    """Generate a human-readable diff summary for a GraphPatch."""
+    lines: list[str] = []
+    if patch.add_nodes:
+        lines.append(f"+ 新增 {len(patch.add_nodes)} 个节点: "
+                     f"{', '.join(n.data.label for n in patch.add_nodes)}")
+    if patch.remove_nodes:
+        lines.append(f"- 删除 {len(patch.remove_nodes)} 个节点: "
+                     f"{', '.join(patch.remove_nodes)}")
+    if patch.update_nodes:
+        lines.append(f"~ 更新 {len(patch.update_nodes)} 个节点: "
+                     f"{', '.join(u.id for u in patch.update_nodes)}")
+    if patch.add_edges:
+        lines.append(f"+ 新增 {len(patch.add_edges)} 条连线")
+    if patch.remove_edges:
+        lines.append(f"- 删除 {len(patch.remove_edges)} 条连线")
+    if not lines:
+        lines.append("(无变更)")
+    return "\n".join(lines)
+
+
+def _check_destructive(patch: GraphPatch) -> list[str]:
+    """Return warnings for destructive operations in a patch."""
+    warnings: list[str] = []
+    if patch.remove_nodes:
+        warnings.append(f"将删除 {len(patch.remove_nodes)} 个节点")
+    if patch.remove_edges:
+        warnings.append(f"将删除 {len(patch.remove_edges)} 条连线")
+    return warnings
+
+
 @router.post("/generate", response_model=WorkflowSpec)
 async def generate_workflow(request: AgentRequest) -> WorkflowSpec:
     """从提示词生成工作流。"""
@@ -27,6 +58,19 @@ async def generate_workflow(request: AgentRequest) -> WorkflowSpec:
     create_workflow(spec.model_dump(), name=spec.name)
 
     return spec
+
+
+@router.post("/generate-preview")
+async def generate_preview(request: AgentRequest) -> dict:
+    """生成工作流预览（不写库）。"""
+    service = get_agent_service()
+    spec = await service.generate_from_prompt(request.prompt)
+    return {
+        "status": "ok",
+        "spec": spec.model_dump(),
+        "warnings": [],
+        "destructive": False,
+    }
 
 
 @router.post("/modify")
@@ -51,6 +95,33 @@ async def modify_workflow(request: ModifyRequest) -> dict:
         "status": "ok",
         "patch": patch.model_dump(),
         "workflow_id": request.workflow_id,
+    }
+
+
+@router.post("/modify-preview")
+async def modify_preview(request: ModifyRequest) -> dict:
+    """修改工作流预览（返回 GraphPatch）。"""
+    # 获取当前工作流
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT spec_json FROM workflows WHERE id = ?", (request.workflow_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "工作流不存在")
+
+    import json
+    spec_dict = json.loads(row["spec_json"])
+    spec = WorkflowSpec(**spec_dict)
+
+    service = get_agent_service()
+    patch = await service.modify_workflow(spec, request.instruction)
+
+    return {
+        "status": "ok",
+        "patch": patch.model_dump(),
+        "diff": _generate_diff(spec, patch),
+        "warnings": _check_destructive(patch),
+        "destructive": len(patch.remove_nodes) > 0 or len(patch.remove_edges) > 0,
     }
 
 
@@ -92,6 +163,13 @@ async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
     spec_dict = json.loads(row["spec_json"])
     spec = WorkflowSpec(**spec_dict)
     version = row["version"]
+
+    # Use expected_version if provided, otherwise use current version
+    if request.expected_version is not None and request.expected_version != version:
+        raise HTTPException(
+            409,
+            f"版本冲突：期望 v{request.expected_version}，实际 v{version}",
+        )
 
     patch = request.patch
 

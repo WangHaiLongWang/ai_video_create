@@ -1,69 +1,63 @@
-import React, { useState, useEffect } from 'react';
-
-interface TemplateInfo {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  node_count: number;
-}
+import React, { useState, useEffect } from 'react'
+import { useStudioStore } from '../store'
+import * as api from '../api'
 
 interface Props {
-  onSelect: (templateId: string) => void;
-  onClose: () => void;
+  onSelect: (templateId: string) => void
+  onClose: () => void
 }
 
 export default function TemplateSelector({ onSelect, onClose }: Props) {
-  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [templates, setTemplates] = useState<api.TemplateSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+
+  const { setWorkflow } = useStudioStore()
 
   useEffect(() => {
-    loadTemplates();
-  }, []);
+    loadTemplates()
+  }, [])
 
   const loadTemplates = async () => {
     try {
-      const resp = await fetch('/api/templates');
-      if (resp.ok) {
-        setTemplates(await resp.json());
-      }
+      const result = await api.listTemplates()
+      setTemplates(result)
     } catch (e) {
-      console.error('Failed to load templates', e);
+      console.error('Failed to load templates', e)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const filtered = templates.filter(
     (t) =>
       t.name.includes(search) ||
-      t.description.includes(search) ||
-      t.tags.some((tag) => tag.includes(search))
-  );
+      t.description.includes(search)
+  )
 
   const handleSelect = async (templateId: string) => {
+    setLoading(true)
     try {
-      const resp = await fetch(`/api/templates/${templateId}/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (resp.ok) {
-        onSelect(templateId);
-        onClose();
-      }
+      const result = await api.createFromTemplate(templateId, {
+        name: '从模板创建',
+        prompt: '',
+      })
+      setWorkflow(result)
+      onSelect(templateId)
+      onClose()
     } catch (e) {
-      console.error('Failed to create from template', e);
+      console.error('Failed to create from template:', e)
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h2 style={styles.title}>📋 选择模板</h2>
-          <button style={styles.closeBtn} onClick={onClose}>×</button>
+          <h2 style={styles.title}>选择模板</h2>
+          <button style={styles.closeBtn} onClick={onClose}>x</button>
         </div>
 
         <div style={styles.searchBar}>
@@ -88,18 +82,13 @@ export default function TemplateSelector({ onSelect, onClose }: Props) {
                   <span style={styles.nodeCount}>{t.node_count} 节点</span>
                 </div>
                 <p style={styles.cardDesc}>{t.description}</p>
-                <div style={styles.tags}>
-                  {t.tags.map((tag) => (
-                    <span key={tag} style={styles.tag}>{tag}</span>
-                  ))}
-                </div>
               </div>
             ))
           )}
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -137,11 +126,6 @@ const styles: Record<string, React.CSSProperties> = {
   cardTitle: { fontSize: 15, color: '#e0e0e0' },
   nodeCount: { fontSize: 12, color: '#888' },
   cardDesc: { fontSize: 13, color: '#aaa', margin: '0 0 8px 0' },
-  tags: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  tag: {
-    padding: '2px 8px', borderRadius: 4, background: '#333',
-    color: '#aaa', fontSize: 11,
-  },
   loading: { padding: 40, textAlign: 'center', color: '#888' },
   empty: { padding: 40, textAlign: 'center', color: '#666' },
-};
+}

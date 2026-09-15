@@ -100,6 +100,7 @@ class ApplyPatchRequest(BaseModel):
     """应用 GraphPatch 请求。"""
     workflow_id: str
     patch: GraphPatch
+    expected_version: int | None = None
 
 
 class TemplateInfo(BaseModel):

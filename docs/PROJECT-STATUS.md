@@ -16,20 +16,20 @@
 | 维度 | 完成度 | 说明 |
 |---|---:|---|
 | 架构骨架 | 85% | 主要模块和 API 已存在，统一 Schema 已冻结 |
-| Mock 用户闭环 | 75% | scene 映射完成，失败传播递归化，Worker 并发 |
+| Mock 用户闭环 | 80% | scene 映射、失败传播、Worker 并发、WebSocket 实时更新 |
 | 真实多模态闭环 | 55% | Qwen 生图已验证，Wan3 未执行计费 UAT，合成未验收 |
-| Agent/模板体验 | 50% | 后端服务和入口存在，AgentComposer 仍使用本地规则 |
-| 发布就绪度 | 45% | 测试基线恢复，缺浏览器 E2E、三平台和恢复演练 |
-| 综合产品完成度 | **约 62%** | 可继续内部开发，不建议对外发布 |
+| Agent/模板体验 | 70% | 后端 preview 端点、前端 AgentComposer 接 API、TemplateSelector 装载 |
+| 发布就绪度 | 50% | 测试基线恢复（354 tests），缺浏览器 E2E、三平台和恢复演练 |
+| 综合产品完成度 | **约 68%** | 可继续内部开发，不建议对外发布 |
 
 ### 当前阶段
 
 ```text
-Phase A 类型化画布       75%  ███████████████░░░░░
-Phase B Mock 执行器      75%  ███████████████░░░░░
+Phase A 类型化画布       80%  ████████████████░░░░
+Phase B Mock 执行器      80%  ████████████████░░░░
 Phase C 真实多模态       55%  ███████████░░░░░░░░░
-Phase D Agent 与模板     50%  ██████████░░░░░░░░░░
-Phase E 发布验收         45%  █████████░░░░░░░░░░░
+Phase D Agent 与模板     70%  ██████████████░░░░░░
+Phase E 发布验收         50%  ██████████░░░░░░░░░░
 ```
 
 百分比表示阶段验收标准满足程度，不表示代码行数或已消耗工时。
@@ -40,8 +40,8 @@ Phase E 发布验收         45%  █████████░░░░░░�
 
 | 检查 | 最新结果 | 状态 |
 |---|---:|---|
-| 前端 Vitest | 16 passed | 通过 |
-| 后端 Pytest | 310 passed、6 skipped | 通过（FFmpeg 环境项跳过） |
+| 前端 Vitest | 34 passed | 通过 |
+| 后端 Pytest | 320 passed、6 skipped | 通过（FFmpeg 环境项跳过） |
 | TypeScript | `tsc --noEmit` | 通过 |
 | Vite 生产构建 | JS gzip 约 124 KB | 通过 |
 | FastAPI 健康检查 | HTTP 200 | 通过 |
@@ -97,8 +97,8 @@ Host      127.0.0.1
 | 取消执行 | ✅ 已实现 | 递归取消下游 + 竞态防护 | cancel_task 条件更新 |
 | Worker 租约/恢复 | 已实现 | heartbeat/orphan 函数 | external_job_id 已持久化 |
 | 多 Worker | ✅ 已实现 | 2-4 Worker 并发 pool | WorkerPool + 原子 claim |
-| 前端运行后端 DAG | 已实现 | 保存、启动、轮询 | 尚未使用 WebSocket 主路径 |
-| WebSocket 后端 | 已实现 | 事件推送/补拉 | 前端未订阅 |
+| 前端运行后端 DAG | ✅ 已实现 | 保存、启动、轮询、WebSocket | ExecutionSocket 实时更新 |
+| WebSocket 后端 | ✅ 已实现 | 事件推送/补拉/断线重连 | 13 tests passed |
 | 节点执行状态 | 部分 | waiting/running/completed/failed | blocked/skipped/cancelled UI 不完整 |
 | Qwen Image 3.0 | 已验证 | 真实 T2I | 多镜头工作流 UAT 未完成 |
 | Wan3.0 Video | 已接入未 UAT | 首帧生视频 Contract | 未创建真实计费任务 |
@@ -109,9 +109,9 @@ Host      127.0.0.1
 | 资产文件服务 | 已实现 | `/assets` 静态目录 | 仍需统一下载/删除策略 |
 | Provider 设置 | 已挂载 | Qwen/Wan3/ComfyUI/OpenAI/Ollama | API 只改内存，重启依赖 `.env` |
 | 自定义 LLM | 已验证 | OpenAI-compatible，MiMo v2.5 Pro Token Plan 预设 | Provider 已注册、Key 未暴露，真实 Chat Completions 通过 |
-| 模板 API/持久化 | 已实现 | 内置 + SQLite 自定义模板 | 前端选择后未装载返回 spec |
-| Agent 后端 | 原型 | generate/modify/explain/patch | 非严格 tool calling/schema output |
-| Agent 前端 | 未接后端 | 本地正则和默认模板 | 无 diff、确认、解释 |
+| 模板 API/持久化 | ✅ 已实现 | 内置 + SQLite 自定义模板，前端装载 | TemplateSelector 接 API |
+| Agent 后端 | ✅ 已实现 | generate/modify/explain/patch + preview | 10 tests passed |
+| Agent 前端 | ✅ 已实现 | AgentComposer 接后端，显示 diff/warnings | 5 tests passed |
 | 安全中间件 | 已注册 | 本机基础 headers/body/rate | SSRF/流式 body limit 仍需加固 |
 
 ## 5. 代码架构
@@ -200,6 +200,8 @@ backend/app
 - **取消竞态防护**（2026-09-15）：complete_task() 条件更新，cancel_task() 递归取消下游。
 - **2-4 Worker 并发模型**（2026-09-15）：WorkerPool 管理多 Worker，WORKER_COUNT 配置 [1,8]。
 - **Wan3 external_job_id 持久化**（2026-09-15）：Migration 006 添加 external_job_id 字段，支持进程恢复。
+- **WebSocket 断线恢复**（2026-09-15）：前端 ExecutionSocket 客户端，指数退避重连、lastEventId 补拉、状态指示器。
+- **Agent/模板产品化**（2026-09-15）：generate-preview/modify-preview 端点，AgentComposer 接后端 API，TemplateSelector 装载返回 spec。
 
 ### 多模态 Provider
 

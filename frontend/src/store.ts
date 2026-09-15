@@ -1,6 +1,7 @@
 import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type EdgeChange, type NodeChange } from '@xyflow/react'
 import { create } from 'zustand'
 import * as api from './api'
+import { ExecutionSocket } from './api/executionSocket'
 import { createPromptToVideoWorkflow, validateConnection } from './workflow'
 import type { RunStatus, StudioNode, WorkflowSpec } from './types'
 
@@ -29,6 +30,7 @@ interface ExecutionState {
   completedCount: number
   tasks: Map<string, api.TaskResponse>
   events: api.ExecutionEvent[]
+  socketStatus: 'connecting' | 'connected' | 'disconnected'
 }
 
 interface StudioState {
@@ -65,6 +67,7 @@ interface StudioState {
 let runGeneration = 0
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let pollTimer: ReturnType<typeof setTimeout> | null = null
+let currentSocket: ExecutionSocket | null = null
 
 function pushHistory(state: StudioState, workflow: WorkflowSpec): Pick<StudioState, 'past' | 'future'> {
   const past = [...state.past, state.workflow].slice(-MAX_HISTORY)
@@ -173,8 +176,69 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         completedCount: 0,
         tasks: new Map(),
         events: [],
+        socketStatus: 'connecting',
       }
       set({ execution: executionState, runMessage: `执行已启动，${execResult.task_count} 个任务` })
+
+      // 连接 WebSocket
+      const socket = new ExecutionSocket(execResult.id)
+      currentSocket = socket
+
+      socket.onEvent((event) => {
+        if (generation !== runGeneration) return
+
+        set((state) => {
+          if (!state.execution) return state
+
+          const events = [...state.execution.events, event]
+          let updatedNodes = state.workflow.nodes
+
+          // 根据事件类型更新节点状态
+          if (event.node_id && event.type.startsWith('node.')) {
+            updatedNodes = state.workflow.nodes.map((node) => {
+              if (node.id !== event.node_id) return node
+              let status: RunStatus = node.data.status
+              if (event.type === 'node.started') status = 'running'
+              else if (event.type === 'node.completed') status = 'completed'
+              else if (event.type === 'node.failed') status = 'failed'
+              return { ...node, data: { ...node.data, status } }
+            })
+          }
+
+          // 执行完成
+          if (event.type === 'execution.completed') {
+            return {
+              workflow: { ...state.workflow, nodes: updatedNodes },
+              execution: { ...state.execution, events, status: 'completed' },
+              isRunning: false,
+              runMessage: '执行完成',
+            }
+          }
+
+          // 执行失败
+          if (event.type === 'execution.failed') {
+            return {
+              workflow: { ...state.workflow, nodes: updatedNodes },
+              execution: { ...state.execution, events, status: 'failed' },
+              isRunning: false,
+              runMessage: '执行失败',
+            }
+          }
+
+          return {
+            workflow: { ...state.workflow, nodes: updatedNodes },
+            execution: { ...state.execution, events },
+          }
+        })
+      })
+
+      socket.onStatusChange((status) => {
+        set((state) => ({
+          execution: state.execution ? { ...state.execution, socketStatus: status } : null,
+        }))
+      })
+
+      socket.connect()
 
       // 轮询执行状态
       const pollLoop = async () => {
@@ -264,6 +328,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (pollTimer) {
       clearTimeout(pollTimer)
       pollTimer = null
+    }
+    if (currentSocket) {
+      currentSocket.disconnect()
+      currentSocket = null
     }
 
     // 取消后端执行
