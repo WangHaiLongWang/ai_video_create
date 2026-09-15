@@ -49,4 +49,6 @@ npm run typecheck
 npm run build
 ```
 
-完整实施路线见 `docs/plans/2026-09-14-ai-video-create-implementation-plan.md`。
+当前项目状态见 `docs/PROJECT-STATUS.md`。
+
+后续开发、Sprint、工单和发布门禁统一使用 `docs/plans/2026-09-15-company-delivery-plan.md`。

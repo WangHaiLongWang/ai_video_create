@@ -1,5 +1,7 @@
 # Phase C: Real AI Provider + FFmpeg Integration
 
+> 状态：Superseded，历史方案。当前 Provider 与 FFmpeg 模块虽已起草，但主执行数据流尚未贯通。后续任务以 `2026-09-15-company-delivery-plan.md` 的 Epic E2、E4、E5 为准。
+
 ## Overview
 
 Replace mock handlers with real AI providers (Ollama, OpenAI, ComfyUI) and FFmpeg video processing. Add asset management, configuration system, and provider registry.
