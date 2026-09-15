@@ -17,6 +17,7 @@ class ProviderType(str, Enum):
     OLLAMA = "ollama"
     OPENAI = "openai"
     DASHSCOPE = "dashscope"
+    WAN3 = "wan3"
     COMFYUI = "comfyui"
 
 
@@ -55,6 +56,19 @@ class Settings(BaseSettings):
     DASHSCOPE_PROMPT_EXTEND_MODE: str = "direct"
     DASHSCOPE_ENABLE_THINKING: bool = True
     DASHSCOPE_WATERMARK: bool = False
+
+    WAN3_API_URL: str = "https://dashscope.aliyuncs.com/api/v1"
+    WAN3_API_KEY: str = ""
+    WAN3_MODEL: str = "wan3.0-video"
+    WAN3_RESOLUTION: str = "480P"
+    WAN3_RATIO: str = "adaptive"
+    WAN3_DURATION: int = 5
+    WAN3_AUDIO: bool = True
+    WAN3_SEED: int = -1
+    WAN3_PROMPT_EXTEND: bool = True
+    WAN3_WATERMARK: bool = False
+    WAN3_POLL_INTERVAL: float = 5.0
+    WAN3_TIMEOUT: int = 1800
 
     COMFYUI_API_URL: str = "http://localhost:8188"
     COMFYUI_CHECKPOINT: str = "sd_xl_base_1.0.safetensors"
@@ -119,6 +133,23 @@ class Settings(BaseSettings):
                     "prompt_extend_mode": self.DASHSCOPE_PROMPT_EXTEND_MODE,
                     "enable_thinking": self.DASHSCOPE_ENABLE_THINKING,
                     "watermark": self.DASHSCOPE_WATERMARK,
+                },
+            )
+        elif provider_type == ProviderType.WAN3:
+            return ProviderConfig(
+                api_url=self.WAN3_API_URL,
+                api_key=self.WAN3_API_KEY or self.DASHSCOPE_API_KEY or self.OPENAI_API_KEY,
+                model=self.WAN3_MODEL,
+                extra_params={
+                    "resolution": self.WAN3_RESOLUTION,
+                    "ratio": self.WAN3_RATIO,
+                    "duration": self.WAN3_DURATION,
+                    "audio": self.WAN3_AUDIO,
+                    "seed": self.WAN3_SEED,
+                    "prompt_extend": self.WAN3_PROMPT_EXTEND,
+                    "watermark": self.WAN3_WATERMARK,
+                    "poll_interval": self.WAN3_POLL_INTERVAL,
+                    "timeout": self.WAN3_TIMEOUT,
                 },
             )
         else:  # MOCK

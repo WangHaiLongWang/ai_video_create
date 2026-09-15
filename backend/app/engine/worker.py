@@ -80,6 +80,12 @@ class Worker:
             result = await handler.execute(task, context)
 
             heartbeat_task.cancel()
+            if result.get("status") not in {"ok", "succeeded"}:
+                error_msg = str(result.get("error") or "Handler returned an error result")
+                fail_task(task_id, error_msg)
+                emit_event(execution_id, node_id, "node.failed", "failed",
+                           item_key=item_key, message=f"失败: {error_msg}")
+                return
             complete_task(task_id, result)
             self._task_count += 1
 

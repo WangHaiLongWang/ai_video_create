@@ -30,7 +30,7 @@
 | 前端单元测试 | 3 个文件，16/16 通过 | 通过 |
 | TypeScript | `tsc --noEmit` 通过 | 通过 |
 | 前端生产构建 | Vite 构建通过，JS gzip 约 119 KB | 通过 |
-| 后端完整测试 | 226 项：220 通过，6 个 FFmpeg 测试跳过 | 通过（有环境跳过） |
+| 后端完整测试 | 232 项：226 通过，6 个 FFmpeg 测试跳过 | 通过（有环境跳过） |
 | FFmpeg 子集（沙箱外） | 3 通过，6 因本机无 FFmpeg 跳过 | 部分验证 |
 | Qwen Image 真实调用 | `qwen-image-3.0` 成功生成 1280×720 PNG | 通过 |
 | 后端应用导入/启动 | Workflow/Asset 的 204 空响应契约已修复 | 通过 |
@@ -267,7 +267,7 @@ Phase E 未通过，不能标记发布就绪。
 | **.env.example** | 完整的环境变量配置示例 | ✅ 完成 |
 | **默认 HOST** | 改为 127.0.0.1（安全要求）| ✅ 完成 |
 
-**测试结果：后端 220 passed、6 skipped；前端 16 passed。Qwen Image 真实生图通过。**
+**测试结果：后端 226 passed、6 skipped；前端 16 passed。Qwen Image 真实生图通过；Wan3 鉴权和 Contract Test 通过。**
 
 ## 5. 分阶段完成度
 
@@ -275,9 +275,9 @@ Phase E 未通过，不能标记发布就绪。
 |---|---:|---|---|
 | Phase A 类型化画布与持久化 | **65%** | 画布、六节点、前端类型校验、localStorage、CRUD、乐观锁、Undo/Redo | 共享 Schema 缺失；更新绕过模型校验 |
 | Phase B Mock 执行器 | **55%** | 编译器、SQLite task、单 Worker、事件/WebSocket 后端、Mock Handler、**结果持久化、执行收敛、前端执行 API** | 无 retry；无 scene_id 映射 |
-| Phase C 真实多模态 | **45%** | 五类 Provider、Qwen Image 真实生图、Real Handler、AssetManager、FFmpeg service、**Assets 表/API、独立 Provider 配置** | 未验证真实成片 |
+| Phase C 真实多模态 | **50%** | Qwen Image 真实生图、Wan3.0 480P Provider、ComfyUI 本地备选、Real Handler、AssetManager、FFmpeg service、**Assets 表/API、独立 Provider 配置** | 未执行计费 Wan3 UAT；未验证真实成片合成 |
 | Phase D Agent 与模板 | **45%** | AgentService、GraphPatch、三模板、API、**前端 SettingsPanel/TemplateSelector 已挂载** | 无 schema/tool calling；模板不持久化 |
-| Phase E 发布验收 | **40%** | 测试目录、**安全中间件已注册**、**后端 220 项与前端 16 项测试通过**、**前端完整 API 客户端** | FFmpeg 环境测试、三平台、真实成片和浏览器 E2E 未完成 |
+| Phase E 发布验收 | **40%** | 测试目录、**安全中间件已注册**、**后端 226 项与前端 16 项测试通过**、**前端完整 API 客户端** | FFmpeg 环境测试、三平台、真实成片和浏览器 E2E 未完成 |
 
 这里的百分比不是工时比例，而是各阶段验收标准的满足比例。项目不应继续按 A→B→C→D→E 线性添加新模块；当前最需要的是回到主链路做集成收敛。
 

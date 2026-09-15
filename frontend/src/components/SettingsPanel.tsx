@@ -23,6 +23,17 @@ interface Settings {
   dashscope_enable_thinking: boolean;
   dashscope_watermark: boolean;
   comfyui_api_url: string;
+  wan3_api_url: string;
+  wan3_model: string;
+  wan3_resolution: string;
+  wan3_ratio: string;
+  wan3_duration: number;
+  wan3_audio: boolean;
+  wan3_seed: number;
+  wan3_prompt_extend: boolean;
+  wan3_watermark: boolean;
+  wan3_poll_interval: number;
+  wan3_timeout: number;
   asset_dir: string;
   ffmpeg_path: string;
 }
@@ -57,6 +68,18 @@ export default function SettingsPanel({ onClose }: Props) {
   const [dashscopePromptExtendMode, setDashscopePromptExtendMode] = useState('direct');
   const [dashscopeEnableThinking, setDashscopeEnableThinking] = useState(true);
   const [dashscopeWatermark, setDashscopeWatermark] = useState(false);
+  const [wan3Url, setWan3Url] = useState('https://dashscope.aliyuncs.com/api/v1');
+  const [wan3Key, setWan3Key] = useState('');
+  const [wan3Model, setWan3Model] = useState('wan3.0-video');
+  const [wan3Resolution, setWan3Resolution] = useState('480P');
+  const [wan3Ratio, setWan3Ratio] = useState('adaptive');
+  const [wan3Duration, setWan3Duration] = useState(5);
+  const [wan3Audio, setWan3Audio] = useState(true);
+  const [wan3Seed, setWan3Seed] = useState(-1);
+  const [wan3PromptExtend, setWan3PromptExtend] = useState(true);
+  const [wan3Watermark, setWan3Watermark] = useState(false);
+  const [wan3PollInterval, setWan3PollInterval] = useState(5);
+  const [wan3Timeout, setWan3Timeout] = useState(1800);
 
   useEffect(() => {
     loadData();
@@ -88,6 +111,17 @@ export default function SettingsPanel({ onClose }: Props) {
         setDashscopePromptExtendMode(s.dashscope_prompt_extend_mode);
         setDashscopeEnableThinking(s.dashscope_enable_thinking);
         setDashscopeWatermark(s.dashscope_watermark);
+        setWan3Url(s.wan3_api_url);
+        setWan3Model(s.wan3_model);
+        setWan3Resolution(s.wan3_resolution);
+        setWan3Ratio(s.wan3_ratio);
+        setWan3Duration(s.wan3_duration);
+        setWan3Audio(s.wan3_audio);
+        setWan3Seed(s.wan3_seed);
+        setWan3PromptExtend(s.wan3_prompt_extend);
+        setWan3Watermark(s.wan3_watermark);
+        setWan3PollInterval(s.wan3_poll_interval);
+        setWan3Timeout(s.wan3_timeout);
       }
     } catch (e) {
       console.error('Failed to load settings', e);
@@ -121,6 +155,18 @@ export default function SettingsPanel({ onClose }: Props) {
           dashscope_prompt_extend_mode: dashscopePromptExtendMode,
           dashscope_enable_thinking: dashscopeEnableThinking,
           dashscope_watermark: dashscopeWatermark,
+          wan3_api_url: wan3Url,
+          wan3_api_key: wan3Key || undefined,
+          wan3_model: wan3Model,
+          wan3_resolution: wan3Resolution,
+          wan3_ratio: wan3Ratio,
+          wan3_duration: wan3Duration,
+          wan3_audio: wan3Audio,
+          wan3_seed: wan3Seed,
+          wan3_prompt_extend: wan3PromptExtend,
+          wan3_watermark: wan3Watermark,
+          wan3_poll_interval: wan3PollInterval,
+          wan3_timeout: wan3Timeout,
         }),
       });
       if (resp.ok) {
@@ -183,6 +229,7 @@ export default function SettingsPanel({ onClose }: Props) {
             <select style={styles.select} value={imageProvider} onChange={(e) => setImageProvider(e.target.value)}>
               <option value="mock">Mock (测试)</option>
               <option value="comfyui">ComfyUI</option>
+              <option value="wan3">万相 3.0（百炼）</option>
               <option value="openai">OpenAI (DALL-E)</option>
               <option value="dashscope">DashScope (Qwen Image)</option>
             </select>
@@ -227,6 +274,52 @@ export default function SettingsPanel({ onClose }: Props) {
               <label style={styles.label}>API URL</label>
               <input style={styles.input} value={comfyuiUrl} onChange={(e) => setComfyuiUrl(e.target.value)} />
               <button style={styles.testBtn} onClick={() => handleTestProvider('comfyui')}>测试连接</button>
+            </section>
+          )}
+
+          {videoProvider === 'comfyui' && (
+            <section style={styles.section}>
+              <h3 style={styles.sectionTitle}>ComfyUI 视频配置</h3>
+              <label style={styles.label}>API URL</label>
+              <input style={styles.input} value={comfyuiUrl} onChange={(e) => setComfyuiUrl(e.target.value)} />
+              <button style={styles.testBtn} onClick={() => handleTestProvider('comfyui')}>测试连接</button>
+            </section>
+          )}
+
+          {videoProvider === 'wan3' && (
+            <section style={styles.section}>
+              <h3 style={styles.sectionTitle}>万相 3.0 视频配置</h3>
+              <label style={styles.label}>API Base URL</label>
+              <input style={styles.input} value={wan3Url} onChange={(e) => setWan3Url(e.target.value)} />
+              <label style={styles.label}>API Key（留空则沿用 DashScope Key）</label>
+              <input style={styles.input} type="password" value={wan3Key} onChange={(e) => setWan3Key(e.target.value)} />
+              <label style={styles.label}>模型</label>
+              <select style={styles.select} value={wan3Model} onChange={(e) => setWan3Model(e.target.value)}>
+                <option value="wan3.0-video">wan3.0-video（标准版）</option>
+                <option value="wan3.0-video-prime">wan3.0-video-prime（高速版）</option>
+              </select>
+              <label style={styles.label}>分辨率</label>
+              <select style={styles.select} value={wan3Resolution} onChange={(e) => setWan3Resolution(e.target.value)}>
+                <option value="480P">480P（默认）</option>
+                <option value="720P">720P</option>
+                <option value="1080P">1080P</option>
+              </select>
+              <label style={styles.label}>宽高比</label>
+              <select style={styles.select} value={wan3Ratio} onChange={(e) => setWan3Ratio(e.target.value)}>
+                {['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
+              </select>
+              <label style={styles.label}>时长（-1 智能，或 2-30 秒）</label>
+              <input style={styles.input} type="number" min={-1} max={30} value={wan3Duration} onChange={(e) => setWan3Duration(Number(e.target.value))} />
+              <label style={styles.label}>随机种子（-1 随机）</label>
+              <input style={styles.input} type="number" min={-1} max={2147483647} value={wan3Seed} onChange={(e) => setWan3Seed(Number(e.target.value))} />
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={wan3Audio} onChange={(e) => setWan3Audio(e.target.checked)} />生成音轨</label>
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={wan3PromptExtend} onChange={(e) => setWan3PromptExtend(e.target.checked)} />提示词智能改写</label>
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={wan3Watermark} onChange={(e) => setWan3Watermark(e.target.checked)} />添加模型水印</label>
+              <label style={styles.label}>轮询间隔（秒）</label>
+              <input style={styles.input} type="number" min={1} value={wan3PollInterval} onChange={(e) => setWan3PollInterval(Number(e.target.value))} />
+              <label style={styles.label}>任务超时（秒）</label>
+              <input style={styles.input} type="number" min={60} value={wan3Timeout} onChange={(e) => setWan3Timeout(Number(e.target.value))} />
+              <button style={styles.testBtn} onClick={() => handleTestProvider('wan3')}>测试 Key 与端点</button>
             </section>
           )}
 

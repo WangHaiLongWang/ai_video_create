@@ -31,7 +31,7 @@ export const nodeCatalog: Record<NodeKind, CatalogNodeData> = {
     kind: 'imageToVideo',
     inputType: 'list<image>',
     outputType: 'list<video>',
-    config: { provider: 'Mock', duration: 4, motion: 'slow push', mapOver: true },
+    config: { resolution: '480P', ratio: 'adaptive', duration: 5, audio: true, prompt_extend: true, watermark: false, mapOver: true },
   },
   videoConcat: {
     label: '视频合成',

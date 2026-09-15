@@ -311,6 +311,7 @@ Worker 只负责租约和运行 Handler；Scheduler 负责依赖、输入组装�
 | AVC-505 | P1 | 2.0 | OpenAI text/image contract tests、429 和超时 | `openai_provider.py`, provider tests | 502 |
 | AVC-506 | P0 | 2.0 | 真实 Handler 使用 NodeInput/AssetRef，不允许假成功 fallback | `real_handlers.py` | 401,501-505 |
 | AVC-507 | P0 | 2.0 | 一条真实纵向链路 UAT | `tests/integration/*`, UAT checklist | 506,E4 |
+| AVC-508 | P1 | 2.5 | Wan3.0 480P 视频 JobHandle、task_id 持久化和 contract tests | `wan3_provider.py`, node_runs | 502,105 |
 
 验收：不同能力可混合选择；外部服务失败有明确可重试错误；至少一条真实链路生成可播放视频。
 

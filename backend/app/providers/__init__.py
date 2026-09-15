@@ -52,6 +52,10 @@ def init_providers(
     dashscope_url: str = "https://dashscope.aliyuncs.com/api/v1",
     dashscope_image_model: str = "qwen-image-3.0",
     dashscope_default_config: dict | None = None,
+    wan3_key: str | None = None,
+    wan3_url: str = "https://dashscope.aliyuncs.com/api/v1",
+    wan3_model: str = "wan3.0-video",
+    wan3_default_config: dict | None = None,
     comfyui_url: str | None = None,
 ) -> None:
     """Initialize and register providers based on configuration.
@@ -98,6 +102,18 @@ def init_providers(
             ))
         except Exception as e:
             logger.warning(f"Failed to register DashScope provider: {e}")
+
+    if wan3_key:
+        try:
+            from backend.app.providers.wan3_provider import Wan3VideoProvider
+            register_provider(Wan3VideoProvider(
+                api_key=wan3_key,
+                api_url=wan3_url,
+                model=wan3_model,
+                default_config=wan3_default_config,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register Wan3 provider: {e}")
 
     if comfyui_url:
         try:

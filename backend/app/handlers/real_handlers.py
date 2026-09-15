@@ -222,19 +222,22 @@ class RealImageToVideoHandler:
         scene_id = task.get("item_key", "unknown")
         duration = config.get("duration", 4)
 
-        # Get the input image from upstream
-        # The image path should be passed in task config from compiler
-        image_path = config.get("image_path", "")
+        image_path = config.get("image_path", "") or self._find_upstream_image(
+            context.get("upstream_results", {}), scene_id
+        )
 
         if not image_path:
-            # No image path - try provider
-            return await self._use_provider(task, config, scene_id, duration)
+            return {"status": "error", "error": "Image path required for video generation"}
 
-        # Use FFmpeg to create video from image
+        provider_name = _provider_name(config, "video")
+        if provider_name in {"wan3", "comfyui"}:
+            return await self._use_provider(task, config, scene_id, duration, image_path)
+        if provider_name == "mock":
+            return self._mock_video_output(scene_id, duration)
         return await self._use_ffmpeg(task, config, scene_id, image_path, duration)
 
     async def _use_provider(
-        self, task: dict, config: dict, scene_id: str, duration: float
+        self, task: dict, config: dict, scene_id: str, duration: float, image_path: str
     ) -> dict:
         """Use video provider to generate video."""
         provider = get_provider(_provider_name(config, "video"))
@@ -242,13 +245,55 @@ class RealImageToVideoHandler:
             return {"status": "error", "error": "No video provider available"}
 
         try:
-            # Provider needs an image, but we don't have one
-            # Fall back to mock or raise error
-            return {"status": "error", "error": "Image path required for video generation"}
+            asset_manager = get_asset_manager()
+            if not __import__("os").path.isabs(image_path):
+                image_path = asset_manager.get_asset_path(image_path)
+            video_data = await provider.generate_video(
+                image_path,
+                str(config.get("video_prompt", config.get("prompt", "镜头自然运动"))),
+                config,
+            )
+            asset_id = f"vid-{uuid.uuid4().hex[:8]}"
+            relative_path = asset_manager.save_asset(
+                video_data,
+                filename=asset_id,
+                category="videos",
+                extension="mp4",
+            )
+            return {
+                "status": "ok",
+                "output": {
+                    "type": "list<video>",
+                    "asset_id": asset_id,
+                    "scene_id": scene_id,
+                    "path": relative_path,
+                    "url": asset_manager.get_asset_url(relative_path),
+                    "duration_seconds": duration,
+                    "resolution": config.get("resolution", "480P"),
+                    "provider": provider_name,
+                },
+            }
 
         except ProviderError as e:
             logger.error(f"Video generation failed: {e}")
             return {"status": "error", "error": str(e)}
+
+    @staticmethod
+    def _find_upstream_image(upstream_results: dict, scene_id: str) -> str:
+        """Find the image output matching this mapped scene."""
+        fallback = ""
+        for result in upstream_results.values():
+            output = result.get("output", result) if isinstance(result, dict) else {}
+            if not isinstance(output, dict):
+                continue
+            path = str(output.get("path", ""))
+            if not path:
+                continue
+            if not fallback:
+                fallback = path
+            if output.get("scene_id") == scene_id:
+                return path
+        return fallback
 
     async def _use_ffmpeg(
         self, task: dict, config: dict, scene_id: str, image_path: str, duration: float

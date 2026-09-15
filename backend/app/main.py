@@ -98,8 +98,32 @@ async def lifespan(app: FastAPI):
 
     # 根据 Video Provider 设置注册视频生成 Provider
     if settings.DEFAULT_VIDEO_PROVIDER == "comfyui":
-        # ComfyUI 已在上面注册
-        pass
+        try:
+            from .providers.comfyui_provider import ComfyUIProvider
+            register_provider(ComfyUIProvider(api_url=settings.COMFYUI_API_URL))
+        except Exception as e:
+            logger.warning(f"Failed to register ComfyUI video provider: {e}")
+    elif settings.DEFAULT_VIDEO_PROVIDER == "wan3":
+        try:
+            from .providers.wan3_provider import Wan3VideoProvider
+            register_provider(Wan3VideoProvider(
+                api_key=settings.WAN3_API_KEY or settings.DASHSCOPE_API_KEY or settings.OPENAI_API_KEY,
+                api_url=settings.WAN3_API_URL,
+                model=settings.WAN3_MODEL,
+                default_config={
+                    "resolution": settings.WAN3_RESOLUTION,
+                    "ratio": settings.WAN3_RATIO,
+                    "duration": settings.WAN3_DURATION,
+                    "audio": settings.WAN3_AUDIO,
+                    "seed": settings.WAN3_SEED,
+                    "prompt_extend": settings.WAN3_PROMPT_EXTEND,
+                    "watermark": settings.WAN3_WATERMARK,
+                    "poll_interval": settings.WAN3_POLL_INTERVAL,
+                    "timeout": settings.WAN3_TIMEOUT,
+                },
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register Wan3 provider: {e}")
 
     # Real handlers resolve each capability independently and may still use the
     # always-registered Mock Provider for capabilities configured as mock.
