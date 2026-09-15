@@ -53,6 +53,8 @@ npm run build
 
 后续开发、Sprint、工单和发布门禁统一使用 `docs/plans/2026-09-15-company-delivery-plan.md`。
 
+全部文档入口见 `docs/README.md`。
+
 Qwen Image 3.0 的官方协议配置见 `docs/integrations/qwen-image-3.0.md`。
 
 万相 3.0 视频与 ComfyUI 的配置边界见 `docs/integrations/wan3-video.md`。

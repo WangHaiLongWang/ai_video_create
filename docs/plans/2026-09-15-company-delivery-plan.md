@@ -8,6 +8,37 @@
 > 架构参考：`docs/dp.md`
 > 替代计划：`2026-09-14-ai-video-create-implementation-plan.md`、`phase-c-plan.md`、`phase-d-plan.md`、`phase-e-plan.md`
 
+## 0. 2026-09-15 执行检查点
+
+本计划发布后已经完成一批基线与 Provider 工作，后续排期从“执行语义收敛”继续，不从 Sprint 0 重做。
+
+### 已完成
+
+| 工单/能力 | 状态 | 证据 |
+|---|---|---|
+| AVC-001 FastAPI 204 契约 | Done | Workflow/Asset DELETE 可导入，API 测试通过 |
+| AVC-002 配置前缀 | Done | `AI_VIDEO_` env prefix |
+| AVC-003 async 测试真实性 | Done | pytest-asyncio 已启用，loop scope 已固定 |
+| AVC-202 Worker 结果落库基础 | Done/需深化 | result_json 已保存，业务 error 不再 completed |
+| AVC-204 execution 收敛基础 | Done/需深化 | 终态统计已实现，深层传播仍未完成 |
+| AVC-301 前端 Execution API | Done | 保存、启动、查询、取消、轮询已接入 |
+| AVC-401 Asset 表/API 基础 | Done/需深化 | Migration 003、Repository 和 API 存在 |
+| AVC-501 capability 独立 Provider | Done | image/video 可分别选择 DashScope/Wan3/ComfyUI |
+| Qwen Image 3.0 | Done（单次 UAT） | 真实生成 1280×720 PNG |
+| Wan3.0 480P Provider | Contract Done | 鉴权、参数、异步轮询、下载测试通过；未做计费 UAT |
+
+### 当前质量基线
+
+- 前端：16 tests passed，TypeScript 和 production build 通过。
+- 后端：226 passed，6 个 FFmpeg 环境测试 skipped。
+- 当前综合产品完成度约 55%，详见 `docs/PROJECT-STATUS.md`。
+
+### 剩余工作量重估
+
+- 2 人工程团队 + 0.5 QA：约 8-10 周。
+- 单人全栈：约 14-18 周。
+- 最大不确定性：动态 scene map、Wan3 长任务恢复、FFmpeg 环境和真实 UAT 成本。
+
 ## 1. 计划目标
 
 将当前“模块较多但主链未贯通”的原型，交付为一个可安装、可恢复、可验证的本地 AI 视频工作流产品。首个正式版本必须完成下面的用户闭环：
@@ -35,7 +66,7 @@
 - SQLite 工作流、执行、任务、事件、资产和配置持久化。
 - 可恢复 DAG 执行器：结果传递、map/aggregate、失败传播、取消、重试、2-4 Worker。
 - Mock 完整链路，完全离线可运行。
-- 至少一种真实 LLM 接入、ComfyUI 生图接入、FFmpeg 图转视频和合成。
+- Qwen Image 3.0 生图、Wan3.0 480P 生视频和 FFmpeg 合成；ComfyUI 保留为本地可选 Provider。
 - 后端 Workflow Agent：生成、修改、解释、校验、diff 确认。
 - 模板、Provider 设置、执行历史、资产预览与下载 UI。
 - Windows/macOS/Linux 启动 smoke test，安全和恢复门禁。
@@ -66,7 +97,7 @@
 
 - 上述团队：预计 10-12 周。
 - 单人全栈：预计 18-22 周，且跨平台与真实 Provider 验证需额外协助。
-- 工期不包含外部 API 审批、GPU/ComfyUI 环境搭建和模型下载等待。
+- 工期不包含外部 API 审批、百炼 Workspace 开通、GPU/ComfyUI 环境搭建和模型下载等待。
 
 ### 3.2 研发节奏
 
@@ -346,47 +377,47 @@ Worker 只负责租约和运行 Handler；Scheduler 负责依赖、输入组装�
 
 ## 8. Sprint 与里程碑安排
 
-### Sprint 0：恢复工程基线（第 1 周，短 Sprint）
+### Sprint 0：恢复工程基线（已基本完成）
 
 范围：AVC-001 至 AVC-005。
 
 Demo：全新 venv 安装后后端启动，完整测试真实收集，CI 显示独立 job。
 
-里程碑：`v0.2.1`，代码库恢复可持续开发状态。
+剩余：AVC-004 CI 独立 jobs 和 AVC-005 完整启动检查。完成后标记 `v0.2.1`。
 
-### Sprint 1：契约、迁移和结果持久化（第 2-3 周）
+### 当前 Sprint：契约、动态映射和结果持久化（未来 2 周）
 
-范围：AVC-101、102、104、105、201、202。
+范围：AVC-101、102、104、105、201、203、204、205。AVC-202 已有基础实现，本 Sprint 做契约化和并发收紧。
 
-Demo：非法工作流被拒绝；Handler 成功/失败结果写入 node_runs 和 tasks，重启后可读。
+Demo：3 个实际 Storyboard scene 精确生成 3 个 image input 和 3 个 video input；失败、取消和重启后状态收敛。
 
-里程碑：`v0.3.0`，NodeResult 契约冻结。
+里程碑：`v0.4.0`，NodeResult、scene map 和 external job 契约冻结。
 
-### Sprint 2：Mock 执行闭环（第 4-5 周）
+### 下一 Sprint：Mock 浏览器闭环与 Wan3 最小 UAT（未来第 3-4 周）
 
-范围：AVC-203 至 208、AVC-301 至 304。
+范围：AVC-206 至 208、AVC-302 至 308、AVC-508。AVC-301/304 已有轮询实现，改为 WebSocket 和恢复模式。
 
-Demo：3 镜头 Mock 流程从后端执行到 final asset，失败、重试、取消、重启均收敛；前端实时显示状态。
+Demo：浏览器运行 3 镜头 Mock 完整链路；经费用确认后执行 Wan3 480P/2 秒真实任务并验证 task_id 恢复。
 
-里程碑：`v0.4.0`，Phase B 正式通过。
+里程碑：`v0.6.0`，Phase B 正式通过，Wan3 最小 UAT 完成。
 
-### Sprint 3：完整编辑器与资产 UI（第 6-7 周）
+### 后续 Sprint 3：完整编辑器与资产 UI（未来第 5 周，1 周收敛迭代）
 
-范围：AVC-103、305 至 308、401、402、404、405。
+范围：AVC-103、305 至 307、402、404、405。AVC-401 已有基础实现，本 Sprint 做血缘和删除约束收紧。
 
 Demo：浏览器 E2E 覆盖拖入节点、保存、运行、刷新恢复、查看 Mock 资产、失败项重试。
 
-里程碑：`v0.5.0`，可供内部内容团队试用。
+里程碑：`v0.7.0`，可供内部内容团队试用。
 
-### Sprint 4：真实媒体和 Provider（第 8-9 周）
+### 后续 Sprint 4：真实媒体和 Provider（未来第 6 周，1 周 UAT 迭代）
 
-范围：AVC-403、406、501 至 507。
+范围：AVC-403、406、502 至 507、508 的恢复增强。Qwen Image、Wan3 和 capability 注册已有基础实现。
 
 Demo：真实 LLM/图像服务生成图片，FFmpeg 生成并合成可播放 MP4，资产血缘完整。
 
-里程碑：`v0.7.0`，Phase C 通过。
+里程碑：`v0.8.0`，Phase C 通过。
 
-### Sprint 5：Agent 与模板产品化（第 10-11 周）
+### 后续 Sprint 5：Agent 与模板产品化（未来第 7-8 周）
 
 范围：AVC-601 至 608、Migration 004。
 
@@ -394,7 +425,7 @@ Demo：用中文生成或修改流程，查看 diff、确认、撤销；设置�
 
 里程碑：`v0.9.0`，功能冻结，进入 RC。
 
-### Sprint 6：发布候选（第 12 周，必要时延长一周）
+### 后续 Sprint 6：发布候选（未来第 9-10 周，含发布缓冲）
 
 范围：AVC-701 至 707、全量回归、UAT 缺陷。
 
@@ -463,7 +494,7 @@ Demo：三平台安装与 Mock smoke、真实 Provider 可选 smoke、备份恢�
 | Integration | SQLite、Worker、Scheduler、Asset、FFmpeg | 临时目录；FFmpeg job 可选 | 每次 PR/夜间 |
 | API | FastAPI 生命周期和响应契约 | 临时 DB | 每次 PR |
 | Browser E2E | 用户真实操作和断线恢复 | Mock backend | 每次 PR 核心集 |
-| External smoke | Ollama/ComfyUI/OpenAI | 真实服务/密钥 | 手工或 nightly 可选 |
+| External smoke | Qwen Image/Wan3/Ollama/ComfyUI/OpenAI | 真实服务/密钥 | 手工或 nightly 可选 |
 | UAT | 内容创作者完成真实用例 | 真实环境 | 每个里程碑 |
 
 ### 10.2 v1.0 必测场景
@@ -489,7 +520,7 @@ Demo：三平台安装与 Mock smoke、真实 Provider 可选 smoke、备份恢�
 |---|---|---|
 | Local | 日常开发 | 独立 `data/dev`，Mock 默认 |
 | CI | 自动测试 | 临时 DB/目录，用后删除 |
-| Integration | Ollama/ComfyUI/FFmpeg 集成 | 专用测试模型和资产 |
+| Integration | Qwen Image/Wan3/Ollama/ComfyUI/FFmpeg 集成 | 专用测试模型和资产 |
 | UAT | 产品验收 | 代表性真实工作流，不复用生产密钥 |
 | Release | 用户本地安装包/源码 | 首次启动初始化 |
 

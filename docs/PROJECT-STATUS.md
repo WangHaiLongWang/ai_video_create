@@ -1,395 +1,305 @@
 # ai_video_create 项目状态报告
 
-> 更新日期：2026-09-15
-> 评估范围：`docs/`、`frontend/src/`、`backend/app/`、自动化测试和生产构建
-> 评估依据：`prd.md`、`dp.md`、历史实施计划及 Phase C/D/E 计划
-> 说明：本报告按端到端可用能力计分，文件存在但未接入主流程不视为完成。
-> Active 研发计划：`docs/plans/2026-09-15-company-delivery-plan.md`
+> 基线日期：2026-09-15
+> 状态版本：3.0
+> Active 计划：`docs/plans/2026-09-15-company-delivery-plan.md`
+> 评估口径：以代码审计、可重复测试和端到端用户链路为准；文件存在不等于功能完成。
 
-## 1. 结论摘要
+## 1. 管理摘要
 
-项目已经建立了前后端单仓、可编辑画布、工作流模型、SQLite CRUD、DAG 编译器、任务队列、Provider/Handler/Agent/模板等主要模块骨架。前端测试、TypeScript 类型检查和生产构建均可通过，说明画布原型具备继续开发的基础。
+项目已从初始画布原型进入“执行链集成 + 真实 Provider 验证”阶段。工作流编辑、SQLite 持久化、任务队列、结果保存、执行状态轮询、资产记录、Provider 设置和模板入口均已形成代码路径；Qwen Image 3.0 已完成一次真实 1280×720 生图，Wan3.0 已完成官方协议配置、运行时注册、鉴权检查和 Contract Test。
 
-但当前还不是“提示词生成真实成片”的可用产品，也不满足发布门禁。核心原因是前端仍运行浏览器内 Mock 动画，未调用后端执行 API；后端 Worker 丢弃 Handler 返回值，任务结果不能传给下游；执行状态不会自动收敛；真实 Provider 与资产模块虽已编写，但尚未通过可靠的端到端数据流串联。
+当前仍不能定义为“真实提示词一键成片”产品。主要差距不是缺少 Provider，而是场景数据映射、长任务恢复、真实 Wan3 UAT、FFmpeg 合成验证和前端资产/错误体验尚未完成。
 
-### 当前定位
+### 当前评分
 
-- **架构/代码骨架完成度：约 60%**
-- **按 PRD 用户价值计算的产品完成度：约 35%**
-- **发布就绪度：约 15%**
-- **阶段判断：Phase A 后段与 Phase B 集成期，Phase C/D 只有模块级原型，Phase E 未通过**
-
-旧报告中“总体 85%、Phase A-E 均为 80%、205 个测试全部通过”的表述与当前代码和实测结果不一致，已撤销。
-
-## 2. 实测基线
-
-本次在 Windows、Node 16.14.2、Python 3.12.3 环境执行验证。
-
-| 检查项 | 实测结果 | 结论 |
+| 维度 | 完成度 | 说明 |
 |---|---:|---|
-| 前端单元测试 | 3 个文件，16/16 通过 | 通过 |
-| TypeScript | `tsc --noEmit` 通过 | 通过 |
-| 前端生产构建 | Vite 构建通过，JS gzip 约 119 KB | 通过 |
-| 后端完整测试 | 232 项：226 通过，6 个 FFmpeg 测试跳过 | 通过（有环境跳过） |
-| FFmpeg 子集（沙箱外） | 3 通过，6 因本机无 FFmpeg 跳过 | 部分验证 |
-| Qwen Image 真实调用 | `qwen-image-3.0` 成功生成 1280×720 PNG | 通过 |
-| 后端应用导入/启动 | Workflow/Asset 的 204 空响应契约已修复 | 通过 |
+| 架构骨架 | 75% | 主要模块和 API 已存在，部分契约仍分散 |
+| Mock 用户闭环 | 60% | 前端已调用后端执行，但 scene item 映射仍不完整 |
+| 真实多模态闭环 | 50% | Qwen 生图已验证，Wan3 未执行计费 UAT，合成未验收 |
+| Agent/模板体验 | 45% | 后端服务和入口存在，AgentComposer 仍使用本地规则 |
+| 发布就绪度 | 40% | 测试基线恢复，缺浏览器 E2E、三平台和恢复演练 |
+| 综合产品完成度 | **约 55%** | 可继续内部开发，不建议对外发布 |
 
-### 本轮已解除的基线阻断
+### 当前阶段
 
-1. Workflow 与 Asset DELETE API 已使用严格 204 空响应，FastAPI 可以导入。
-2. 虚拟环境已安装 requirements 中声明的 `pytest-asyncio`，async 测试会真实执行。
-3. Settings 已使用 `AI_VIDEO_` 前缀，不再受通用 `DEBUG/HOST` 环境变量污染。
-4. 默认图像 Provider 已增加 DashScope 原生适配；`qwen-image-3.0` 的 Key、模型、同步回退、下载和真实生图均已验证。
+```text
+Phase A 类型化画布       65%  █████████████░░░░░░░
+Phase B Mock 执行器      60%  ████████████░░░░░░░░
+Phase C 真实多模态       50%  ██████████░░░░░░░░░░
+Phase D Agent 与模板     45%  █████████░░░░░░░░░░░
+Phase E 发布验收         40%  ████████░░░░░░░░░░░░
+```
 
-仍需处理 pytest 的 fixture loop scope 弃用警告；6 个 FFmpeg 测试需在安装 FFmpeg 的集成环境执行。
+百分比表示阶段验收标准满足程度，不表示代码行数或已消耗工时。
 
-## 3. 文档一致性评估
+## 2. 可重复验证基线
 
-### 3.1 PRD 与设计文档的有效部分
+环境：Windows、Node 16.14.2、Python 3.12.3。
 
-- 本地优先、Node + Python + SQLite + 本地资产目录的方向与当前仓库一致。
-- React Flow、Zustand、FastAPI、SQLite 队列、WebSocket、Provider 抽象的技术选型已经体现在代码中。
-- 六类核心节点及“提示词 → 分镜 → 图片 → 视频 → 合成 → 输出”主流程已形成统一命名。
-- 主实施计划正确指出了数组映射、结构化分镜、执行快照、资产血缘和 Agent 安全边界的重要性。
+| 检查 | 最新结果 | 状态 |
+|---|---:|---|
+| 前端 Vitest | 16 passed | 通过 |
+| 后端 Pytest | 226 passed、6 skipped | 通过（FFmpeg 环境项跳过） |
+| TypeScript | `tsc --noEmit` | 通过 |
+| Vite 生产构建 | JS gzip 约 124 KB | 通过 |
+| FastAPI 健康检查 | HTTP 200 | 通过 |
+| Qwen Image 鉴权/模型 | `qwen-image-3.0` | 通过 |
+| Qwen Image 真实生图 | 1280×720 PNG | 通过 |
+| Wan3 鉴权/endpoint | Provider health true | 通过 |
+| Wan3 Contract Test | 480P、首帧、轮询、下载、参数校验 | 通过 |
+| Wan3 真实视频 | 未创建计费任务 | 未验收 |
+| FFmpeg 真实媒体 | 本机未安装，6 项跳过 | 未验收 |
+| 浏览器 E2E | 未配置 Playwright | 未实现 |
+| macOS/Linux smoke | 无 CI matrix 证据 | 未验证 |
 
-### 3.2 文档与实现不一致
+测试仍有一条 Starlette TestClient 弃用警告，不影响当前通过结果，但需要在依赖升级前处理。
 
-| 文档承诺 | 当前实现 | 判断 |
-|---|---|---|
-| 冷启动 `< 5 秒` | 未建立可靠测量；后端当前无法导入 | 未验证 |
-| 2-4 Worker 并行 | 全局只启动 `worker-main` 一个 Worker | 未实现 |
-| 节点结果上下文传递 | Worker 调用 Handler 后不保存 `result` | 未实现 |
-| 节点重试 | 无 retry API、attempt、退避和幂等策略 | 未实现 |
-| WebSocket 实时监控 | 后端端点存在，前端没有订阅 | 后端原型 |
-| 执行历史 | 表和查询单次执行存在，无历史列表 UI/API | 部分实现 |
-| 文件/资产血缘 | 仅文件系统枚举，无 Asset 数据表及 source/scene 关联 | 未实现 |
-| Provider 热重载和持久化 | UI/API 只改内存，重启丢失 | 部分实现 |
-| Agent 结构化工具调用 | 使用文本拼接和 `json.loads`，失败后套模板 | 原型 |
-| Agent diff 确认 | 后端 GraphPatch 存在，前端未接入 | 未实现 |
-| 模板浏览与应用 | 组件和 API 存在，但组件未挂入 App，选择后也未加载返回 spec | 未接入 |
-| 设置页 | 组件存在，但顶部设置按钮没有打开它 | 未接入 |
-| 安全中间件 | 文件存在，`main.py` 未注册 | 未生效 |
-| Windows/macOS/Linux 验证 | 只有路径单测，在 Windows 实测一次 | 未达到三平台门禁 |
+## 3. 当前默认产品配置
 
-`docs/dp.md` 末尾还重复附带了一份 PRD 内容，且部分“唯一系统依赖/依赖数量”描述已经和现有 requirements 不完全一致。后续应拆除重复内容，并让架构文档描述真实的数据流和状态机。
+```text
+LLM       mock（默认，避免无意调用收费文本模型）
+Image     dashscope / qwen-image-3.0 / 1280x720
+Video     wan3 / wan3.0-video / 480P / adaptive / 5s
+Fallback  ComfyUI（本地可选，但 img2vid workflow 仍为占位模板）
+Storage   data/assets
+Database  data/ai_video_create.db
+Host      127.0.0.1
+```
 
-## 4. 代码架构现状
+生产环境应使用百炼业务空间专属地址；目前配置为官方仍支持的公共北京 endpoint。集成详情见：
 
-当前应用代码规模约为：后端 35 个代码文件、3,793 行；前端 18 个代码文件、1,294 行。以下是按职责整理后的真实架构。
+- `docs/integrations/qwen-image-3.0.md`
+- `docs/integrations/wan3-video.md`
+
+## 4. 功能矩阵
+
+| 产品能力 | 状态 | 可用范围 | 主要证据/缺口 |
+|---|---|---|---|
+| 画布拖动、缩放、平移、删除 | 已实现 | 前端 | React Flow |
+| 从侧栏拖入节点 | 部分 | 当前为点击添加 | 未实现 HTML DnD |
+| 类型化连线 | 已实现 | 前端相等类型检查 | 后端共享 Manifest 缺失 |
+| 节点属性配置 | 已实现 | 通用 key/value 表单 | 缺节点 Schema 驱动表单 |
+| Undo/Redo | 已实现 | 30 状态 | 拖动过程可能污染历史 |
+| localStorage 恢复 | 已实现 | 单一当前工作流 | 缺工作流切换管理 |
+| SQLite 工作流 CRUD | 已实现 | 创建/读取/更新/删除/复制 | 更新仍接收裸 dict |
+| 导入/导出 API | 已实现 | 后端/API client | 缺 UI 入口 |
+| 自动保存 | 部分 | 1 秒防抖 | 失败仅 console，UI 仍显示已保存 |
+| DAG 拓扑/环检测 | 已实现 | 编译时 | 保存时校验不足 |
+| map task 展开 | 部分 | 按 storyboard 配置预展开 | 不是按实际输出动态展开 |
+| task result 持久化 | 已实现 | `result_json` | 缺正式 NodeResult Schema |
+| 上游结果读取 | 已实现 | Worker context | scene 对应输入仍不完整 |
+| 执行收敛 | 已实现 | completed/failed/cancelled 汇总 | 深层失败传播仍需验证 |
+| 自动重试 | 部分 | 固定最多 3 次 | 无错误分类、退避和人工 retry API |
+| 取消执行 | 部分 | API 可改状态 | 外部 Provider 无持久 CancellationToken |
+| Worker 租约/恢复 | 部分 | heartbeat/orphan 函数 | task_id 与资产幂等未完成 |
+| 多 Worker | 未实现 | 当前单 Worker | 配置值未形成进程内 Worker pool |
+| 前端运行后端 DAG | 已实现 | 保存、启动、轮询 | 尚未使用 WebSocket 主路径 |
+| WebSocket 后端 | 已实现 | 事件推送/补拉 | 前端未订阅 |
+| 节点执行状态 | 部分 | waiting/running/completed/failed | blocked/skipped/cancelled UI 不完整 |
+| Qwen Image 3.0 | 已验证 | 真实 T2I | 多镜头工作流 UAT 未完成 |
+| Wan3.0 Video | 已接入未 UAT | 首帧生视频 Contract | 未创建真实计费任务 |
+| ComfyUI 生图 | 代码存在 | 基础 SDXL workflow | 未连接本机服务验证 |
+| ComfyUI 图生视频 | 占位 | 不可用于生产 | workflow 只有 LoadImage/TextEncode |
+| FFmpeg | 代码存在 | 检测/图转视频/拼接/ffprobe | 本机无可执行文件 |
+| Asset 表/API | 已实现 | 列表、详情、血缘、统计 | Handler 资产登记一致性需 E2E |
+| 资产文件服务 | 已实现 | `/assets` 静态目录 | 仍需统一下载/删除策略 |
+| Provider 设置 | 已挂载 | Qwen/Wan3/ComfyUI/OpenAI/Ollama | API 只改内存，重启依赖 `.env` |
+| 模板 API/持久化 | 已实现 | 内置 + SQLite 自定义模板 | 前端选择后未装载返回 spec |
+| Agent 后端 | 原型 | generate/modify/explain/patch | 非严格 tool calling/schema output |
+| Agent 前端 | 未接后端 | 本地正则和默认模板 | 无 diff、确认、解释 |
+| 安全中间件 | 已注册 | 本机基础 headers/body/rate | SSRF/流式 body limit 仍需加固 |
+
+## 5. 代码架构
+
+### 5.1 前端
 
 ```text
 frontend/src
-├── App.tsx                     应用壳和快捷键
-├── components/
-│   ├── Canvas.tsx              React Flow 画布
-│   ├── TopBar.tsx              顶部栏，当前运行按钮仅触发前端 Mock
-│   ├── NodePalette.tsx         节点库
-│   ├── PropertyPanel.tsx       节点配置及 Mock 状态
-│   ├── AgentComposer.tsx       本地正则/模板式流程生成
-│   ├── SettingsPanel.tsx       Provider 设置，未挂载
-│   └── TemplateSelector.tsx    模板列表，未挂载
-├── store.ts                    画布、历史、本地存储和工作流 CRUD 同步
-├── api.ts                      仅工作流 CRUD API
-├── workflow.ts                 节点目录、默认模板、前端连线校验
-└── types.ts                    前端工作流类型
-
-backend/app
-├── main.py                     FastAPI 装配和 lifespan
-├── models.py                   WorkflowSpec、GraphPatch 等模型
-├── config.py                   环境变量配置
-├── middleware.py               安全中间件，当前未注册
-├── api/
-│   ├── workflows.py            工作流 CRUD/导入导出
-│   ├── executions.py           启动、查询、取消、事件和 WebSocket
-│   ├── agent.py                Agent 生成/修改/解释/应用 patch
-│   ├── templates.py            模板 API
-│   └── config.py               Provider、设置和资产枚举 API
-├── db/                         SQLite 连接和单次初始迁移
-├── repositories/               目前只有 Workflow Repository
-├── engine/
-│   ├── compiler.py             拓扑排序和按固定场景数静态展开
-│   ├── queue.py                SQLite 任务领取、租约和基础状态更新
-│   └── worker.py               单 Worker 调度 Handler
-├── handlers/                   Mock 与 Real Handler 注册表
-├── providers/                  Mock、Ollama、OpenAI、ComfyUI
-└── services/                   Agent、模板、事件、资产、FFmpeg
+├── App.tsx                         应用壳、快捷键
+├── store.ts                       画布、历史、保存、执行轮询
+├── api.ts                         Workflow/Execution/Agent/Template/Asset/Config API
+├── workflow.ts                    节点目录和默认工作流
+├── types.ts                       Workflow 类型
+├── StudioNode.tsx                 节点外观
+└── components/
+    ├── Canvas.tsx                 React Flow 画布
+    ├── NodePalette.tsx            节点列表
+    ├── PropertyPanel.tsx          节点配置/运行摘要
+    ├── TopBar.tsx                 运行、设置、模板入口
+    ├── AgentComposer.tsx          本地规则 Agent，待接后端
+    ├── SettingsPanel.tsx          Provider 参数 UI
+    └── TemplateSelector.tsx       模板浏览，返回结果未装载
 ```
 
-### 4.1 前端评估
+前端已经从纯 Mock 动画切换为真实 Execution API 轮询，但执行状态逻辑仍集中在 `store.ts`。后续应拆分 `workflowStore` 与 `executionStore`，并将 WebSocket、断线恢复和事件去重隔离到 execution 层。
 
-#### 已实现
-
-- React Flow 画布具备节点移动、删除、缩放、平移、连线、小地图和控件。
-- 六类节点组件、节点属性编辑和端口类型相等校验已实现。
-- Zustand 保存画布状态，localStorage 可刷新恢复。
-- Undo/Redo 保留 30 个状态；前端相关测试覆盖基础行为。
-- 工作流 CRUD 客户端和 1 秒防抖保存已经编写。
-- 响应式深色工作台界面可以生产构建。
-
-#### 仅为原型或存在缺陷
-
-- 节点库采用“点击添加”，不是 PRD 描述的从侧栏拖入画布。
-- `onNodesChange` 会把选择、尺寸等非语义变化也压入历史，拖动期间可能产生大量历史项；没有事务化拖拽快照。
-- `serverVersion` 没有按 workflow ID 管理。Agent/模板替换流程后可能把新图用旧版本号更新到错误记录。
-- 自动保存失败仅写 `console.warn`，UI 仍显示“已自动保存”，会误导用户。
-- 导入、导出、复制、工作流列表虽有 API 客户端，但没有 UI 入口。
-- 运行按钮调用 `runMock()`，只是按节点数组顺序播放动画，不做 DAG 调度，也不产生资产。
-- 没有执行 API 客户端、WebSocket 客户端、断线重放、任务列表、失败/blocked/skipped/cancelled 状态。
-- AgentComposer 不调用 `/api/agent/*`，只解析“数字 + 镜头”并替换默认模板。
-- SettingsPanel 和 TemplateSelector 是孤立组件，未在 App/TopBar 中渲染；二者还使用独立内联紫色视觉体系，与主界面设计令牌不一致。
-- 没有图片缩略图、视频播放器、成片下载或资产管理页面。
-
-### 4.2 工作流模型与持久化评估
-
-#### 已实现
-
-- Pydantic 会拒绝重复节点 ID、悬空边和输入输出类型不相等的连线。
-- SQLite 启用 WAL、外键和 busy timeout；工作流 Repository 支持 CRUD、复制和乐观锁。
-- execution 保存 workflow snapshot，方向正确。
-
-#### 缺口
-
-- 没有共享 JSON Schema 或生成型契约；前后端节点目录和类型分别手写，易漂移。
-- WorkflowSpec 缺少 description、viewport、metadata、端口 handle、execution_mode 和明确的 schema migration 策略。
-- 模型层不检查未知节点类型、必填输入、重复边、自环和一般 DAG 环；环只在执行编译时发现。
-- `UpdateRequest.spec` 是裸 `dict`，更新工作流时绕过 WorkflowSpec 校验，非法图可写入数据库。
-- 初始迁移缺少计划要求的 `workflow_versions`、`node_runs`、`assets`、`provider_configs`；`tasks` 也没有 result、attempt、heartbeat 等关键字段。
-- 只有一个迁移 SQL，没有 schema_migrations 表和顺序迁移运行器，未来升级风险较高。
-- 数据库外键将 workflow 删除级联到 executions，与“保留执行历史/资产血缘”的目标冲突。
-
-### 4.3 DAG 编译器、队列和 Worker 评估
-
-#### 已实现
-
-- Kahn 拓扑排序、悬空边和环检测已实现并有单元测试。
-- textToImage/imageToVideo 可按 storyboard 的静态 `scenes` 数量展开任务。
-- 队列包含 pending/running/completed/failed/skipped/cancelled、租约、心跳和孤儿回收的基础函数。
-- 执行开始时保存工作流快照，并把编译后的任务写入 SQLite。
-- 事件先落 SQLite，再向订阅者推送，思路正确。
-
-#### P0 级结构问题
-
-1. **没有结果持久化和上下文传递。** `Worker._execute_task()` 得到 `result` 后直接丢弃，`tasks` 表也没有 result 字段。分镜的 scene、图片 path、视频 path 均不能进入下游 Handler。
-2. **map 不是运行时映射。** 编译器只根据 storyboard 配置预先造 N 个 task，而不是根据实际 Storyboard 输出展开；每个文生图 task又依赖 storyboard 的同一个 task，图生视频的每一项依赖所有文生图 task，无法一一按 `scene_id` 关联并流水执行。
-3. **任务领取不是完整原子事务。** SELECT 发生在 `BEGIN IMMEDIATE` 之前；多 Worker 下虽有条件 UPDATE 兜底，但连接共享与事务时序仍不满足设计中的原子 claim 模型。
-4. **失败传播只有一层。** 直接下游被 skipped 后，更深层任务仍 pending，可能永久不收敛。
-5. **执行记录不收敛。** 没有在全部任务终态后更新 executions.status/completed_at，也没有 execution.completed/failed 事件。
-6. **取消存在竞态。** API 把 running task 标为 cancelled，但 Handler 没有 CancellationToken；Worker 返回后 `complete_task` 可把它重新覆盖成 completed。
-7. **无重试。** 没有 retry_count/attempt、错误分类、指数退避、单项重试 API 或幂等资产键。
-8. **实际只有一个 Worker。** 配置中的 poll/lease 参数也未用于 `get_worker()` 的固定值。
-9. **结果模型缺失。** API 的 ExecutionResponse 未声明 `task_summary`，契约与实际返回数据不一致。
-
-因此 Phase B 的“Mock 完整纵向链路”门禁当前没有通过。
-
-### 4.4 Provider、真实 Handler、资产和 FFmpeg 评估
-
-#### 已实现
-
-- BaseProvider、能力声明和 ProviderError 派生错误已经建立。
-- Mock、Ollama、OpenAI、ComfyUI 类均存在；ComfyUI 包含提交、history 轮询和结果读取逻辑。
-- FFmpeg 服务采用 asyncio 子进程，具备检测、图转视频、拼接和媒体信息读取方法。
-- AssetManager 可分类保存、读取、列出、删除和按时间清理文件。
-- Real Handler 覆盖六类核心节点，单模块测试在受控环境下可以执行。
-
-#### 尚不能称为真实多模态闭环
-
-- Provider 初始化由“默认 LLM 是否为 mock”控制整个 Handler 模式。例如 LLM=mock、image=comfyui 时仍加载全 Mock Handler；LLM=ollama 时不会注册 mock image/video provider，混合 Provider 配置无法正常工作。
-- 节点的 provider 默认字符串常写成 `Mock`（前端）而注册名为 `mock`（后端），存在大小写契约漂移。
-- RealTextInputHandler 把原始输入节点也交给 LLM 处理，和“文本输入只产出用户原文”的节点语义不一致。
-- RealStoryboardHandler 从静态 config 读取 prompt，没有接收上游 TextInput 的输出。
-- RealTextToImageHandler 读不到实际 scene.image_prompt；RealImageToVideoHandler 明确要求 config.image_path，但编译器从未注入；VideoConcat 同样收不到 video_paths。
-- Handler 返回 `{status: "error"}` 时 Worker 不检查业务状态，仍会调用 `complete_task()`，把失败当成功。
-- 图转视频、拼接失败时返回不存在的 Mock 路径并标记成功，会造成“绿色成功但文件不可下载”。
-- AssetManager 的 `get_asset_path/read/delete/exists` 直接拼接相对路径，没有 resolve 后的根目录边界检查，存在路径遍历风险。
-- 文件写入不是“临时文件 + 原子重命名”，没有 MIME/大小限制和内容校验。
-- 无 assets 表、文件哈希、媒体元数据、execution/node/scene/source_asset_ids 血缘，也不能阻止删除仍被执行引用的文件。
-- 未对真实 Ollama/OpenAI/ComfyUI 建立 fake server contract tests；现有 Provider 测试主要覆盖 Base 与 Mock。
-- 本机没有 FFmpeg，因此真实媒体链路只验证了不可用分支，未生成并检查可播放成片。
-
-Phase C 应评为“适配器代码已起草，集成未完成”。
-
-### 4.5 Agent 与模板评估
-
-#### 已实现
-
-- 后端 AgentService 支持 generate/modify/explain 三种调用形式。
-- GraphPatch 模型和 apply-patch API 已存在。
-- 三个内置模板、内存自定义模板和模板 API 已存在。
-- LLM 不可用时能回退到 prompt-to-video 模板。
-
-#### 缺口和风险
-
-- Agent 不是工具调用或 Schema constrained output，只要求 LLM 输出 JSON，再手工解析；无法稳定约束节点类型和配置。
-- `VALID_EDGES` 目录未真正用于 LLM 输出后的独立验证/修复流程，主要依赖 WorkflowSpec 的弱校验。
-- 没有 list_node_types、validate_workflow、preview_patch 等受限工具，也没有自修复次数和审计记录。
-- apply-patch 请求没有 `expected_version`；API 读取最新 version 后立即保存，不能检测“用户预览 patch 后画布已被另一个标签修改”的冲突。
-- 对删除、Provider 替换等有损 patch 没有强制确认标记；前端也没有 diff 预览。
-- Agent `/generate` 会直接持久化，和“先预览确认再写入”的计划边界不一致。
-- 前端完全未调用后端 Agent API，用户实际得到的仍是固定线性模板。
-- 自定义模板只保存在进程内存，重启丢失；TemplateSelector 成功调用 create 后也没有读取响应中的 spec 并放入画布。
-
-Phase D 应评为“后端概念验证完成，用户体验未接入”。
-
-### 4.6 安全、恢复、性能和跨平台评估
-
-- 安全/恢复/性能/跨平台测试文件数量较多，但测试存在“曾因缺插件被跳过”和“App 导入失败导致整组未收集”的问题，不能以文件数代替门禁结论。
-- SecurityMiddleware/InputSanitizeMiddleware 没有注册到 FastAPI，安全头、请求体限制和速率限制当前均不生效。
-- 配置默认 HOST 为 `0.0.0.0`，与主计划“默认仅监听 127.0.0.1”的安全要求冲突；Vite 前端倒是只监听本机。
-- 基于 Content-Length 的请求限制不能覆盖 chunked body；内存 rate limit 无容量上限和清理整个 IP key 的策略。
-- URL 更新没有 SSRF 校验，用户可把 Provider 指向任意可访问地址。
-- API Key 会通过前端发送给设置 API 并驻留内存，不落日志的约束尚无完整验证；设置重启后丢失。
-- recovery tests 验证了若干数据库/租约函数，但实际 Worker 没有 retry attempt 和结果幂等，不能保证真实长任务恢复。
-- performance tests 更多是函数级基准，没有浏览器 100 节点交互、真实 API P95、空闲内存和长视频任务测量。
-- 只有 Windows 本地结果，没有 macOS/Linux CI matrix。
-
-Phase E 未通过，不能标记发布就绪。
-
-### 4.7 本次改进（Phase E 基线修复 + 集成收敛）
-
-| 改进项 | 说明 | 状态 |
-|--------|------|------|
-| **安全中间件注册** | SecurityMiddleware + InputSanitizeMiddleware 已注册到 FastAPI | ✅ 完成 |
-| **Worker 结果持久化** | `complete_task()` 接受 result 参数，存入 `result_json` 列 | ✅ 完成 |
-| **执行收敛** | `_check_execution_convergence()` 检查所有任务完成后更新 executions.status | ✅ 完成 |
-| **上游结果传递** | Worker 获取上游任务结果，通过 context 传递给 Handler | ✅ 完成 |
-| **数据库迁移** | 002-005: result_column, assets_table, templates_table, attempt_column | ✅ 完成 |
-| **迁移幂等** | init_db() 逐语句执行，忽略 duplicate column 错误 | ✅ 完成 |
-| **Assets 表** | 资产血缘追踪，支持 execution/node/task/scene 过滤 | ✅ 完成 |
-| **Assets API** | CRUD + 血缘查询 + 统计，7 个端点 | ✅ 完成 |
-| **前端执行 API** | store.ts 调用后端 execution API，支持轮询状态 | ✅ 完成 |
-| **前端 Agent/模板接入** | TopBar 挂载 SettingsPanel/TemplateSelector | ✅ 完成 |
-| **独立 Provider 配置** | LLM/Image/Video Provider 独立选择 | ✅ 完成 |
-| **前端 API 客户端** | 完整的执行/Agent/模板/资产/配置 API 封装 | ✅ 完成 |
-| **配置 env_prefix** | `AI_VIDEO_` 前缀避免环境变量污染 | ✅ 完成 |
-| **模板持久化** | 自定义模板存储到 SQLite templates 表 | ✅ 完成 |
-| **任务重试** | fail_task 支持 max_retries=3，超过后传播失败 | ✅ 完成 |
-| **.env.example** | 完整的环境变量配置示例 | ✅ 完成 |
-| **默认 HOST** | 改为 127.0.0.1（安全要求）| ✅ 完成 |
-
-**测试结果：后端 226 passed、6 skipped；前端 16 passed。Qwen Image 真实生图通过；Wan3 鉴权和 Contract Test 通过。**
-
-## 5. 分阶段完成度
-
-| 阶段 | 当前估值 | 已有成果 | 未通过的关键门禁 |
-|---|---:|---|---|
-| Phase A 类型化画布与持久化 | **65%** | 画布、六节点、前端类型校验、localStorage、CRUD、乐观锁、Undo/Redo | 共享 Schema 缺失；更新绕过模型校验 |
-| Phase B Mock 执行器 | **55%** | 编译器、SQLite task、单 Worker、事件/WebSocket 后端、Mock Handler、**结果持久化、执行收敛、前端执行 API** | 无 retry；无 scene_id 映射 |
-| Phase C 真实多模态 | **50%** | Qwen Image 真实生图、Wan3.0 480P Provider、ComfyUI 本地备选、Real Handler、AssetManager、FFmpeg service、**Assets 表/API、独立 Provider 配置** | 未执行计费 Wan3 UAT；未验证真实成片合成 |
-| Phase D Agent 与模板 | **45%** | AgentService、GraphPatch、三模板、API、**前端 SettingsPanel/TemplateSelector 已挂载** | 无 schema/tool calling；模板不持久化 |
-| Phase E 发布验收 | **40%** | 测试目录、**安全中间件已注册**、**后端 226 项与前端 16 项测试通过**、**前端完整 API 客户端** | FFmpeg 环境测试、三平台、真实成片和浏览器 E2E 未完成 |
-
-这里的百分比不是工时比例，而是各阶段验收标准的满足比例。项目不应继续按 A→B→C→D→E 线性添加新模块；当前最需要的是回到主链路做集成收敛。
-
-## 6. 后续规划
-
-### Release Blocker 0：恢复可信基线（预计 0.5-1 天）
-
-目标：后端可启动，完整测试能够真实收集，CI 不再出现假绿。
-
-1. 修正 DELETE 204 的响应类型/response_class，确保 `backend.app.main` 可导入。
-2. 为配置增加 `AI_VIDEO_` env_prefix，避免 `DEBUG`、`HOST` 等通用环境变量污染。
-3. 在 pytest 配置明确 `asyncio_mode` 和 fixture loop scope；确认 requirements 与 venv/CI 一致。
-4. 注册或删除名不副实的安全中间件测试前置条件。
-5. 单独执行并门禁 frontend test、typecheck、build、backend pytest；任一失败则 CI 失败。
-6. 更新 README，移除“FFmpeg 后续使用”等已经过时的描述，增加 `.env.example` 和先决条件检查。
-
-完成标准：FastAPI 可启动；完整 pytest 无 collection error、无意外 skipped；前端三项验证通过。
-
-### Release Blocker 1：打通可恢复的 Mock 纵向链路（预计 3-5 天）
-
-目标：真正完成 Phase B，而不是继续增加 Provider。
-
-1. 数据库迁移新增 task result、attempt、heartbeat、node_runs，并建立 executions 状态机。
-2. 定义统一 `NodeResult`/`ArtifactRef`，Worker 检查 Handler result.status，成功后原子保存结果。
-3. Scheduler 从已完成上游结果组装下游输入；以 `scene_id` 一一映射，不再让每个下游 map item 依赖全部上游 item。
-4. 聚合节点按 scene.index 稳定收集 video refs；输出节点拿到最终 asset ref。
-5. 递归/迭代传播 failed → blocked/skipped，保证所有执行最终收敛。
-6. 实现 retry_count、最大次数、错误可重试分类、单 node/item 重试和幂等 task/asset key。
-7. 取消使用 CancellationToken；complete/fail UPDATE 必须带 `WHERE status='running'`，避免覆盖 cancelled。
-8. Worker 数量和 poll/lease 从 Settings 读取，至少验证 2 个 Worker 原子领取。
-9. 前端新增 execution API/WebSocket store；运行按钮改为保存 → start execution → 订阅状态，删除 `runMock` 作为主路径。
-10. 节点/UI 展示 waiting/running/completed/failed/blocked/skipped/cancelled、map 进度和错误。
-
-完成标准：无外部服务时，从 UI 输入主题可产生结构化 scene、Mock image/video asset 和 final asset；刷新/断线后状态可恢复；失败、重试、取消均有 E2E。
-
-### Release Blocker 2：资产模型与真实媒体闭环（预计 3-5 天）
-
-目标：在 Phase B 稳定契约上完成一个可播放的真实成片。
-
-1. 新增 assets Repository/Table：execution_id、node_id、scene_id、source_asset_ids、provider、model、params、hash、mime、size、metadata。
-2. 所有路径 resolve 后强制位于 asset root；使用临时文件 + fsync/close + 原子重命名。
-3. 下载外部资源时限制协议、host、重定向、MIME 和大小，文件名由服务端生成。
-4. 重构 Provider Registry，让 LLM/Image/Video 能力独立选择；不再以默认 LLM 决定全局 Handler 模式。
-5. Provider 接口支持长任务 submit/poll/cancel/progress；ComfyUI/云视频统一成 JobHandle。
-6. 为 Ollama/OpenAI/ComfyUI 建立 fake HTTP server contract tests，覆盖超时、429、坏 JSON、取消和断线。
-7. FFmpeg 合成前统一尺寸、帧率、编码、像素格式和音轨；安装 FFmpeg 后生成最小真实测试视频并用 ffprobe 验证。
-8. 前端实现图片、分镜视频和最终成片预览/下载，以及资产血缘跳转。
-
-完成标准：至少一个真实 LLM + 一个真实图像来源 + FFmpeg 图转视频/合成链路通过，最终文件可播放且每个镜头可回溯。
-
-### Product Integration 3：接入 Agent、模板和设置（预计 2-4 天）
-
-目标：把已有后端概念验证变成可用产品交互。
-
-1. 把节点 Manifest/配置 Schema 作为单一事实来源，生成前端类型/表单和 Agent 工具描述。
-2. Agent 使用结构化输出或 tool calling；输出先经过节点存在、端口、DAG、Provider 能力和秘密扫描校验。
-3. generate/modify 只返回候选 spec/patch，不直接落库；前端显示 diff，用户确认后带 expected_version 应用。
-4. Agent 有损操作明确标记；失败可限定次数自修复，仍失败时显示具体校验错误。
-5. TopBar 挂载 SettingsPanel/TemplateSelector，并统一主界面设计令牌、图标和错误状态。
-6. 模板 create 返回 spec 后直接装载到画布；自定义模板持久化到 SQLite。
-7. AgentComposer 接后端 generate/modify/explain，保留无模型时的确定性模板 fallback。
-8. 增加至少 20 条中文 golden cases，覆盖镜头数、画幅、风格、替换 Provider、插入节点和非法请求。
-
-完成标准：用户可自然语言生成/修改流程，预览并撤销变更；设置和模板入口真实可用，重启后数据不丢失。
-
-### Release Candidate 4：安全、恢复和发布（预计 2-4 天）
-
-目标：完成 Phase E 门禁。
-
-1. 注册安全中间件，并以流式读取限制请求体；默认 HOST 改为 127.0.0.1。
-2. Provider URL 做 SSRF 策略；日志、API、导出文件扫描密钥泄露。
-3. 覆盖服务崩溃、租约超时、磁盘满、资产丢失、Provider 超时、WebSocket 重连和数据库备份恢复。
-4. Playwright 浏览器 E2E 覆盖拖拽/连线、Agent 生成、Mock 执行、失败重试、刷新恢复和下载。
-5. GitHub Actions 或等价 CI 使用 Windows/macOS/Linux matrix；真实付费 Provider 测试保持可选。
-6. 测量并记录启动时间、100 节点画布交互、API P95、2-4 Worker、内存和磁盘占用。
-7. 完成安装、配置、备份、恢复、升级、故障排查和安全开放局域网的文档。
-
-完成标准：所有自动门禁通过；三平台 smoke test 通过；Mock 完全离线；发布文档可由新用户独立执行。
-
-## 7. 推荐迭代顺序与暂缓项
-
-推荐严格按以下顺序推进：
+### 5.2 后端
 
 ```text
-修复启动/测试基线
-  → 保存并传递 NodeResult
-  → Mock UI 端到端
-  → 资产血缘与 FFmpeg 真实成片
-  → Provider contract
-  → Agent/模板/设置接入
-  → 发布验收
+backend/app
+├── main.py                         FastAPI 装配、Provider 和 Worker 生命周期
+├── config.py                       AI_VIDEO_* 配置
+├── models.py                       Workflow/GraphPatch 模型
+├── middleware.py                   安全中间件
+├── api/                            Workflow/Execution/Asset/Agent/Template/Config
+├── db/
+│   ├── connection.py              SQLite 单例和简易迁移执行
+│   └── migrations/001-005         初始表、result、asset、template、attempt
+├── repositories/                   Workflow、Asset
+├── engine/
+│   ├── compiler.py                拓扑和静态 map 展开
+│   ├── queue.py                   claim/lease/result/retry/convergence
+│   └── worker.py                  上游结果、Handler 和事件
+├── handlers/                       Mock/Real 六类节点 Handler
+├── providers/
+│   ├── mock_provider.py
+│   ├── ollama_provider.py
+│   ├── openai_provider.py
+│   ├── dashscope_provider.py      Qwen Image 3.0
+│   ├── wan3_provider.py           Wan3.0 Video
+│   └── comfyui_provider.py        本地 ComfyUI
+└── services/                       Agent/Template/Event/Asset/FFmpeg
 ```
 
-在 Mock 主链路通过前，暂缓：新增更多 Provider、新节点类型、条件分支、通用循环、cron、多用户协作和插件 SDK。继续横向添加模块会扩大当前契约漂移和集成债务。
+### 5.3 正确架构边界
 
-## 8. 最近一个可执行 Sprint
+- Qwen Image 与 Wan3 都属于阿里云百炼，但分别是 image/video capability Provider。
+- Wan3 不是 ComfyUI 模型配置；`wan3` 与 `comfyui` 必须独立注册和选择。
+- Handler 接收标准 NodeInput 并返回 NodeResult；Provider 只负责外部协议。
+- 长任务 task_id 必须由 Scheduler/NodeRun 持久化，不能只存在于单次 Provider 协程内。
+- 资产文件必须落本地，外部 24 小时临时 URL 不能成为工作流永久输出。
 
-建议下一个 Sprint 只做 Release Blocker 0 和 Blocker 1 的前半段：
+## 6. 已完成的重要改进
 
-| 顺序 | 交付 | 验收测试 |
-|---:|---|---|
-| 1 | 后端可导入、启动和完整收集测试 | `/api/health` 200；pytest 无 collection error |
-| 2 | task result migration + NodeResult | Handler 失败不会被标 completed；结果重启后仍存在 |
-| 3 | 上游结果注入与 scene_id 映射 | 3 scenes 精确生成 3 image inputs 和 3 video inputs |
-| 4 | execution 终态与递归失败传播 | completed/failed/cancelled 均能收敛，无永久 pending |
-| 5 | 前端 execution store + WebSocket | 运行按钮调用真实 API，刷新后恢复节点状态 |
-| 6 | Mock 浏览器 E2E | 从输入主题到 final mock asset 全链成功 |
+### 工程基线
 
-Sprint 结束时再重新评估 Phase B 门禁。如果上述第 6 项未通过，不进入真实 Provider 集成。
+- 修复 Workflow/Asset DELETE 204 空响应，FastAPI 可正常导入。
+- Settings 使用 `AI_VIDEO_` 前缀，避免系统 DEBUG/HOST 污染。
+- 安装并配置 pytest-asyncio，async 测试会真实执行。
+- SecurityMiddleware/InputSanitizeMiddleware 已注册。
+- pytest fixture loop scope 已显式设为 function。
 
-## 9. 已知工作区状态
+### 执行与数据
 
-- 审计过程中没有修改 `backend/tests/acceptance/test_e2e.py` 或任何生产代码。
-- 本次只更新项目状态文档。
-- 为准确运行 async 测试，本地 `backend/.venv` 按现有 `requirements.txt` 补装了 `pytest-asyncio` 和 `pydantic-settings`；虚拟环境已被 gitignore，不属于代码变更。
+- task 增加 result_json 和 attempt。
+- Worker 保存 Handler 结果、读取上游结果，并拒绝把业务 error 标为 completed。
+- executions 可在所有 task 进入终态时收敛。
+- Assets 和 Templates 已增加 SQLite 表与 API。
+- 前端运行按钮已调用后端执行 API并轮询任务。
+
+### 多模态 Provider
+
+- Qwen Image 使用官方 DashScope 3.0 同步/异步 endpoint，支持 URL 下载、尺寸和扩展参数校验。
+- Qwen Image 已真实生成测试 PNG。
+- Wan3 使用官方异步 video-synthesis endpoint，支持首帧 Base64、task_id 轮询和 MP4 下载。
+- Wan3 默认 480P，开放 480P/720P/1080P、比例、时长、音频、seed、提示词增强和水印。
+- Wan3 与 ComfyUI 拆分为两个 Provider。
+
+## 7. 当前 P0 风险
+
+| ID | 风险 | 影响 | 当前证据 | 处置 |
+|---|---|---|---|---|
+| P0-1 | scene 数据未真正一一映射 | 图片/视频可能使用空 prompt 或错误上游资产 | compiler 让 map item 依赖上游全部 task | 优先实现动态 map/按 item_key 输入组装 |
+| P0-2 | 长任务 task_id 不持久化 | 进程重启后可能重复计费创建 Wan3 任务 | task_id 只在 Provider 协程内 | NodeRun 增加 external_job_id/status |
+| P0-3 | 真实 Wan3 未 UAT | 无法确认业务空间授权、实际结果格式和耗时 | 只做健康/Contract Test | 需用户确认费用后执行 480P/2 秒测试 |
+| P0-4 | 无 FFmpeg 环境验收 | 最终多段视频无法确认可合成 | 6 项测试 skipped | 安装固定版本并执行真实媒体测试 |
+| P0-5 | 失败传播仅直接一层 | 深层 task 可能永久 pending | queue fail_task 只更新直接依赖 | Scheduler 递归传播并做不变量测试 |
+| P0-6 | 取消可能被晚到结果覆盖 | UI/数据库状态不一致 | Provider 缺持久 cancel token，complete UPDATE 未限制状态 | 状态条件更新 + Job cancel |
+| P0-7 | 配置只在内存修改 | UI 保存后重启丢失 | Config API 注释明确 in-memory | ProviderConfig Repository/secret reference |
+| P0-8 | Agent/模板入口未闭环 | 用户操作看似成功但画布不变 | TemplateSelector 丢弃返回 spec；AgentComposer 不调 API | 作为产品集成 Sprint 处理 |
+
+## 8. 里程碑状态
+
+| 里程碑 | 目标 | 状态 | 出口标准 |
+|---|---|---|---|
+| M0 工程基线 | App 可启动、测试可信 | 基本完成 | 增加 CI jobs 后关闭 |
+| M1 编辑闭环 | 类型化画布、持久化、导入导出 | 进行中 | 共享 Schema + UI 入口 + 保存错误态 |
+| M2 Mock 执行闭环 | scene/image/video/final 数据真实传递 | 进行中 | 浏览器 E2E、失败/取消/恢复通过 |
+| M3 真实多模态 | Qwen → Wan3 → FFmpeg 可播放成片 | 进行中 | Wan3 计费 UAT + FFmpeg 合成验收 |
+| M4 Agent/模板 | 自然语言生成/修改、diff、确认 | 未达门禁 | 前端接后端 + Schema output + 乐观锁 |
+| M5 Release Candidate | 三平台、安全、恢复、文档 | 未开始 | Release checklist 全绿 |
+
+## 9. 后续统筹计划
+
+### Sprint N：执行语义收敛（最高优先级，预计 2 周）
+
+目标：证明 3 个 scene 从实际 Storyboard 结果生成 3 个正确图片输入和 3 个正确视频输入。
+
+1. 冻结 `NodeInput/NodeResult/NodeError/ArtifactRef` Schema。
+2. 迁移 node_runs：input_json、result_json、external_job_id、attempt、error_code、timestamps。
+3. Scheduler 按实际 storyboard output 创建/激活 map item。
+4. textToImage 取得对应 `scene.image_prompt`；imageToVideo 取得对应 image path 与 `scene.video_prompt`。
+5. VideoConcat 按 scene.index 聚合 video assets。
+6. 深层失败递归传播，无永久 pending。
+7. complete/fail 使用状态条件更新，修复取消竞态。
+8. 配置 2 Worker 并验证原子 claim。
+9. 增加 Mock 数据值断言，不只断言 task 数量/状态。
+
+出口标准：Mock 浏览器链路输出 final asset；每项上下游内容与 scene_id 可追溯；重试/取消/重启收敛。
+
+### Sprint N+1：真实媒体 UAT（预计 1-2 周）
+
+目标：生成一套最小真实成片并形成可重复 UAT 记录。
+
+1. 配置百炼 Workspace 专属 endpoint。
+2. 经用户确认费用后执行 Wan3 480P、2 秒、无水印最小任务。
+3. 持久化 Wan3 task_id，验证进程重启后继续轮询而不重复提交。
+4. 安装并固定 FFmpeg/ffprobe 支持版本。
+5. 生成 2-3 个片段，统一编码/帧率/尺寸后合成。
+6. 资产登记 sha256、MIME、大小、Provider、模型、参数和 source_asset_ids。
+7. 前端提供图片、片段、成片预览与下载。
+8. 记录耗时、调用次数、错误、输出分辨率和估算成本。
+
+出口标准：Qwen Image → Wan3 → FFmpeg 输出可播放 MP4；任一镜头可回溯文本、图片和视频。
+
+### Sprint N+2：Agent 与产品体验（预计 2 周）
+
+1. Node Manifest 成为前后端与 Agent 的单一事实来源。
+2. Agent generate/modify 使用结构化输出并先返回 preview。
+3. 前端展示 GraphPatch diff、有损警告、确认和撤销。
+4. TemplateSelector 装载 API 返回的 WorkflowSpec。
+5. Provider 设置持久化；秘密只保存引用。
+6. 拆分 workflowStore/executionStore，接入 WebSocket 和断线补拉。
+7. 增加工作流列表、导入导出、执行历史和资产页面。
+8. 建立 20+ 中文 Agent golden cases。
+
+出口标准：用户能自然语言创建/修改流程并确认；刷新/重启后工作流、模板、非秘密设置和执行状态一致。
+
+### Sprint N+3：Release Candidate（预计 1-2 周）
+
+1. Playwright 覆盖编辑、运行、失败、重试、刷新、Agent 和下载。
+2. Windows/macOS/Linux CI matrix。
+3. SSRF、路径穿越、密钥脱敏、超大文件和 prompt injection 测试。
+4. DB 备份/恢复、磁盘满、Provider 超时和 Worker 崩溃演练。
+5. 100 节点画布、4 Worker、API P95 和内存基准。
+6. 安装、升级、回滚、故障排查和局域网开放说明。
+
+出口标准：Active 计划 Release Checklist 全绿，才允许标记 v1.0 RC。
+
+## 10. 下一批可直接领取的工单
+
+| 顺序 | 工单 | 交付 | 依赖 |
+|---:|---|---|---|
+| 1 | AVC-201 | NodeResult/ArtifactRef Schema | 无 |
+| 2 | AVC-105 | node_runs/external_job_id 迁移与 Repository | 201 |
+| 3 | AVC-203 | scene_id 动态 map 和输入组装 | 105,201 |
+| 4 | AVC-204 | 递归失败传播与执行不变量 | 203 |
+| 5 | AVC-205 | 取消竞态和状态条件更新 | 105 |
+| 6 | AVC-207 | 2-4 Worker pool 与原子 claim | 204 |
+| 7 | AVC-302/303 | WebSocket executionStore 与重连 | 204 |
+| 8 | AVC-308 | Mock 浏览器 E2E | 203-207,302/303 |
+| 9 | AVC-508 | Wan3 external job 持久化和 UAT | 105,203 |
+| 10 | AVC-403/406 | FFmpeg normalize 与真实媒体测试 | 308 |
+
+在 AVC-308 通过之前，暂停新增 Provider、节点种类、条件分支、通用循环、cron 和插件 SDK。
+
+## 11. 文档治理
+
+- 本文件每个 Sprint Demo 后更新一次，测试数字必须来自同次运行。
+- `docs/plans/2026-09-15-company-delivery-plan.md` 是唯一 Active 开发计划。
+- `docs/plans/phase-c-plan.md`、`phase-d-plan.md`、`phase-e-plan.md` 仅为历史文档。
+- Provider 官方参数分别维护在 `docs/integrations/`。
+- PRD 只写产品需求，dp 只写目标架构；实现现状只写在本文件。
+- 任何“完成”必须同时有代码、自动测试、主路径接入和验收证据。

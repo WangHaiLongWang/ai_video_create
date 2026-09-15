@@ -1,6 +1,39 @@
 极简本地架构：Node + Python + 可配置 LLM
 本次架构彻底去除 Docker、PostgreSQL、MinIO、Redis 等所有中间件依赖，只需一台装有 Node 和 Python 的机器即可运行。数据落 SQLite 单文件，文件落本地磁盘，任务队列在进程内调度，LLM 完全配置化（远程/本地均可）。
 
+## 2026-09-15 架构补充（当前有效）
+
+本文早期示意图中的 “ComfyUI/云端 API” 是能力类别，不代表二者使用同一协议。当前 Provider 边界为：
+
+```text
+Text capability
+  ├─ Mock
+  ├─ Ollama
+  └─ OpenAI-compatible
+
+Image capability
+  ├─ DashScope Qwen Image 3.0（默认）
+  ├─ OpenAI Images
+  └─ ComfyUI（本地可选）
+
+Video capability
+  ├─ Bailian Wan3.0（默认，480P）
+  ├─ ComfyUI（本地可选）
+  └─ Mock
+
+Post processing
+  └─ FFmpeg（本地）
+```
+
+- `dashscope_provider.py` 负责 Qwen Image 3.0 原生同步/异步图像协议。
+- `wan3_provider.py` 负责 Wan3.0 `video-synthesis` 异步任务、轮询和结果下载。
+- `comfyui_provider.py` 只负责本地 ComfyUI `/prompt`、`/history`、`/view` 协议。
+- Provider 只适配外部服务；Handler 负责节点语义；Scheduler 负责依赖、scene map 和长任务恢复。
+- 外部图像/视频临时 URL 必须立即下载到本地 Asset Service。
+- Wan3 task_id 后续必须持久化到 node_runs，进程重启后继续轮询，禁止重复创建计费任务。
+
+实现进度和当前缺口以 `docs/PROJECT-STATUS.md` 为准；研发顺序以 `docs/plans/2026-09-15-company-delivery-plan.md` 为准。
+
 一、架构总览图
 text
 ┌────────────────────────────────────────────────────────────────────┐

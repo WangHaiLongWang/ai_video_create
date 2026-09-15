@@ -12,6 +12,17 @@ ai_video_create —— 一个完全运行在本地、可视化编排 AI 内容�
 
 可视化：所有流程所见即所得，非技术用户也能编排复杂 AI 工作流
 
+### 1.1 v1.0 Provider 基线（2026-09-15 决策）
+
+| 能力 | 默认 Provider/模型 | 默认参数 | 备选 |
+|---|---|---|---|
+| 文本/分镜 | Mock（开发默认） | 5 个结构化 scene | Ollama / OpenAI 兼容 |
+| 文生图 | 阿里云百炼 DashScope / `qwen-image-3.0` | 1280×720、提示词增强开启、无水印 | OpenAI / ComfyUI |
+| 图生视频 | 阿里云百炼 / `wan3.0-video` | **480P**、adaptive、5 秒、提示词增强开启 | `wan3.0-video-prime` / ComfyUI / Mock |
+| 视频拼接 | 本地 FFmpeg | MP4 | 无 |
+
+说明：万相 3.0 是百炼云端视频 Provider，不属于 ComfyUI。ComfyUI 保留为独立的本地生成后端，需要用户提供与本机节点/模型匹配的 API workflow。480P 是本项目为开发测试成本设置的默认值，万相 API 本身的官方默认分辨率为 1080P。
+
 2. 目标用户
 用户角色	典型场景	核心诉求
 内容创作者	批量生产短视频	提示词一键出片，可视化调参
@@ -34,8 +45,8 @@ AI 工程师	快速验证多模型流水线	灵活切换 LLM/生图/生视频后
 文本输入	—	text	默认文本
 LLM	text, system_prompt	text	provider_id, model, temperature, max_tokens, stream
 文本分段	text	text[]	分段数, 分段策略
-文生图	text	image	后端（ComfyUI/云端）, 尺寸, 风格
-图生视频	image	video	后端, 时长, 运镜, 分辨率
+文生图	text/scene	image	后端（Qwen Image/OpenAI/ComfyUI）, 模型, 尺寸, 风格, seed, 提示词增强
+图生视频	image	video	后端（Wan3/ComfyUI/Mock）, 模型, 480P/720P/1080P, 比例, 时长, 音频, seed, 提示词增强, 水印
 视频拼接	video[]	video	转场类型, 输出格式
 输出	任意	—	展示/下载
 3.3 执行与监控（P0）
