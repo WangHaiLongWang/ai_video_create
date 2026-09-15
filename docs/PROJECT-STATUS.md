@@ -49,6 +49,8 @@ Phase E 发布验收         40%  ████████░░░░░░░�
 | Qwen Image 真实生图 | 1280×720 PNG | 通过 |
 | Wan3 鉴权/endpoint | Provider health true | 通过 |
 | Wan3 Contract Test | 480P、首帧、轮询、下载、参数校验 | 通过 |
+| MiMo/OpenAI-compatible Contract Test | 认证头、模型、token 参数和采样参数 | 通过 |
+| MiMo 真实文本调用 | `mimo-v2.5-pro`，HTTP 200，finish_reason=stop | 通过 |
 | Wan3 真实视频 | 未创建计费任务 | 未验收 |
 | FFmpeg 真实媒体 | 本机未安装，6 项跳过 | 未验收 |
 | 浏览器 E2E | 未配置 Playwright | 未实现 |
@@ -59,7 +61,7 @@ Phase E 发布验收         40%  ████████░░░░░░░�
 ## 3. 当前默认产品配置
 
 ```text
-LLM       mock（默认，避免无意调用收费文本模型）
+LLM       openai_compat / Xiaomi MiMo / mimo-v2.5-pro（本机 Token Plan Key 已配置）
 Image     dashscope / qwen-image-3.0 / 1280x720
 Video     wan3 / wan3.0-video / 480P / adaptive / 5s
 Fallback  ComfyUI（本地可选，但 img2vid workflow 仍为占位模板）
@@ -106,6 +108,7 @@ Host      127.0.0.1
 | Asset 表/API | 已实现 | 列表、详情、血缘、统计 | Handler 资产登记一致性需 E2E |
 | 资产文件服务 | 已实现 | `/assets` 静态目录 | 仍需统一下载/删除策略 |
 | Provider 设置 | 已挂载 | Qwen/Wan3/ComfyUI/OpenAI/Ollama | API 只改内存，重启依赖 `.env` |
+| 自定义 LLM | 已验证 | OpenAI-compatible，MiMo v2.5 Pro Token Plan 预设 | Provider 已注册、Key 未暴露，真实 Chat Completions 通过 |
 | 模板 API/持久化 | 已实现 | 内置 + SQLite 自定义模板 | 前端选择后未装载返回 spec |
 | Agent 后端 | 原型 | generate/modify/explain/patch | 非严格 tool calling/schema output |
 | Agent 前端 | 未接后端 | 本地正则和默认模板 | 无 diff、确认、解释 |
@@ -197,6 +200,12 @@ backend/app
 - Wan3 默认 480P，开放 480P/720P/1080P、比例、时长、音频、seed、提示词增强和水印。
 - Wan3 与 ComfyUI 拆分为两个 Provider。
 
+### 自定义 LLM
+
+- 新增 text-only `openai_compat` Provider，支持自定义名称、Base URL、模型、认证 Header/前缀、token 参数名、temperature、top_p、最大输出和 timeout。
+- 当前本机预设为 Xiaomi MiMo `mimo-v2.5-pro`，使用 Token Plan Base URL 和 `api-key` 认证头。
+- MiMo Provider 已注册，API Key 不出现在 Settings GET；真实 `/models` 和 Chat Completions 调用均已通过。
+
 ## 7. 当前 P0 风险
 
 | ID | 风险 | 影响 | 当前证据 | 处置 |
@@ -217,7 +226,7 @@ backend/app
 | M0 工程基线 | App 可启动、测试可信 | 基本完成 | 增加 CI jobs 后关闭 |
 | M1 编辑闭环 | 类型化画布、持久化、导入导出 | 进行中 | 共享 Schema + UI 入口 + 保存错误态 |
 | M2 Mock 执行闭环 | scene/image/video/final 数据真实传递 | 进行中 | 浏览器 E2E、失败/取消/恢复通过 |
-| M3 真实多模态 | Qwen → Wan3 → FFmpeg 可播放成片 | 进行中 | Wan3 计费 UAT + FFmpeg 合成验收 |
+| M3 真实多模态 | MiMo → Qwen → Wan3 → FFmpeg 可播放成片 | 进行中 | MiMo/Wan3 计费 UAT + FFmpeg 合成验收 |
 | M4 Agent/模板 | 自然语言生成/修改、diff、确认 | 未达门禁 | 前端接后端 + Schema output + 乐观锁 |
 | M5 Release Candidate | 三平台、安全、恢复、文档 | 未开始 | Release checklist 全绿 |
 

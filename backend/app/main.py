@@ -52,6 +52,29 @@ async def lifespan(app: FastAPI):
             register_provider(OllamaProvider(api_url=settings.OLLAMA_API_URL))
         except Exception as e:
             logger.warning(f"Failed to register Ollama provider: {e}")
+    elif settings.DEFAULT_LLM_PROVIDER == "openai_compat":
+        if settings.OPENAI_COMPAT_API_KEY:
+            try:
+                from .providers.openai_compat_provider import OpenAICompatProvider
+                register_provider(OpenAICompatProvider(
+                    api_key=settings.OPENAI_COMPAT_API_KEY,
+                    api_url=settings.OPENAI_COMPAT_API_URL,
+                    model=settings.OPENAI_COMPAT_MODEL,
+                    display_name=settings.OPENAI_COMPAT_NAME,
+                    auth_header=settings.OPENAI_COMPAT_AUTH_HEADER,
+                    auth_scheme=settings.OPENAI_COMPAT_AUTH_SCHEME,
+                    max_tokens_param=settings.OPENAI_COMPAT_MAX_TOKENS_PARAM,
+                    default_config={
+                        "max_tokens": settings.OPENAI_COMPAT_MAX_TOKENS,
+                        "temperature": settings.OPENAI_COMPAT_TEMPERATURE,
+                        "top_p": settings.OPENAI_COMPAT_TOP_P,
+                        "timeout": settings.OPENAI_COMPAT_TIMEOUT,
+                    },
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to register custom LLM provider: {e}")
+        else:
+            logger.info("Custom LLM selected without an API key; Mock remains available")
     # 根据 Image Provider 设置注册图像生成 Provider
     if settings.DEFAULT_IMAGE_PROVIDER == "comfyui":
         try:

@@ -16,7 +16,7 @@ ai_video_create —— 一个完全运行在本地、可视化编排 AI 内容�
 
 | 能力 | 默认 Provider/模型 | 默认参数 | 备选 |
 |---|---|---|---|
-| 文本/分镜 | Mock（开发默认） | 5 个结构化 scene | Ollama / OpenAI 兼容 |
+| 文本/分镜 | Xiaomi MiMo / `mimo-v2.5-pro` | OpenAI-compatible Chat Completions | Mock / Ollama / OpenAI |
 | 文生图 | 阿里云百炼 DashScope / `qwen-image-3.0` | 1280×720、提示词增强开启、无水印 | OpenAI / ComfyUI |
 | 图生视频 | 阿里云百炼 / `wan3.0-video` | **480P**、adaptive、5 秒、提示词增强开启 | `wan3.0-video-prime` / ComfyUI / Mock |
 | 视频拼接 | 本地 FFmpeg | MP4 | 无 |

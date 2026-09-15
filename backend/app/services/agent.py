@@ -98,8 +98,12 @@ class AgentService:
     def _get_provider(self):
         if self._provider_name:
             return get_provider(self._provider_name)
+        from backend.app.config import get_settings
+        configured = get_provider(get_settings().DEFAULT_LLM_PROVIDER.value)
+        if configured and configured.capabilities.text:
+            return configured
         # 按优先级尝试
-        for name in ("openai", "ollama", "mock"):
+        for name in ("openai_compat", "openai", "ollama", "mock"):
             p = get_provider(name)
             if p:
                 return p

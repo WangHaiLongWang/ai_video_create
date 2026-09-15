@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 class ProviderInfo(BaseModel):
     """Provider information response."""
     name: str
+    display_name: str = ""
     capabilities: dict[str, bool]
 
 
@@ -31,6 +32,16 @@ class SettingsResponse(BaseModel):
     openai_api_url: str
     openai_model: str
     openai_image_model: str
+    openai_compat_name: str
+    openai_compat_api_url: str
+    openai_compat_model: str
+    openai_compat_auth_header: str
+    openai_compat_auth_scheme: str
+    openai_compat_max_tokens_param: str
+    openai_compat_max_tokens: int
+    openai_compat_temperature: float
+    openai_compat_top_p: float
+    openai_compat_timeout: float
     dashscope_api_url: str
     dashscope_image_model: str
     dashscope_image_size: str
@@ -66,6 +77,17 @@ class UpdateSettingsRequest(BaseModel):
     openai_api_url: str | None = None
     openai_model: str | None = None
     openai_image_model: str | None = None
+    openai_compat_name: str | None = None
+    openai_compat_api_url: str | None = None
+    openai_compat_api_key: str | None = None
+    openai_compat_model: str | None = None
+    openai_compat_auth_header: str | None = None
+    openai_compat_auth_scheme: str | None = None
+    openai_compat_max_tokens_param: str | None = None
+    openai_compat_max_tokens: int | None = None
+    openai_compat_temperature: float | None = None
+    openai_compat_top_p: float | None = None
+    openai_compat_timeout: float | None = None
     dashscope_api_url: str | None = None
     dashscope_api_key: str | None = None
     dashscope_image_model: str | None = None
@@ -125,6 +147,16 @@ async def get_settings_endpoint() -> SettingsResponse:
         openai_api_url=settings.OPENAI_API_URL,
         openai_model=settings.OPENAI_MODEL,
         openai_image_model=settings.OPENAI_IMAGE_MODEL,
+        openai_compat_name=settings.OPENAI_COMPAT_NAME,
+        openai_compat_api_url=settings.OPENAI_COMPAT_API_URL,
+        openai_compat_model=settings.OPENAI_COMPAT_MODEL,
+        openai_compat_auth_header=settings.OPENAI_COMPAT_AUTH_HEADER,
+        openai_compat_auth_scheme=settings.OPENAI_COMPAT_AUTH_SCHEME,
+        openai_compat_max_tokens_param=settings.OPENAI_COMPAT_MAX_TOKENS_PARAM,
+        openai_compat_max_tokens=settings.OPENAI_COMPAT_MAX_TOKENS,
+        openai_compat_temperature=settings.OPENAI_COMPAT_TEMPERATURE,
+        openai_compat_top_p=settings.OPENAI_COMPAT_TOP_P,
+        openai_compat_timeout=settings.OPENAI_COMPAT_TIMEOUT,
         dashscope_api_url=settings.DASHSCOPE_API_URL,
         dashscope_image_model=settings.DASHSCOPE_IMAGE_MODEL,
         dashscope_image_size=settings.DASHSCOPE_IMAGE_SIZE,
@@ -190,6 +222,40 @@ async def update_settings(request: UpdateSettingsRequest) -> dict[str, str]:
         settings.OPENAI_MODEL = request.openai_model
     if request.openai_image_model:
         settings.OPENAI_IMAGE_MODEL = request.openai_image_model
+    if request.openai_compat_name:
+        settings.OPENAI_COMPAT_NAME = request.openai_compat_name
+    if request.openai_compat_api_url:
+        settings.OPENAI_COMPAT_API_URL = request.openai_compat_api_url
+    if request.openai_compat_api_key:
+        settings.OPENAI_COMPAT_API_KEY = request.openai_compat_api_key
+    if request.openai_compat_model:
+        settings.OPENAI_COMPAT_MODEL = request.openai_compat_model
+    if request.openai_compat_auth_header:
+        if any(char in request.openai_compat_auth_header for char in "\r\n"):
+            raise HTTPException(400, "invalid openai_compat_auth_header")
+        settings.OPENAI_COMPAT_AUTH_HEADER = request.openai_compat_auth_header
+    if request.openai_compat_auth_scheme is not None:
+        settings.OPENAI_COMPAT_AUTH_SCHEME = request.openai_compat_auth_scheme
+    if request.openai_compat_max_tokens_param:
+        if request.openai_compat_max_tokens_param not in {"max_tokens", "max_completion_tokens"}:
+            raise HTTPException(400, "unsupported max tokens parameter")
+        settings.OPENAI_COMPAT_MAX_TOKENS_PARAM = request.openai_compat_max_tokens_param
+    if request.openai_compat_max_tokens is not None:
+        if not 1 <= request.openai_compat_max_tokens <= 131072:
+            raise HTTPException(400, "openai_compat_max_tokens out of range")
+        settings.OPENAI_COMPAT_MAX_TOKENS = request.openai_compat_max_tokens
+    if request.openai_compat_temperature is not None:
+        if not 0 <= request.openai_compat_temperature <= 2:
+            raise HTTPException(400, "openai_compat_temperature out of range")
+        settings.OPENAI_COMPAT_TEMPERATURE = request.openai_compat_temperature
+    if request.openai_compat_top_p is not None:
+        if not 0 < request.openai_compat_top_p <= 1:
+            raise HTTPException(400, "openai_compat_top_p out of range")
+        settings.OPENAI_COMPAT_TOP_P = request.openai_compat_top_p
+    if request.openai_compat_timeout is not None:
+        if not 1 <= request.openai_compat_timeout <= 1800:
+            raise HTTPException(400, "openai_compat_timeout out of range")
+        settings.OPENAI_COMPAT_TIMEOUT = request.openai_compat_timeout
     if request.dashscope_api_url:
         settings.DASHSCOPE_API_URL = request.dashscope_api_url
     if request.dashscope_api_key:
@@ -264,6 +330,21 @@ async def update_settings(request: UpdateSettingsRequest) -> dict[str, str]:
         openai_url=settings.OPENAI_API_URL,
         openai_model=settings.OPENAI_MODEL,
         openai_image_model=settings.OPENAI_IMAGE_MODEL,
+        openai_compat_key=settings.OPENAI_COMPAT_API_KEY if (
+            settings.DEFAULT_LLM_PROVIDER.value == "openai_compat"
+        ) else None,
+        openai_compat_url=settings.OPENAI_COMPAT_API_URL,
+        openai_compat_model=settings.OPENAI_COMPAT_MODEL,
+        openai_compat_name=settings.OPENAI_COMPAT_NAME,
+        openai_compat_auth_header=settings.OPENAI_COMPAT_AUTH_HEADER,
+        openai_compat_auth_scheme=settings.OPENAI_COMPAT_AUTH_SCHEME,
+        openai_compat_max_tokens_param=settings.OPENAI_COMPAT_MAX_TOKENS_PARAM,
+        openai_compat_default_config={
+            "max_tokens": settings.OPENAI_COMPAT_MAX_TOKENS,
+            "temperature": settings.OPENAI_COMPAT_TEMPERATURE,
+            "top_p": settings.OPENAI_COMPAT_TOP_P,
+            "timeout": settings.OPENAI_COMPAT_TIMEOUT,
+        },
         dashscope_key=(settings.DASHSCOPE_API_KEY or settings.OPENAI_API_KEY) if (
             settings.DEFAULT_IMAGE_PROVIDER.value == "dashscope"
         ) else None,

@@ -58,3 +58,5 @@ npm run build
 Qwen Image 3.0 的官方协议配置见 `docs/integrations/qwen-image-3.0.md`。
 
 万相 3.0 视频与 ComfyUI 的配置边界见 `docs/integrations/wan3-video.md`。
+
+Xiaomi MiMo 与自定义 OpenAI-compatible LLM 配置见 `docs/integrations/mimo-v2.5-pro.md`。

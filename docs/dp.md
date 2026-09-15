@@ -9,7 +9,8 @@
 Text capability
   ├─ Mock
   ├─ Ollama
-  └─ OpenAI-compatible
+  ├─ OpenAI
+  └─ OpenAI-compatible（默认预设 Xiaomi MiMo）
 
 Image capability
   ├─ DashScope Qwen Image 3.0（默认）

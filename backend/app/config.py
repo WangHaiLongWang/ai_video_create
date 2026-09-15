@@ -16,6 +16,7 @@ class ProviderType(str, Enum):
     MOCK = "mock"
     OLLAMA = "ollama"
     OPENAI = "openai"
+    OPENAI_COMPAT = "openai_compat"
     DASHSCOPE = "dashscope"
     WAN3 = "wan3"
     COMFYUI = "comfyui"
@@ -46,6 +47,19 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4"
     OPENAI_IMAGE_MODEL: str = "dall-e-3"
     OPENAI_IMAGE_SIZE: str = "1792x1024"
+
+    # Generic OpenAI-compatible text provider. Defaults to Xiaomi MiMo.
+    OPENAI_COMPAT_NAME: str = "Xiaomi MiMo"
+    OPENAI_COMPAT_API_URL: str = "https://api.xiaomimimo.com/v1"
+    OPENAI_COMPAT_API_KEY: str = ""
+    OPENAI_COMPAT_MODEL: str = "mimo-v2.5-pro"
+    OPENAI_COMPAT_AUTH_HEADER: str = "api-key"
+    OPENAI_COMPAT_AUTH_SCHEME: str = ""
+    OPENAI_COMPAT_MAX_TOKENS_PARAM: str = "max_completion_tokens"
+    OPENAI_COMPAT_MAX_TOKENS: int = 4096
+    OPENAI_COMPAT_TEMPERATURE: float = 1.0
+    OPENAI_COMPAT_TOP_P: float = 0.95
+    OPENAI_COMPAT_TIMEOUT: float = 120.0
 
     DASHSCOPE_API_URL: str = "https://dashscope.aliyuncs.com/api/v1"
     DASHSCOPE_API_KEY: str = ""
@@ -112,6 +126,22 @@ class Settings(BaseSettings):
                 extra_params={
                     "image_model": self.OPENAI_IMAGE_MODEL,
                     "image_size": self.OPENAI_IMAGE_SIZE,
+                },
+            )
+        elif provider_type == ProviderType.OPENAI_COMPAT:
+            return ProviderConfig(
+                api_url=self.OPENAI_COMPAT_API_URL,
+                api_key=self.OPENAI_COMPAT_API_KEY,
+                model=self.OPENAI_COMPAT_MODEL,
+                extra_params={
+                    "name": self.OPENAI_COMPAT_NAME,
+                    "auth_header": self.OPENAI_COMPAT_AUTH_HEADER,
+                    "auth_scheme": self.OPENAI_COMPAT_AUTH_SCHEME,
+                    "max_tokens_param": self.OPENAI_COMPAT_MAX_TOKENS_PARAM,
+                    "max_tokens": self.OPENAI_COMPAT_MAX_TOKENS,
+                    "temperature": self.OPENAI_COMPAT_TEMPERATURE,
+                    "top_p": self.OPENAI_COMPAT_TOP_P,
+                    "timeout": self.OPENAI_COMPAT_TIMEOUT,
                 },
             )
         elif provider_type == ProviderType.COMFYUI:

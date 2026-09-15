@@ -9,6 +9,7 @@
 
 ## Provider 集成
 
+- `integrations/mimo-v2.5-pro.md`：Xiaomi MiMo LLM 及通用 OpenAI-compatible 自定义配置。
 - `integrations/qwen-image-3.0.md`：Qwen Image 3.0 官方协议、参数和当前验证状态。
 - `integrations/wan3-video.md`：Wan3.0 视频、480P 默认值、异步任务及与 ComfyUI 的边界。
 

@@ -62,7 +62,7 @@ AI_VIDEO_DEFAULT_IMAGE_PROVIDER=dashscope
 
 # 建议换成业务空间专属 URL；未配置 Workspace ID 时使用公共北京地址。
 AI_VIDEO_DASHSCOPE_API_URL=https://dashscope.aliyuncs.com/api/v1
-AI_VIDEO_DASHSCOPE_API_KEY=sk-your-key
+AI_VIDEO_DASHSCOPE_API_KEY=
 
 AI_VIDEO_DASHSCOPE_IMAGE_MODEL=qwen-image-3.0
 AI_VIDEO_DASHSCOPE_IMAGE_SIZE=1280x720
@@ -111,4 +111,3 @@ AI_VIDEO_DASHSCOPE_WATERMARK=false
 - 工作流多镜头真实批量生图仍受执行器 scene 数据传递进度影响。
 - 图生图/编辑所需的 1-3 张输入图像 UI 尚未实现。
 - API 成本预估、并发限制和批量调用确认仍需按主交付计划开发。
-

@@ -76,7 +76,7 @@ AI_VIDEO_DEFAULT_VIDEO_PROVIDER=wan3
 
 # 官方建议使用带 Workspace ID 的北京业务空间专属域名。
 AI_VIDEO_WAN3_API_URL=https://dashscope.aliyuncs.com/api/v1
-AI_VIDEO_WAN3_API_KEY=sk-your-key
+AI_VIDEO_WAN3_API_KEY=
 
 AI_VIDEO_WAN3_MODEL=wan3.0-video
 AI_VIDEO_WAN3_RESOLUTION=480P
@@ -117,4 +117,3 @@ AI_VIDEO_COMFYUI_API_URL=http://localhost:8188
 - 模型列表 endpoint 未返回 `wan3.0-video`，该列表不能作为视频模型授权依据。
 - **尚未创建真实 Wan3 视频任务**。视频调用耗时长且会计费，需由用户明确确认后执行最小 480P/2 秒测试。
 - 运行时 task_id 尚未持久化，进程重启恢复列为主交付计划的 Provider JobHandle 工作。
-

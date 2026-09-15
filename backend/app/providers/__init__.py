@@ -31,6 +31,7 @@ def list_providers() -> list[dict]:
     for name, provider in _providers.items():
         result.append({
             "name": name,
+            "display_name": getattr(provider, "display_name", name),
             "capabilities": provider.capabilities.model_dump(),
         })
     return result
@@ -48,6 +49,14 @@ def init_providers(
     openai_url: str = "https://api.openai.com/v1",
     openai_model: str = "gpt-4",
     openai_image_model: str = "dall-e-3",
+    openai_compat_key: str | None = None,
+    openai_compat_url: str = "",
+    openai_compat_model: str = "",
+    openai_compat_name: str = "OpenAI Compatible",
+    openai_compat_auth_header: str = "Authorization",
+    openai_compat_auth_scheme: str = "Bearer",
+    openai_compat_max_tokens_param: str = "max_tokens",
+    openai_compat_default_config: dict | None = None,
     dashscope_key: str | None = None,
     dashscope_url: str = "https://dashscope.aliyuncs.com/api/v1",
     dashscope_image_model: str = "qwen-image-3.0",
@@ -90,6 +99,22 @@ def init_providers(
             ))
         except Exception as e:
             logger.warning(f"Failed to register OpenAI provider: {e}")
+
+    if openai_compat_key:
+        try:
+            from backend.app.providers.openai_compat_provider import OpenAICompatProvider
+            register_provider(OpenAICompatProvider(
+                api_key=openai_compat_key,
+                api_url=openai_compat_url,
+                model=openai_compat_model,
+                display_name=openai_compat_name,
+                auth_header=openai_compat_auth_header,
+                auth_scheme=openai_compat_auth_scheme,
+                max_tokens_param=openai_compat_max_tokens_param,
+                default_config=openai_compat_default_config,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register OpenAI-compatible provider: {e}")
 
     if dashscope_key:
         try:

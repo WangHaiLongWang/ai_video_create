@@ -26,6 +26,7 @@
 | AVC-501 capability 独立 Provider | Done | image/video 可分别选择 DashScope/Wan3/ComfyUI |
 | Qwen Image 3.0 | Done（单次 UAT） | 真实生成 1280×720 PNG |
 | Wan3.0 480P Provider | Contract Done | 鉴权、参数、异步轮询、下载测试通过；未做计费 UAT |
+| Xiaomi MiMo v2.5 Pro | Done（单次 UAT） | 自定义配置、Contract、`/models` 和真实 Chat Completions 已通过 |
 
 ### 当前质量基线
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface ProviderInfo {
   name: string;
+  display_name?: string;
   capabilities: { text: boolean; image: boolean; video: boolean };
 }
 
@@ -14,6 +15,16 @@ interface Settings {
   openai_api_url: string;
   openai_model: string;
   openai_image_model: string;
+  openai_compat_name: string;
+  openai_compat_api_url: string;
+  openai_compat_model: string;
+  openai_compat_auth_header: string;
+  openai_compat_auth_scheme: string;
+  openai_compat_max_tokens_param: string;
+  openai_compat_max_tokens: number;
+  openai_compat_temperature: number;
+  openai_compat_top_p: number;
+  openai_compat_timeout: number;
   dashscope_api_url: string;
   dashscope_image_model: string;
   dashscope_image_size: string;
@@ -58,6 +69,17 @@ export default function SettingsPanel({ onClose }: Props) {
   const [openaiKey, setOpenaiKey] = useState('');
   const [openaiUrl, setOpenaiUrl] = useState('https://api.openai.com/v1');
   const [openaiModel, setOpenaiModel] = useState('gpt-4');
+  const [compatName, setCompatName] = useState('Xiaomi MiMo');
+  const [compatUrl, setCompatUrl] = useState('https://api.xiaomimimo.com/v1');
+  const [compatKey, setCompatKey] = useState('');
+  const [compatModel, setCompatModel] = useState('mimo-v2.5-pro');
+  const [compatAuthHeader, setCompatAuthHeader] = useState('api-key');
+  const [compatAuthScheme, setCompatAuthScheme] = useState('');
+  const [compatMaxTokensParam, setCompatMaxTokensParam] = useState('max_completion_tokens');
+  const [compatMaxTokens, setCompatMaxTokens] = useState(4096);
+  const [compatTemperature, setCompatTemperature] = useState(1.0);
+  const [compatTopP, setCompatTopP] = useState(0.95);
+  const [compatTimeout, setCompatTimeout] = useState(120);
   const [comfyuiUrl, setComfyuiUrl] = useState('http://localhost:8188');
   const [dashscopeUrl, setDashscopeUrl] = useState('https://dashscope.aliyuncs.com/api/v1');
   const [dashscopeKey, setDashscopeKey] = useState('');
@@ -102,6 +124,16 @@ export default function SettingsPanel({ onClose }: Props) {
         setOllamaModel(s.ollama_model);
         setOpenaiUrl(s.openai_api_url);
         setOpenaiModel(s.openai_model);
+        setCompatName(s.openai_compat_name);
+        setCompatUrl(s.openai_compat_api_url);
+        setCompatModel(s.openai_compat_model);
+        setCompatAuthHeader(s.openai_compat_auth_header);
+        setCompatAuthScheme(s.openai_compat_auth_scheme);
+        setCompatMaxTokensParam(s.openai_compat_max_tokens_param);
+        setCompatMaxTokens(s.openai_compat_max_tokens);
+        setCompatTemperature(s.openai_compat_temperature);
+        setCompatTopP(s.openai_compat_top_p);
+        setCompatTimeout(s.openai_compat_timeout);
         setComfyuiUrl(s.comfyui_api_url);
         setDashscopeUrl(s.dashscope_api_url);
         setDashscopeImageModel(s.dashscope_image_model);
@@ -145,6 +177,17 @@ export default function SettingsPanel({ onClose }: Props) {
           openai_api_key: openaiKey || undefined,
           openai_api_url: openaiUrl,
           openai_model: openaiModel,
+          openai_compat_name: compatName,
+          openai_compat_api_url: compatUrl,
+          openai_compat_api_key: compatKey || undefined,
+          openai_compat_model: compatModel,
+          openai_compat_auth_header: compatAuthHeader,
+          openai_compat_auth_scheme: compatAuthScheme,
+          openai_compat_max_tokens_param: compatMaxTokensParam,
+          openai_compat_max_tokens: compatMaxTokens,
+          openai_compat_temperature: compatTemperature,
+          openai_compat_top_p: compatTopP,
+          openai_compat_timeout: compatTimeout,
           comfyui_api_url: comfyuiUrl,
           dashscope_api_url: dashscopeUrl,
           dashscope_api_key: dashscopeKey || undefined,
@@ -223,6 +266,7 @@ export default function SettingsPanel({ onClose }: Props) {
               <option value="mock">Mock (测试)</option>
               <option value="ollama">Ollama (本地)</option>
               <option value="openai">OpenAI</option>
+              <option value="openai_compat">自定义 OpenAI-compatible（MiMo）</option>
             </select>
 
             <label style={styles.label}>图像生成</label>
@@ -264,6 +308,38 @@ export default function SettingsPanel({ onClose }: Props) {
               <label style={styles.label}>文本模型</label>
               <input style={styles.input} value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)} />
               <button style={styles.testBtn} onClick={() => handleTestProvider('openai')}>测试连接</button>
+            </section>
+          )}
+
+          {llmProvider === 'openai_compat' && (
+            <section style={styles.section}>
+              <h3 style={styles.sectionTitle}>自定义 OpenAI-compatible LLM</h3>
+              <label style={styles.label}>配置名称</label>
+              <input style={styles.input} value={compatName} onChange={(e) => setCompatName(e.target.value)} />
+              <label style={styles.label}>API Base URL</label>
+              <input style={styles.input} value={compatUrl} onChange={(e) => setCompatUrl(e.target.value)} />
+              <label style={styles.label}>API Key</label>
+              <input style={styles.input} type="password" placeholder="sk-... / tp-..." value={compatKey} onChange={(e) => setCompatKey(e.target.value)} />
+              <label style={styles.label}>模型</label>
+              <input style={styles.input} value={compatModel} onChange={(e) => setCompatModel(e.target.value)} />
+              <label style={styles.label}>认证 Header</label>
+              <input style={styles.input} value={compatAuthHeader} onChange={(e) => setCompatAuthHeader(e.target.value)} />
+              <label style={styles.label}>认证前缀（MiMo 留空，常规 OpenAI 填 Bearer）</label>
+              <input style={styles.input} value={compatAuthScheme} onChange={(e) => setCompatAuthScheme(e.target.value)} />
+              <label style={styles.label}>Token 参数名</label>
+              <select style={styles.select} value={compatMaxTokensParam} onChange={(e) => setCompatMaxTokensParam(e.target.value)}>
+                <option value="max_completion_tokens">max_completion_tokens</option>
+                <option value="max_tokens">max_tokens</option>
+              </select>
+              <label style={styles.label}>最大输出 Tokens</label>
+              <input style={styles.input} type="number" min={1} value={compatMaxTokens} onChange={(e) => setCompatMaxTokens(Number(e.target.value))} />
+              <label style={styles.label}>Temperature</label>
+              <input style={styles.input} type="number" min={0} max={2} step={0.1} value={compatTemperature} onChange={(e) => setCompatTemperature(Number(e.target.value))} />
+              <label style={styles.label}>Top P</label>
+              <input style={styles.input} type="number" min={0.01} max={1} step={0.05} value={compatTopP} onChange={(e) => setCompatTopP(Number(e.target.value))} />
+              <label style={styles.label}>超时（秒）</label>
+              <input style={styles.input} type="number" min={1} max={1800} value={compatTimeout} onChange={(e) => setCompatTimeout(Number(e.target.value))} />
+              <button style={styles.testBtn} onClick={() => handleTestProvider('openai_compat')}>测试连接</button>
             </section>
           )}
 
@@ -352,7 +428,7 @@ export default function SettingsPanel({ onClose }: Props) {
             <h3 style={styles.sectionTitle}>📋 已注册 Provider</h3>
             {providers.map((p) => (
               <div key={p.name} style={styles.providerCard}>
-                <strong>{p.name}</strong>
+                <strong>{p.display_name || p.name}</strong>
                 <span style={styles.capabilities}>
                   {p.capabilities.text && '📝 '}
                   {p.capabilities.image && '🖼️ '}

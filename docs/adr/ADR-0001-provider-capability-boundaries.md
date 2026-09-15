@@ -19,7 +19,7 @@
 Provider 按能力独立注册和选择：
 
 ```text
-text  → mock | ollama | openai-compatible
+text  → mock | ollama | openai | openai_compat（MiMo 预设）
 image → mock | dashscope(qwen-image-3.0) | openai | comfyui
 video → mock | wan3(wan3.0-video) | comfyui
 ```
@@ -80,4 +80,3 @@ Wan3 与 ComfyUI 保持两个不同 Provider：
 - Wan3 Provider 鉴权、480P 参数、首帧 Base64、任务轮询和下载 Contract Test 通过。
 - 运行时可以同时注册 `mock`、`dashscope` 和 `wan3`。
 - 真实 Wan3 计费 UAT 和 ComfyUI 本机 workflow UAT 尚待执行。
-
