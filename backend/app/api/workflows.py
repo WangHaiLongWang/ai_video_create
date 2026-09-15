@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from backend.app.models import WorkflowSpec
@@ -79,12 +79,13 @@ def api_update_workflow(workflow_id: str, body: UpdateRequest) -> dict:
         raise HTTPException(status_code=409, detail=str(e))
 
 
-@router.delete("/{workflow_id}", status_code=204)
-def api_delete_workflow(workflow_id: str) -> None:
+@router.delete("/{workflow_id}", status_code=204, response_class=Response)
+def api_delete_workflow(workflow_id: str) -> Response:
     try:
         delete_workflow(workflow_id)
     except WorkflowNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    return Response(status_code=204)
 
 
 @router.post("/{workflow_id}/duplicate", response_model=WorkflowSummary, status_code=201)

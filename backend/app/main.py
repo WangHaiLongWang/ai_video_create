@@ -52,13 +52,6 @@ async def lifespan(app: FastAPI):
             register_provider(OllamaProvider(api_url=settings.OLLAMA_API_URL))
         except Exception as e:
             logger.warning(f"Failed to register Ollama provider: {e}")
-    elif settings.DEFAULT_LLM_PROVIDER == "openai":
-        try:
-            from .providers.openai_provider import OpenAIProvider
-            register_provider(OpenAIProvider(api_key=settings.OPENAI_API_KEY))
-        except Exception as e:
-            logger.warning(f"Failed to register OpenAI provider: {e}")
-
     # 根据 Image Provider 设置注册图像生成 Provider
     if settings.DEFAULT_IMAGE_PROVIDER == "comfyui":
         try:
@@ -67,17 +60,50 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Failed to register ComfyUI provider: {e}")
     elif settings.DEFAULT_IMAGE_PROVIDER == "openai":
-        # OpenAI 同时支持文本和图像，已在上面注册
         pass
+    elif settings.DEFAULT_IMAGE_PROVIDER == "dashscope":
+        try:
+            from .providers.dashscope_provider import DashScopeProvider
+            register_provider(DashScopeProvider(
+                api_key=settings.DASHSCOPE_API_KEY or settings.OPENAI_API_KEY,
+                api_url=settings.DASHSCOPE_API_URL,
+                image_model=settings.DASHSCOPE_IMAGE_MODEL,
+                default_config={
+                    "size": settings.DASHSCOPE_IMAGE_SIZE,
+                    "use_async": settings.DASHSCOPE_USE_ASYNC,
+                    "prompt_extend": settings.DASHSCOPE_PROMPT_EXTEND,
+                    "prompt_extend_mode": settings.DASHSCOPE_PROMPT_EXTEND_MODE,
+                    "enable_thinking": settings.DASHSCOPE_ENABLE_THINKING,
+                    "watermark": settings.DASHSCOPE_WATERMARK,
+                },
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register DashScope provider: {e}")
+
+    # OpenAI-compatible Provider 可能只用于图像能力，必须独立于默认 LLM 注册。
+    if (
+        settings.DEFAULT_LLM_PROVIDER == "openai"
+        or settings.DEFAULT_IMAGE_PROVIDER == "openai"
+    ):
+        try:
+            from .providers.openai_provider import OpenAIProvider
+            register_provider(OpenAIProvider(
+                api_key=settings.OPENAI_API_KEY,
+                api_url=settings.OPENAI_API_URL,
+                model=settings.OPENAI_MODEL,
+                image_model=settings.OPENAI_IMAGE_MODEL,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register OpenAI-compatible provider: {e}")
 
     # 根据 Video Provider 设置注册视频生成 Provider
     if settings.DEFAULT_VIDEO_PROVIDER == "comfyui":
         # ComfyUI 已在上面注册
         pass
 
-    # Initialize handlers (mock or real based on config)
-    use_mock = (settings.DEFAULT_LLM_PROVIDER.value == "mock")
-    init_handlers(use_mock=use_mock)
+    # Real handlers resolve each capability independently and may still use the
+    # always-registered Mock Provider for capabilities configured as mock.
+    init_handlers(use_mock=False)
 
     # Initialize asset manager
     get_asset_manager()

@@ -45,6 +45,13 @@ def init_providers(
     mock: bool = True,
     ollama_url: str | None = None,
     openai_key: str | None = None,
+    openai_url: str = "https://api.openai.com/v1",
+    openai_model: str = "gpt-4",
+    openai_image_model: str = "dall-e-3",
+    dashscope_key: str | None = None,
+    dashscope_url: str = "https://dashscope.aliyuncs.com/api/v1",
+    dashscope_image_model: str = "qwen-image-3.0",
+    dashscope_default_config: dict | None = None,
     comfyui_url: str | None = None,
 ) -> None:
     """Initialize and register providers based on configuration.
@@ -71,9 +78,26 @@ def init_providers(
     if openai_key:
         try:
             from backend.app.providers.openai_provider import OpenAIProvider
-            register_provider(OpenAIProvider(api_key=openai_key))
+            register_provider(OpenAIProvider(
+                api_key=openai_key,
+                api_url=openai_url,
+                model=openai_model,
+                image_model=openai_image_model,
+            ))
         except Exception as e:
             logger.warning(f"Failed to register OpenAI provider: {e}")
+
+    if dashscope_key:
+        try:
+            from backend.app.providers.dashscope_provider import DashScopeProvider
+            register_provider(DashScopeProvider(
+                api_key=dashscope_key,
+                api_url=dashscope_url,
+                image_model=dashscope_image_model,
+                default_config=dashscope_default_config,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register DashScope provider: {e}")
 
     if comfyui_url:
         try:

@@ -28,8 +28,17 @@ class SettingsResponse(BaseModel):
     default_video_provider: str
     ollama_api_url: str
     ollama_model: str
+    openai_api_url: str
     openai_model: str
     openai_image_model: str
+    dashscope_api_url: str
+    dashscope_image_model: str
+    dashscope_image_size: str
+    dashscope_use_async: bool
+    dashscope_prompt_extend: bool
+    dashscope_prompt_extend_mode: str
+    dashscope_enable_thinking: bool
+    dashscope_watermark: bool
     comfyui_api_url: str
     asset_dir: str
     ffmpeg_path: str
@@ -43,8 +52,18 @@ class UpdateSettingsRequest(BaseModel):
     ollama_api_url: str | None = None
     ollama_model: str | None = None
     openai_api_key: str | None = None
+    openai_api_url: str | None = None
     openai_model: str | None = None
     openai_image_model: str | None = None
+    dashscope_api_url: str | None = None
+    dashscope_api_key: str | None = None
+    dashscope_image_model: str | None = None
+    dashscope_image_size: str | None = None
+    dashscope_use_async: bool | None = None
+    dashscope_prompt_extend: bool | None = None
+    dashscope_prompt_extend_mode: str | None = None
+    dashscope_enable_thinking: bool | None = None
+    dashscope_watermark: bool | None = None
     comfyui_api_url: str | None = None
 
 
@@ -80,8 +99,17 @@ async def get_settings_endpoint() -> SettingsResponse:
         default_video_provider=settings.DEFAULT_VIDEO_PROVIDER.value,
         ollama_api_url=settings.OLLAMA_API_URL,
         ollama_model=settings.OLLAMA_MODEL,
+        openai_api_url=settings.OPENAI_API_URL,
         openai_model=settings.OPENAI_MODEL,
         openai_image_model=settings.OPENAI_IMAGE_MODEL,
+        dashscope_api_url=settings.DASHSCOPE_API_URL,
+        dashscope_image_model=settings.DASHSCOPE_IMAGE_MODEL,
+        dashscope_image_size=settings.DASHSCOPE_IMAGE_SIZE,
+        dashscope_use_async=settings.DASHSCOPE_USE_ASYNC,
+        dashscope_prompt_extend=settings.DASHSCOPE_PROMPT_EXTEND,
+        dashscope_prompt_extend_mode=settings.DASHSCOPE_PROMPT_EXTEND_MODE,
+        dashscope_enable_thinking=settings.DASHSCOPE_ENABLE_THINKING,
+        dashscope_watermark=settings.DASHSCOPE_WATERMARK,
         comfyui_api_url=settings.COMFYUI_API_URL,
         asset_dir=settings.ASSET_DIR,
         ffmpeg_path=settings.FFMPEG_PATH,
@@ -122,25 +150,65 @@ async def update_settings(request: UpdateSettingsRequest) -> dict[str, str]:
         settings.OLLAMA_MODEL = request.ollama_model
     if request.openai_api_key:
         settings.OPENAI_API_KEY = request.openai_api_key
+    if request.openai_api_url:
+        settings.OPENAI_API_URL = request.openai_api_url
     if request.openai_model:
         settings.OPENAI_MODEL = request.openai_model
     if request.openai_image_model:
         settings.OPENAI_IMAGE_MODEL = request.openai_image_model
+    if request.dashscope_api_url:
+        settings.DASHSCOPE_API_URL = request.dashscope_api_url
+    if request.dashscope_api_key:
+        settings.DASHSCOPE_API_KEY = request.dashscope_api_key
+    if request.dashscope_image_model:
+        settings.DASHSCOPE_IMAGE_MODEL = request.dashscope_image_model
+    if request.dashscope_image_size:
+        settings.DASHSCOPE_IMAGE_SIZE = request.dashscope_image_size
+    if request.dashscope_use_async is not None:
+        settings.DASHSCOPE_USE_ASYNC = request.dashscope_use_async
+    if request.dashscope_prompt_extend is not None:
+        settings.DASHSCOPE_PROMPT_EXTEND = request.dashscope_prompt_extend
+    if request.dashscope_prompt_extend_mode is not None:
+        if request.dashscope_prompt_extend_mode not in {"direct", "agent"}:
+            raise HTTPException(400, "dashscope_prompt_extend_mode must be direct or agent")
+        settings.DASHSCOPE_PROMPT_EXTEND_MODE = request.dashscope_prompt_extend_mode
+    if request.dashscope_enable_thinking is not None:
+        settings.DASHSCOPE_ENABLE_THINKING = request.dashscope_enable_thinking
+    if request.dashscope_watermark is not None:
+        settings.DASHSCOPE_WATERMARK = request.dashscope_watermark
     if request.comfyui_api_url:
         settings.COMFYUI_API_URL = request.comfyui_api_url
 
     # Reinitialize providers
     clear_providers()
     init_providers(
-        mock=(settings.DEFAULT_LLM_PROVIDER.value == "mock"),
+        mock=True,
         ollama_url=settings.OLLAMA_API_URL if settings.DEFAULT_LLM_PROVIDER.value == "ollama" else None,
-        openai_key=settings.OPENAI_API_KEY if settings.DEFAULT_LLM_PROVIDER.value == "openai" else None,
+        openai_key=settings.OPENAI_API_KEY if (
+            settings.DEFAULT_LLM_PROVIDER.value == "openai"
+            or settings.DEFAULT_IMAGE_PROVIDER.value == "openai"
+        ) else None,
+        openai_url=settings.OPENAI_API_URL,
+        openai_model=settings.OPENAI_MODEL,
+        openai_image_model=settings.OPENAI_IMAGE_MODEL,
+        dashscope_key=(settings.DASHSCOPE_API_KEY or settings.OPENAI_API_KEY) if (
+            settings.DEFAULT_IMAGE_PROVIDER.value == "dashscope"
+        ) else None,
+        dashscope_url=settings.DASHSCOPE_API_URL,
+        dashscope_image_model=settings.DASHSCOPE_IMAGE_MODEL,
+        dashscope_default_config={
+            "size": settings.DASHSCOPE_IMAGE_SIZE,
+            "use_async": settings.DASHSCOPE_USE_ASYNC,
+            "prompt_extend": settings.DASHSCOPE_PROMPT_EXTEND,
+            "prompt_extend_mode": settings.DASHSCOPE_PROMPT_EXTEND_MODE,
+            "enable_thinking": settings.DASHSCOPE_ENABLE_THINKING,
+            "watermark": settings.DASHSCOPE_WATERMARK,
+        },
         comfyui_url=settings.COMFYUI_API_URL if settings.DEFAULT_IMAGE_PROVIDER.value == "comfyui" else None,
     )
 
-    # Reinitialize handlers
-    use_mock = (settings.DEFAULT_LLM_PROVIDER.value == "mock")
-    init_handlers(use_mock=use_mock)
+    # Each real handler resolves the configured provider for its capability.
+    init_handlers(use_mock=False)
 
     return {"status": "ok", "message": "Settings updated and providers reinitialized"}
 

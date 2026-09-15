@@ -16,6 +16,7 @@ class ProviderType(str, Enum):
     MOCK = "mock"
     OLLAMA = "ollama"
     OPENAI = "openai"
+    DASHSCOPE = "dashscope"
     COMFYUI = "comfyui"
 
 
@@ -40,9 +41,20 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "llama3.2"
 
     OPENAI_API_KEY: str = ""
+    OPENAI_API_URL: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-4"
     OPENAI_IMAGE_MODEL: str = "dall-e-3"
     OPENAI_IMAGE_SIZE: str = "1792x1024"
+
+    DASHSCOPE_API_URL: str = "https://dashscope.aliyuncs.com/api/v1"
+    DASHSCOPE_API_KEY: str = ""
+    DASHSCOPE_IMAGE_MODEL: str = "qwen-image-3.0"
+    DASHSCOPE_IMAGE_SIZE: str = "1280x720"
+    DASHSCOPE_USE_ASYNC: bool = False
+    DASHSCOPE_PROMPT_EXTEND: bool = True
+    DASHSCOPE_PROMPT_EXTEND_MODE: str = "direct"
+    DASHSCOPE_ENABLE_THINKING: bool = True
+    DASHSCOPE_WATERMARK: bool = False
 
     COMFYUI_API_URL: str = "http://localhost:8188"
     COMFYUI_CHECKPOINT: str = "sd_xl_base_1.0.safetensors"
@@ -80,7 +92,7 @@ class Settings(BaseSettings):
             )
         elif provider_type == ProviderType.OPENAI:
             return ProviderConfig(
-                api_url="https://api.openai.com/v1",
+                api_url=self.OPENAI_API_URL,
                 api_key=self.OPENAI_API_KEY,
                 model=self.OPENAI_MODEL,
                 extra_params={
@@ -93,6 +105,20 @@ class Settings(BaseSettings):
                 api_url=self.COMFYUI_API_URL,
                 extra_params={
                     "checkpoint": self.COMFYUI_CHECKPOINT,
+                },
+            )
+        elif provider_type == ProviderType.DASHSCOPE:
+            return ProviderConfig(
+                api_url=self.DASHSCOPE_API_URL,
+                api_key=self.DASHSCOPE_API_KEY or self.OPENAI_API_KEY,
+                model=self.DASHSCOPE_IMAGE_MODEL,
+                extra_params={
+                    "image_size": self.DASHSCOPE_IMAGE_SIZE,
+                    "use_async": self.DASHSCOPE_USE_ASYNC,
+                    "prompt_extend": self.DASHSCOPE_PROMPT_EXTEND,
+                    "prompt_extend_mode": self.DASHSCOPE_PROMPT_EXTEND_MODE,
+                    "enable_thinking": self.DASHSCOPE_ENABLE_THINKING,
+                    "watermark": self.DASHSCOPE_WATERMARK,
                 },
             )
         else:  # MOCK

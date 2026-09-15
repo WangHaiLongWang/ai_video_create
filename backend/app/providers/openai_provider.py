@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any
 
@@ -131,15 +132,22 @@ class OpenAIProvider(BaseProvider):
         """
         config = config or {}
 
+        image_model = config.get("image_model", self.image_model)
         payload = {
-            "model": config.get("image_model", self.image_model),
+            "model": image_model,
             "prompt": prompt,
             "n": 1,
             "size": config.get("size", "1792x1024"),
-            "quality": config.get("quality", "hd"),
-            "style": config.get("style", "vivid"),
-            "response_format": "b64_json",
         }
+
+        # DALL-E supports these options. OpenAI-compatible providers such as
+        # DashScope may reject unknown fields and commonly return an image URL.
+        if image_model.startswith("dall-e"):
+            payload.update({
+                "quality": config.get("quality", "hd"),
+                "style": config.get("style", "vivid"),
+                "response_format": config.get("response_format", "b64_json"),
+            })
 
         try:
             client = await self._get_client()
@@ -154,9 +162,14 @@ class OpenAIProvider(BaseProvider):
             response.raise_for_status()
 
             result = response.json()
-            import base64
-            b64_data = result["data"][0]["b64_json"]
-            return base64.b64decode(b64_data)
+            item = result["data"][0]
+            if item.get("b64_json"):
+                return base64.b64decode(item["b64_json"])
+            if item.get("url"):
+                image_response = await client.get(item["url"])
+                image_response.raise_for_status()
+                return image_response.content
+            raise ProviderError(self.name, "Image response has neither b64_json nor url")
 
         except httpx.ConnectError as e:
             raise ProviderConnectionError(self.name, self.api_url, e)

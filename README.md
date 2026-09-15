@@ -52,3 +52,5 @@ npm run build
 当前项目状态见 `docs/PROJECT-STATUS.md`。
 
 后续开发、Sprint、工单和发布门禁统一使用 `docs/plans/2026-09-15-company-delivery-plan.md`。
+
+Qwen Image 3.0 的官方协议配置见 `docs/integrations/qwen-image-3.0.md`。

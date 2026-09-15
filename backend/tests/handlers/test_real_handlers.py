@@ -132,6 +132,7 @@ class TestRealTextToImageHandler:
             "id": "task-1",
             "item_key": "scene-001",
             "config": {
+                "provider": "mock",
                 "image_prompt": "A beautiful sunset over mountains",
                 "width": 1024,
                 "height": 768,

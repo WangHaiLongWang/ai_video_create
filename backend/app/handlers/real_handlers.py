@@ -15,6 +15,21 @@ from backend.app.services.ffmpeg import get_ffmpeg_service, FFmpegError
 logger = logging.getLogger(__name__)
 
 
+def _provider_name(config: dict, capability: str) -> str:
+    """Resolve a node override or the configured default provider."""
+    configured = config.get("provider")
+    if configured:
+        return str(configured).lower()
+    from backend.app.config import get_settings
+    settings = get_settings()
+    defaults = {
+        "text": settings.DEFAULT_LLM_PROVIDER.value,
+        "image": settings.DEFAULT_IMAGE_PROVIDER.value,
+        "video": settings.DEFAULT_VIDEO_PROVIDER.value,
+    }
+    return defaults[capability]
+
+
 class RealTextInputHandler:
     """TextInput handler — uses LLM provider to process prompts."""
 
@@ -26,16 +41,8 @@ class RealTextInputHandler:
         if not prompt:
             return {"status": "ok", "output": {"type": "text", "content": ""}}
 
-        # Try to use LLM provider for processing
-        provider = get_provider(config.get("provider", "mock"))
-        if provider and provider.capabilities.text:
-            try:
-                processed_text = await provider.generate_text(prompt, config)
-                return {"status": "ok", "output": {"type": "text", "content": processed_text}}
-            except ProviderError as e:
-                logger.warning(f"Provider failed, using raw prompt: {e}")
-
-        # Fallback: return raw prompt
+        # TextInput is a source node. LLM processing belongs to storyboard or a
+        # dedicated LLM node, so preserve the user's prompt verbatim.
         return {"status": "ok", "output": {"type": "text", "content": prompt}}
 
 
@@ -62,7 +69,7 @@ Requirements:
 User request: {prompt}"""
 
         # Try to use LLM provider
-        provider = get_provider(config.get("provider", "mock"))
+        provider = get_provider(_provider_name(config, "text"))
         if provider and provider.capabilities.text:
             try:
                 response_text = await provider.generate_text(storyboard_prompt, {
@@ -170,7 +177,7 @@ class RealTextToImageHandler:
             return {"status": "error", "error": "No prompt provided"}
 
         # Get provider
-        provider = get_provider(config.get("provider", "mock"))
+        provider = get_provider(_provider_name(config, "image"))
         if not provider or not provider.capabilities.image:
             return {"status": "error", "error": "No image provider available"}
 
@@ -230,7 +237,7 @@ class RealImageToVideoHandler:
         self, task: dict, config: dict, scene_id: str, duration: float
     ) -> dict:
         """Use video provider to generate video."""
-        provider = get_provider(config.get("provider", "mock"))
+        provider = get_provider(_provider_name(config, "video"))
         if not provider or not provider.capabilities.video:
             return {"status": "error", "error": "No video provider available"}
 

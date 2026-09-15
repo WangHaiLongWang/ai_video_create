@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from backend.app.repositories.assets import (
@@ -72,10 +72,11 @@ def get_lineage_api(asset_id: str) -> dict:
     return {"asset_id": asset_id, "lineage": lineage}
 
 
-@router.delete("/{asset_id}", status_code=204)
-def delete_asset_api(asset_id: str) -> None:
+@router.delete("/{asset_id}", status_code=204, response_class=Response)
+def delete_asset_api(asset_id: str) -> Response:
     """删除资产。"""
     try:
         delete_asset(asset_id)
     except AssetNotFoundError:
         raise HTTPException(status_code=404, detail=f"资产 {asset_id} 不存在")
+    return Response(status_code=204)

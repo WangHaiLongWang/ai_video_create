@@ -23,7 +23,7 @@ export const nodeCatalog: Record<NodeKind, CatalogNodeData> = {
     kind: 'textToImage',
     inputType: 'list<scene>',
     outputType: 'list<image>',
-    config: { provider: 'Mock', ratio: '16:9', mapOver: true },
+    config: { ratio: '16:9', mapOver: true },
   },
   imageToVideo: {
     label: '图生视频',

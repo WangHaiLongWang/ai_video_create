@@ -11,8 +11,17 @@ interface Settings {
   default_video_provider: string;
   ollama_api_url: string;
   ollama_model: string;
+  openai_api_url: string;
   openai_model: string;
   openai_image_model: string;
+  dashscope_api_url: string;
+  dashscope_image_model: string;
+  dashscope_image_size: string;
+  dashscope_use_async: boolean;
+  dashscope_prompt_extend: boolean;
+  dashscope_prompt_extend_mode: string;
+  dashscope_enable_thinking: boolean;
+  dashscope_watermark: boolean;
   comfyui_api_url: string;
   asset_dir: string;
   ffmpeg_path: string;
@@ -36,8 +45,18 @@ export default function SettingsPanel({ onClose }: Props) {
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [openaiKey, setOpenaiKey] = useState('');
+  const [openaiUrl, setOpenaiUrl] = useState('https://api.openai.com/v1');
   const [openaiModel, setOpenaiModel] = useState('gpt-4');
   const [comfyuiUrl, setComfyuiUrl] = useState('http://localhost:8188');
+  const [dashscopeUrl, setDashscopeUrl] = useState('https://dashscope.aliyuncs.com/api/v1');
+  const [dashscopeKey, setDashscopeKey] = useState('');
+  const [dashscopeImageModel, setDashscopeImageModel] = useState('qwen-image-3.0');
+  const [dashscopeImageSize, setDashscopeImageSize] = useState('1280x720');
+  const [dashscopeUseAsync, setDashscopeUseAsync] = useState(false);
+  const [dashscopePromptExtend, setDashscopePromptExtend] = useState(true);
+  const [dashscopePromptExtendMode, setDashscopePromptExtendMode] = useState('direct');
+  const [dashscopeEnableThinking, setDashscopeEnableThinking] = useState(true);
+  const [dashscopeWatermark, setDashscopeWatermark] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -58,8 +77,17 @@ export default function SettingsPanel({ onClose }: Props) {
         setVideoProvider(s.default_video_provider);
         setOllamaUrl(s.ollama_api_url);
         setOllamaModel(s.ollama_model);
+        setOpenaiUrl(s.openai_api_url);
         setOpenaiModel(s.openai_model);
         setComfyuiUrl(s.comfyui_api_url);
+        setDashscopeUrl(s.dashscope_api_url);
+        setDashscopeImageModel(s.dashscope_image_model);
+        setDashscopeImageSize(s.dashscope_image_size);
+        setDashscopeUseAsync(s.dashscope_use_async);
+        setDashscopePromptExtend(s.dashscope_prompt_extend);
+        setDashscopePromptExtendMode(s.dashscope_prompt_extend_mode);
+        setDashscopeEnableThinking(s.dashscope_enable_thinking);
+        setDashscopeWatermark(s.dashscope_watermark);
       }
     } catch (e) {
       console.error('Failed to load settings', e);
@@ -81,8 +109,18 @@ export default function SettingsPanel({ onClose }: Props) {
           ollama_api_url: ollamaUrl,
           ollama_model: ollamaModel,
           openai_api_key: openaiKey || undefined,
+          openai_api_url: openaiUrl,
           openai_model: openaiModel,
           comfyui_api_url: comfyuiUrl,
+          dashscope_api_url: dashscopeUrl,
+          dashscope_api_key: dashscopeKey || undefined,
+          dashscope_image_model: dashscopeImageModel,
+          dashscope_image_size: dashscopeImageSize,
+          dashscope_use_async: dashscopeUseAsync,
+          dashscope_prompt_extend: dashscopePromptExtend,
+          dashscope_prompt_extend_mode: dashscopePromptExtendMode,
+          dashscope_enable_thinking: dashscopeEnableThinking,
+          dashscope_watermark: dashscopeWatermark,
         }),
       });
       if (resp.ok) {
@@ -146,6 +184,7 @@ export default function SettingsPanel({ onClose }: Props) {
               <option value="mock">Mock (测试)</option>
               <option value="comfyui">ComfyUI</option>
               <option value="openai">OpenAI (DALL-E)</option>
+              <option value="dashscope">DashScope (Qwen Image)</option>
             </select>
 
             <label style={styles.label}>视频生成</label>
@@ -173,6 +212,8 @@ export default function SettingsPanel({ onClose }: Props) {
               <h3 style={styles.sectionTitle}>🤖 OpenAI 配置</h3>
               <label style={styles.label}>API Key</label>
               <input style={styles.input} type="password" placeholder="sk-..." value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} />
+              <label style={styles.label}>API Base URL</label>
+              <input style={styles.input} value={openaiUrl} onChange={(e) => setOpenaiUrl(e.target.value)} />
               <label style={styles.label}>文本模型</label>
               <input style={styles.input} value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)} />
               <button style={styles.testBtn} onClick={() => handleTestProvider('openai')}>测试连接</button>
@@ -186,6 +227,30 @@ export default function SettingsPanel({ onClose }: Props) {
               <label style={styles.label}>API URL</label>
               <input style={styles.input} value={comfyuiUrl} onChange={(e) => setComfyuiUrl(e.target.value)} />
               <button style={styles.testBtn} onClick={() => handleTestProvider('comfyui')}>测试连接</button>
+            </section>
+          )}
+
+          {imageProvider === 'dashscope' && (
+            <section style={styles.section}>
+              <h3 style={styles.sectionTitle}>Qwen Image 配置</h3>
+              <label style={styles.label}>API Base URL</label>
+              <input style={styles.input} value={dashscopeUrl} onChange={(e) => setDashscopeUrl(e.target.value)} />
+              <label style={styles.label}>API Key（留空则沿用已配置的 Key）</label>
+              <input style={styles.input} type="password" value={dashscopeKey} onChange={(e) => setDashscopeKey(e.target.value)} />
+              <label style={styles.label}>图像模型</label>
+              <input style={styles.input} value={dashscopeImageModel} onChange={(e) => setDashscopeImageModel(e.target.value)} />
+              <label style={styles.label}>图像尺寸</label>
+              <input style={styles.input} value={dashscopeImageSize} onChange={(e) => setDashscopeImageSize(e.target.value)} />
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={dashscopeUseAsync} onChange={(e) => setDashscopeUseAsync(e.target.checked)} />批量任务使用异步接口</label>
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={dashscopePromptExtend} onChange={(e) => setDashscopePromptExtend(e.target.checked)} />提示词智能改写</label>
+              <label style={styles.label}>提示词改写方式</label>
+              <select style={styles.select} value={dashscopePromptExtendMode} onChange={(e) => setDashscopePromptExtendMode(e.target.value)}>
+                <option value="direct">direct（通用）</option>
+                <option value="agent">agent（仅文生图）</option>
+              </select>
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={dashscopeEnableThinking} onChange={(e) => setDashscopeEnableThinking(e.target.checked)} />开启思考模式</label>
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={dashscopeWatermark} onChange={(e) => setDashscopeWatermark(e.target.checked)} />添加模型水印</label>
+              <button style={styles.testBtn} onClick={() => handleTestProvider('dashscope')}>测试连接</button>
             </section>
           )}
 
@@ -239,6 +304,7 @@ const styles: Record<string, React.CSSProperties> = {
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 14, color: '#aaa', marginBottom: 8 },
   label: { display: 'block', fontSize: 12, color: '#888', marginBottom: 4, marginTop: 8 },
+  checkboxLabel: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa', marginTop: 10 },
   select: {
     width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #444',
     background: '#2a2a3a', color: '#e0e0e0', fontSize: 14,

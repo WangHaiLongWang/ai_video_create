@@ -30,18 +30,19 @@
 | 前端单元测试 | 3 个文件，16/16 通过 | 通过 |
 | TypeScript | `tsc --noEmit` 通过 | 通过 |
 | 前端生产构建 | Vite 构建通过，JS gzip 约 119 KB | 通过 |
-| 后端完整测试 | 收集 145 项时出现 7 个 collection error | 失败 |
-| 后端可独立收集的测试（补齐 async 插件后） | 136 通过，9 失败 | 失败 |
+| 后端完整测试 | 226 项：220 通过，6 个 FFmpeg 测试跳过 | 通过（有环境跳过） |
 | FFmpeg 子集（沙箱外） | 3 通过，6 因本机无 FFmpeg 跳过 | 部分验证 |
-| Handler/Agent/Mock Provider 子集（清除冲突 DEBUG 环境变量后） | 23/23 通过 | 模块级通过 |
-| 后端应用导入/启动 | FastAPI 路由定义阶段报错 | 阻断 |
+| Qwen Image 真实调用 | `qwen-image-3.0` 成功生成 1280×720 PNG | 通过 |
+| 后端应用导入/启动 | Workflow/Asset 的 204 空响应契约已修复 | 通过 |
 
-### 当前直接阻断
+### 本轮已解除的基线阻断
 
-1. `backend/app/api/workflows.py` 的 DELETE 路由使用 HTTP 204，但 FastAPI 判断仍可能产生响应体，导致导入 `backend.app.main` 时抛出断言。所有依赖 App 的 API/E2E 测试因此无法收集，服务也无法正常启动。
-2. `requirements.txt` 已声明 `pytest-asyncio`，但本次审计前虚拟环境没有同步安装，26 个 async 测试此前被跳过而不是执行。补齐依赖后暴露出真实失败。
-3. `Settings.DEBUG` 直接读取通用系统环境变量 `DEBUG`。当前环境值为 `release`，Pydantic 无法解析为布尔值，真实 Handler 测试失败。配置需要专属前缀，例如 `AI_VIDEO_DEBUG`。
-4. 测试、类型检查和构建必须作为独立 CI 门禁执行，不能让后续命令成功掩盖前面的失败退出码。
+1. Workflow 与 Asset DELETE API 已使用严格 204 空响应，FastAPI 可以导入。
+2. 虚拟环境已安装 requirements 中声明的 `pytest-asyncio`，async 测试会真实执行。
+3. Settings 已使用 `AI_VIDEO_` 前缀，不再受通用 `DEBUG/HOST` 环境变量污染。
+4. 默认图像 Provider 已增加 DashScope 原生适配；`qwen-image-3.0` 的 Key、模型、同步回退、下载和真实生图均已验证。
+
+仍需处理 pytest 的 fixture loop scope 弃用警告；6 个 FFmpeg 测试需在安装 FFmpeg 的集成环境执行。
 
 ## 3. 文档一致性评估
 
@@ -266,7 +267,7 @@ Phase E 未通过，不能标记发布就绪。
 | **.env.example** | 完整的环境变量配置示例 | ✅ 完成 |
 | **默认 HOST** | 改为 127.0.0.1（安全要求）| ✅ 完成 |
 
-**测试结果：212 passed, 6 skipped**
+**测试结果：后端 220 passed、6 skipped；前端 16 passed。Qwen Image 真实生图通过。**
 
 ## 5. 分阶段完成度
 
@@ -274,9 +275,9 @@ Phase E 未通过，不能标记发布就绪。
 |---|---:|---|---|
 | Phase A 类型化画布与持久化 | **65%** | 画布、六节点、前端类型校验、localStorage、CRUD、乐观锁、Undo/Redo | 共享 Schema 缺失；更新绕过模型校验 |
 | Phase B Mock 执行器 | **55%** | 编译器、SQLite task、单 Worker、事件/WebSocket 后端、Mock Handler、**结果持久化、执行收敛、前端执行 API** | 无 retry；无 scene_id 映射 |
-| Phase C 真实多模态 | **40%** | 四类 Provider、Real Handler、AssetManager、FFmpeg service、**Assets 表/API、独立 Provider 配置** | 未验证真实成片 |
+| Phase C 真实多模态 | **45%** | 五类 Provider、Qwen Image 真实生图、Real Handler、AssetManager、FFmpeg service、**Assets 表/API、独立 Provider 配置** | 未验证真实成片 |
 | Phase D Agent 与模板 | **45%** | AgentService、GraphPatch、三模板、API、**前端 SettingsPanel/TemplateSelector 已挂载** | 无 schema/tool calling；模板不持久化 |
-| Phase E 发布验收 | **35%** | 测试目录、**安全中间件已注册**、**212 测试通过**、**前端完整 API 客户端** | 三平台/真实媒体/浏览器 E2E 未完成 |
+| Phase E 发布验收 | **40%** | 测试目录、**安全中间件已注册**、**后端 220 项与前端 16 项测试通过**、**前端完整 API 客户端** | FFmpeg 环境测试、三平台、真实成片和浏览器 E2E 未完成 |
 
 这里的百分比不是工时比例，而是各阶段验收标准的满足比例。项目不应继续按 A→B→C→D→E 线性添加新模块；当前最需要的是回到主链路做集成收敛。
 
