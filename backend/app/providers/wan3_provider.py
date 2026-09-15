@@ -45,6 +45,7 @@ class Wan3VideoProvider(BaseProvider):
         self.model = model
         self.default_config = default_config or {}
         self._client: httpx.AsyncClient | None = None
+        self._last_external_job_id: str | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -94,6 +95,7 @@ class Wan3VideoProvider(BaseProvider):
             task_id = body.get("output", {}).get("task_id")
             if not task_id:
                 raise ProviderError(self.name, "Wan3 response contains no task_id")
+            self._last_external_job_id = str(task_id)
 
             output = await self._poll_task(
                 client,
@@ -205,3 +207,7 @@ class Wan3VideoProvider(BaseProvider):
     async def close(self) -> None:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
+
+    def get_external_job_id(self) -> str | None:
+        """Return the last external task_id returned by the Wan3 API."""
+        return self._last_external_job_id

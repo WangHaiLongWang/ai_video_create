@@ -54,9 +54,10 @@ class TestRealTextInputHandler:
             "config": {"prompt": "test prompt"},
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "ok"
-        assert "output" in result
-        assert result["output"]["type"] == "text"
+        assert result.status == "succeeded"
+        assert result.output is not None
+        assert result.output.type == "text"
+        assert result.output.metadata["content"] == "test prompt"
 
     @pytest.mark.asyncio
     async def test_execute_empty_prompt(self):
@@ -67,8 +68,8 @@ class TestRealTextInputHandler:
             "config": {"prompt": ""},
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "ok"
-        assert result["output"]["content"] == ""
+        assert result.status == "succeeded"
+        assert result.output.metadata["content"] == ""
 
 
 class TestRealStoryboardHandler:
@@ -97,13 +98,15 @@ class TestRealStoryboardHandler:
             },
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "ok"
-        assert result["output"]["type"] == "list<scene>"
-        assert result["output"]["count"] == 3
-        assert len(result["output"]["scenes"]) == 3
+        assert result.status == "succeeded"
+        assert result.output is not None
+        assert result.output.type == "text"
+        scenes = result.output.metadata["scenes"]
+        assert result.output.metadata["count"] == 3
+        assert len(scenes) == 3
 
         # Check scene structure
-        scene = result["output"]["scenes"][0]
+        scene = scenes[0]
         assert "scene_id" in scene
         assert "narration" in scene
         assert "image_prompt" in scene
@@ -139,11 +142,11 @@ class TestRealTextToImageHandler:
             },
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "ok"
-        assert result["output"]["type"] == "list<image>"
-        assert "asset_id" in result["output"]
-        assert "path" in result["output"]
-        assert result["output"]["scene_id"] == "scene-001"
+        assert result.status == "succeeded"
+        assert result.output.type == "image"
+        assert result.output.asset_id is not None
+        assert result.output.scene_id == "scene-001"
+        assert "path" in result.output.metadata
 
     @pytest.mark.asyncio
     async def test_execute_no_prompt(self):
@@ -154,7 +157,9 @@ class TestRealTextToImageHandler:
             "config": {"image_prompt": ""},
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "error"
+        assert result.status == "failed"
+        assert result.error is not None
+        assert result.error.code == "NO_PROMPT"
 
 
 class TestRealVideoConcatHandler:
@@ -182,9 +187,9 @@ class TestRealVideoConcatHandler:
             },
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "ok"
-        assert result["output"]["type"] == "video"
-        assert result["output"]["filename"] == "output.mp4"
+        assert result.status == "succeeded"
+        assert result.output.type == "video"
+        assert result.output.metadata["filename"] == "output.mp4"
 
 
 class TestRealOutputHandler:
@@ -209,6 +214,7 @@ class TestRealOutputHandler:
             "config": {},
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result["status"] == "ok"
-        assert result["output"]["type"] == "final"
-        assert "message" in result["output"]
+        assert result.status == "succeeded"
+        assert result.output is not None
+        assert result.output.type == "video"
+        assert "message" in result.output.metadata

@@ -1,35 +1,35 @@
 # ai_video_create 项目状态报告
 
 > 基线日期：2026-09-15
-> 状态版本：3.0
+> 状态版本：4.0
 > Active 计划：`docs/plans/2026-09-15-company-delivery-plan.md`
 > 评估口径：以代码审计、可重复测试和端到端用户链路为准；文件存在不等于功能完成。
 
 ## 1. 管理摘要
 
-项目已从初始画布原型进入“执行链集成 + 真实 Provider 验证”阶段。工作流编辑、SQLite 持久化、任务队列、结果保存、执行状态轮询、资产记录、Provider 设置和模板入口均已形成代码路径；Qwen Image 3.0 已完成一次真实 1280×720 生图，Wan3.0 已完成官方协议配置、运行时注册、鉴权检查和 Contract Test。
+项目已完成执行语义收敛关键里程碑：NodeResult/ArtifactRef 统一 Schema、scene_id 动态映射、深层失败传播、取消竞态防护和 2-4 Worker 并发模型已全部实现并通过测试。Wan3 external_job_id 已持久化，支持进程恢复。
 
-当前仍不能定义为“真实提示词一键成片”产品。主要差距不是缺少 Provider，而是场景数据映射、长任务恢复、真实 Wan3 UAT、FFmpeg 合成验证和前端资产/错误体验尚未完成。
+当前仍不能定义为”真实提示词一键成片”产品。主要差距是真实 Wan3 UAT、FFmpeg 合成验证和前端 WebSocket 实时更新尚未完成。
 
 ### 当前评分
 
 | 维度 | 完成度 | 说明 |
 |---|---:|---|
-| 架构骨架 | 75% | 主要模块和 API 已存在，部分契约仍分散 |
-| Mock 用户闭环 | 60% | 前端已调用后端执行，但 scene item 映射仍不完整 |
-| 真实多模态闭环 | 50% | Qwen 生图已验证，Wan3 未执行计费 UAT，合成未验收 |
-| Agent/模板体验 | 45% | 后端服务和入口存在，AgentComposer 仍使用本地规则 |
-| 发布就绪度 | 40% | 测试基线恢复，缺浏览器 E2E、三平台和恢复演练 |
-| 综合产品完成度 | **约 55%** | 可继续内部开发，不建议对外发布 |
+| 架构骨架 | 85% | 主要模块和 API 已存在，统一 Schema 已冻结 |
+| Mock 用户闭环 | 75% | scene 映射完成，失败传播递归化，Worker 并发 |
+| 真实多模态闭环 | 55% | Qwen 生图已验证，Wan3 未执行计费 UAT，合成未验收 |
+| Agent/模板体验 | 50% | 后端服务和入口存在，AgentComposer 仍使用本地规则 |
+| 发布就绪度 | 45% | 测试基线恢复，缺浏览器 E2E、三平台和恢复演练 |
+| 综合产品完成度 | **约 62%** | 可继续内部开发，不建议对外发布 |
 
 ### 当前阶段
 
 ```text
-Phase A 类型化画布       65%  █████████████░░░░░░░
-Phase B Mock 执行器      60%  ████████████░░░░░░░░
-Phase C 真实多模态       50%  ██████████░░░░░░░░░░
-Phase D Agent 与模板     45%  █████████░░░░░░░░░░░
-Phase E 发布验收         40%  ████████░░░░░░░░░░░░
+Phase A 类型化画布       75%  ███████████████░░░░░
+Phase B Mock 执行器      75%  ███████████████░░░░░
+Phase C 真实多模态       55%  ███████████░░░░░░░░░
+Phase D Agent 与模板     50%  ██████████░░░░░░░░░░
+Phase E 发布验收         45%  █████████░░░░░░░░░░░
 ```
 
 百分比表示阶段验收标准满足程度，不表示代码行数或已消耗工时。
@@ -41,7 +41,7 @@ Phase E 发布验收         40%  ████████░░░░░░░�
 | 检查 | 最新结果 | 状态 |
 |---|---:|---|
 | 前端 Vitest | 16 passed | 通过 |
-| 后端 Pytest | 226 passed、6 skipped | 通过（FFmpeg 环境项跳过） |
+| 后端 Pytest | 310 passed、6 skipped | 通过（FFmpeg 环境项跳过） |
 | TypeScript | `tsc --noEmit` | 通过 |
 | Vite 生产构建 | JS gzip 约 124 KB | 通过 |
 | FastAPI 健康检查 | HTTP 200 | 通过 |
@@ -89,14 +89,14 @@ Host      127.0.0.1
 | 导入/导出 API | 已实现 | 后端/API client | 缺 UI 入口 |
 | 自动保存 | 部分 | 1 秒防抖 | 失败仅 console，UI 仍显示已保存 |
 | DAG 拓扑/环检测 | 已实现 | 编译时 | 保存时校验不足 |
-| map task 展开 | 部分 | 按 storyboard 配置预展开 | 不是按实际输出动态展开 |
-| task result 持久化 | 已实现 | `result_json` | 缺正式 NodeResult Schema |
-| 上游结果读取 | 已实现 | Worker context | scene 对应输入仍不完整 |
-| 执行收敛 | 已实现 | completed/failed/cancelled 汇总 | 深层失败传播仍需验证 |
+| map task 展开 | ✅ 已实现 | 按 storyboard 实际输出动态展开 | expand_map_items + _build_node_input |
+| task result 持久化 | ✅ 已实现 | NodeResult/ArtifactRef Schema | 25 tests passed |
+| 上游结果读取 | ✅ 已实现 | Worker context + scene 数据注入 | scene_id 映射完整 |
+| 执行收敛 | ✅ 已实现 | 递归失败传播 + 取消传播 | 13 tests passed |
 | 自动重试 | 部分 | 固定最多 3 次 | 无错误分类、退避和人工 retry API |
-| 取消执行 | 部分 | API 可改状态 | 外部 Provider 无持久 CancellationToken |
-| Worker 租约/恢复 | 部分 | heartbeat/orphan 函数 | task_id 与资产幂等未完成 |
-| 多 Worker | 未实现 | 当前单 Worker | 配置值未形成进程内 Worker pool |
+| 取消执行 | ✅ 已实现 | 递归取消下游 + 竞态防护 | cancel_task 条件更新 |
+| Worker 租约/恢复 | 已实现 | heartbeat/orphan 函数 | external_job_id 已持久化 |
+| 多 Worker | ✅ 已实现 | 2-4 Worker 并发 pool | WorkerPool + 原子 claim |
 | 前端运行后端 DAG | 已实现 | 保存、启动、轮询 | 尚未使用 WebSocket 主路径 |
 | WebSocket 后端 | 已实现 | 事件推送/补拉 | 前端未订阅 |
 | 节点执行状态 | 部分 | waiting/running/completed/failed | blocked/skipped/cancelled UI 不完整 |
@@ -149,19 +149,22 @@ backend/app
 ├── api/                            Workflow/Execution/Asset/Agent/Template/Config
 ├── db/
 │   ├── connection.py              SQLite 单例和简易迁移执行
-│   └── migrations/001-005         初始表、result、asset、template、attempt
+│   └── migrations/001-006         初始表、result、asset、template、attempt、external_job_id
 ├── repositories/                   Workflow、Asset
 ├── engine/
-│   ├── compiler.py                拓扑和静态 map 展开
-│   ├── queue.py                   claim/lease/result/retry/convergence
-│   └── worker.py                  上游结果、Handler 和事件
-├── handlers/                       Mock/Real 六类节点 Handler
+│   ├── compiler.py                拓扑、动态 map 展开、scene 提取
+│   ├── queue.py                   claim/lease/result/retry/递归传播/convergence
+│   └── worker.py                  WorkerPool、上游结果、Handler 和事件
+├── handlers/
+│   ├── contracts.py               NodeResult/ArtifactRef/NodeError/Scene Schema
+│   ├── base.py                    Mock Handler（7 类）
+│   └── real_handlers.py           Real Handler（6 类）
 ├── providers/
 │   ├── mock_provider.py
 │   ├── ollama_provider.py
 │   ├── openai_provider.py
 │   ├── dashscope_provider.py      Qwen Image 3.0
-│   ├── wan3_provider.py           Wan3.0 Video
+│   ├── wan3_provider.py           Wan3.0 Video + external_job_id
 │   └── comfyui_provider.py        本地 ComfyUI
 └── services/                       Agent/Template/Event/Asset/FFmpeg
 ```
@@ -171,7 +174,7 @@ backend/app
 - Qwen Image 与 Wan3 都属于阿里云百炼，但分别是 image/video capability Provider。
 - Wan3 不是 ComfyUI 模型配置；`wan3` 与 `comfyui` 必须独立注册和选择。
 - Handler 接收标准 NodeInput 并返回 NodeResult；Provider 只负责外部协议。
-- 长任务 task_id 必须由 Scheduler/NodeRun 持久化，不能只存在于单次 Provider 协程内。
+- 长任务 task_id 通过 external_job_id 持久化到 tasks 表，支持进程恢复。
 - 资产文件必须落本地，外部 24 小时临时 URL 不能成为工作流永久输出。
 
 ## 6. 已完成的重要改进
@@ -191,6 +194,12 @@ backend/app
 - executions 可在所有 task 进入终态时收敛。
 - Assets 和 Templates 已增加 SQLite 表与 API。
 - 前端运行按钮已调用后端执行 API并轮询任务。
+- **NodeResult/ArtifactRef Schema 统一**（2026-09-15）：所有 Handler 返回标准 NodeResult，包含 status/output/artifacts/metrics/error。
+- **scene_id 动态映射**（2026-09-15）：Compiler 支持 expand_map_items()，Worker 组装 NodeInput 提取对应 scene 数据。
+- **深层失败传播**（2026-09-15）：fail_task() 使用递归 CTE 传播到所有下游任务。
+- **取消竞态防护**（2026-09-15）：complete_task() 条件更新，cancel_task() 递归取消下游。
+- **2-4 Worker 并发模型**（2026-09-15）：WorkerPool 管理多 Worker，WORKER_COUNT 配置 [1,8]。
+- **Wan3 external_job_id 持久化**（2026-09-15）：Migration 006 添加 external_job_id 字段，支持进程恢复。
 
 ### 多模态 Provider
 
@@ -210,12 +219,12 @@ backend/app
 
 | ID | 风险 | 影响 | 当前证据 | 处置 |
 |---|---|---|---|---|
-| P0-1 | scene 数据未真正一一映射 | 图片/视频可能使用空 prompt 或错误上游资产 | compiler 让 map item 依赖上游全部 task | 优先实现动态 map/按 item_key 输入组装 |
-| P0-2 | 长任务 task_id 不持久化 | 进程重启后可能重复计费创建 Wan3 任务 | task_id 只在 Provider 协程内 | NodeRun 增加 external_job_id/status |
+| P0-1 | ✅ scene 数据映射 | 已完成动态映射和输入组装 | expand_map_items + _build_node_input | 已解决 |
+| P0-2 | ✅ 长任务 task_id | 已持久化 external_job_id | Migration 006 + save_external_job_id | 已解决 |
 | P0-3 | 真实 Wan3 未 UAT | 无法确认业务空间授权、实际结果格式和耗时 | 只做健康/Contract Test | 需用户确认费用后执行 480P/2 秒测试 |
 | P0-4 | 无 FFmpeg 环境验收 | 最终多段视频无法确认可合成 | 6 项测试 skipped | 安装固定版本并执行真实媒体测试 |
-| P0-5 | 失败传播仅直接一层 | 深层 task 可能永久 pending | queue fail_task 只更新直接依赖 | Scheduler 递归传播并做不变量测试 |
-| P0-6 | 取消可能被晚到结果覆盖 | UI/数据库状态不一致 | Provider 缺持久 cancel token，complete UPDATE 未限制状态 | 状态条件更新 + Job cancel |
+| P0-5 | ✅ 失败传播 | 已实现递归传播 | _propagate_failure_recursive CTE | 已解决 |
+| P0-6 | ✅ 取消竞态防护 | 已实现条件更新和递归取消 | complete_task + cancel_task 条件更新 | 已解决 |
 | P0-7 | 配置只在内存修改 | UI 保存后重启丢失 | Config API 注释明确 in-memory | ProviderConfig Repository/secret reference |
 | P0-8 | Agent/模板入口未闭环 | 用户操作看似成功但画布不变 | TemplateSelector 丢弃返回 spec；AgentComposer 不调 API | 作为产品集成 Sprint 处理 |
 

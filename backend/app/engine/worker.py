@@ -7,8 +7,10 @@ import logging
 from typing import Protocol, Any
 
 from backend.app.engine.queue import claim_task, complete_task, fail_task, heartbeat, recover_orphans, get_upstream_results
+from backend.app.engine.compiler import _extract_scenes
 from backend.app.services.event_bus import emit_event
 from backend.app.handlers import get_handler
+from backend.app.handlers.contracts import NodeResult, Scene
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,9 @@ class Worker:
         # 获取上游任务结果
         upstream = get_upstream_results(execution_id, depends_on)
 
+        # 组装 NodeInput：对 map 展开任务注入对应 scene 的 prompt 数据
+        task = self._build_node_input(task, upstream)
+
         # 发送开始事件
         emit_event(execution_id, node_id, "node.started", "running",
                    item_key=item_key, message=f"开始执行: {task.get('label', kind)}")
@@ -114,13 +119,24 @@ class Worker:
             result = await handler.execute(task, context)
 
             heartbeat_task.cancel()
-            if result.get("status") not in {"ok", "succeeded"}:
-                error_msg = str(result.get("error") or "Handler returned an error result")
+
+            # Normalize to NodeResult if handler returned a plain dict (legacy)
+            if isinstance(result, dict):
+                result = NodeResult(**result)
+
+            if result.status == "failed":
+                error_msg = (
+                    result.error.message
+                    if result.error
+                    else "Handler returned a failed result"
+                )
                 fail_task(task_id, error_msg)
                 emit_event(execution_id, node_id, "node.failed", "failed",
                            item_key=item_key, message=f"失败: {error_msg}")
                 return
-            complete_task(task_id, result)
+
+            # Convert to dict for JSON serialization in the task queue
+            complete_task(task_id, result.to_dict())
             self._task_count += 1
 
             # 发送完成事件
@@ -139,6 +155,50 @@ class Worker:
             emit_event(execution_id, node_id, "node.failed", "failed",
                        item_key=item_key, message=f"失败: {error_msg}")
             logger.error(f"任务 {task_id} 执行失败: {e}")
+
+    @staticmethod
+    def _build_node_input(task: dict, upstream_results: dict) -> dict:
+        """根据上游 storyboard 输出组装 NodeInput，注入对应 scene 的 prompt。
+
+        对于 map 展开的任务（item_key 以 scene- 开头），从上游 storyboard
+        结果中查找匹配的 scene，并将 ``image_prompt`` / ``video_prompt`` /
+        ``duration`` / ``metadata`` 注入到 task config 中，确保 handler 获得
+        该场景专属的输入数据。
+
+        Args:
+            task: 任务描述字典（需含 ``item_key``、``config``、``depends_on``）。
+            upstream_results: 上游任务的执行结果映射 (task_id -> result dict)。
+
+        Returns:
+            更新后的 task 字典（原地修改并返回）。
+        """
+        scene_id = task.get("item_key")
+        if not scene_id or not scene_id.startswith("scene-"):
+            return task
+
+        # 从上游结果中提取 scenes 列表
+        scenes = _extract_scenes(upstream_results)
+
+        if not scenes:
+            return task
+
+        # 查找匹配的 scene
+        for scene_data in scenes:
+            if scene_data.get("scene_id") == scene_id:
+                try:
+                    scene = Scene.model_validate(scene_data)
+                except Exception:
+                    # 数据不合规范时跳过注入，保留原有 config
+                    return task
+
+                task_config = task.setdefault("config", {})
+                task_config["image_prompt"] = scene.image_prompt
+                task_config["video_prompt"] = scene.video_prompt
+                task_config["duration"] = scene.duration
+                task_config["metadata"] = scene.metadata
+                return task
+
+        return task
 
     async def _heartbeat_loop(self, task_id: str) -> None:
         """定期续租。"""

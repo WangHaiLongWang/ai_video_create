@@ -5,13 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Any, Protocol
 
+from backend.app.handlers.contracts import NodeResult
+
 logger = logging.getLogger(__name__)
 
 
 class NodeHandler(Protocol):
     """Node handler protocol."""
 
-    async def execute(self, task: dict, context: dict) -> dict: ...
+    async def execute(self, task: dict, context: dict) -> NodeResult: ...
 
 
 # Handler registry

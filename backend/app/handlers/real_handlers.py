@@ -11,6 +11,7 @@ from backend.app.providers import get_provider
 from backend.app.providers.base import ProviderError
 from backend.app.services.asset_manager import get_asset_manager
 from backend.app.services.ffmpeg import get_ffmpeg_service, FFmpegError
+from backend.app.handlers.contracts import ArtifactRef, NodeResult
 
 logger = logging.getLogger(__name__)
 
@@ -33,23 +34,27 @@ def _provider_name(config: dict, capability: str) -> str:
 class RealTextInputHandler:
     """TextInput handler — uses LLM provider to process prompts."""
 
-    async def execute(self, task: dict, context: dict) -> dict:
+    async def execute(self, task: dict, context: dict) -> NodeResult:
         """Execute text input node."""
         config = task.get("config", {})
         prompt = config.get("prompt", "")
 
         if not prompt:
-            return {"status": "ok", "output": {"type": "text", "content": ""}}
+            return NodeResult.ok(
+                output=ArtifactRef(type="text", metadata={"content": ""}),
+            )
 
         # TextInput is a source node. LLM processing belongs to storyboard or a
         # dedicated LLM node, so preserve the user's prompt verbatim.
-        return {"status": "ok", "output": {"type": "text", "content": prompt}}
+        return NodeResult.ok(
+            output=ArtifactRef(type="text", metadata={"content": prompt}),
+        )
 
 
 class RealStoryboardHandler:
     """Storyboard handler — uses LLM to generate structured scenes."""
 
-    async def execute(self, task: dict, context: dict) -> dict:
+    async def execute(self, task: dict, context: dict) -> NodeResult:
         """Execute storyboard node."""
         config = task.get("config", {})
         prompt = config.get("prompt", "Generate a storyboard")
@@ -81,14 +86,12 @@ User request: {prompt}"""
                 # Parse JSON response
                 scenes_data = self._parse_storyboard_response(response_text, scene_count)
 
-                return {
-                    "status": "ok",
-                    "output": {
-                        "type": "list<scene>",
-                        "scenes": scenes_data,
-                        "count": len(scenes_data),
-                    },
-                }
+                return NodeResult.ok(
+                    output=ArtifactRef(
+                        type="text",
+                        metadata={"scenes": scenes_data, "count": len(scenes_data)},
+                    ),
+                )
             except ProviderError as e:
                 logger.warning(f"Provider failed, generating mock storyboard: {e}")
 
@@ -104,10 +107,12 @@ User request: {prompt}"""
                 "duration_seconds": 4,
             })
 
-        return {
-            "status": "ok",
-            "output": {"type": "list<scene>", "scenes": scenes, "count": scene_count},
-        }
+        return NodeResult.ok(
+            output=ArtifactRef(
+                type="text",
+                metadata={"scenes": scenes, "count": scene_count},
+            ),
+        )
 
     def _parse_storyboard_response(self, text: str, expected_count: int) -> list[dict]:
         """Parse LLM response into structured scenes."""
@@ -165,21 +170,37 @@ User request: {prompt}"""
 
 
 class RealTextToImageHandler:
-    """TextToImage handler — uses image provider to generate images."""
+    """TextToImage handler — uses image provider to generate images.
 
-    async def execute(self, task: dict, context: dict) -> dict:
-        """Execute text-to-image node."""
+    Expects ``config["image_prompt"]`` to be set by the worker from the
+    corresponding scene's ``image_prompt`` field (via
+    :class:`~backend.app.handlers.contracts.Scene`).  Falls back to
+    ``config["prompt"]`` when no scene data is available.
+    """
+
+    async def execute(self, task: dict, context: dict) -> NodeResult:
+        """Execute text-to-image node.
+
+        The worker injects ``scene.image_prompt`` into ``config["image_prompt"]``
+        before this handler runs.
+        """
         config = task.get("config", {})
         prompt = config.get("image_prompt", config.get("prompt", ""))
         scene_id = task.get("item_key", "unknown")
 
         if not prompt:
-            return {"status": "error", "error": "No prompt provided"}
+            return NodeResult.fail(
+                code="NO_PROMPT",
+                message="No prompt provided",
+            )
 
         # Get provider
         provider = get_provider(_provider_name(config, "image"))
         if not provider or not provider.capabilities.image:
-            return {"status": "error", "error": "No image provider available"}
+            return NodeResult.fail(
+                code="NO_IMAGE_PROVIDER",
+                message="No image provider available",
+            )
 
         try:
             # Generate image
@@ -195,29 +216,44 @@ class RealTextToImageHandler:
                 extension="png",
             )
 
-            return {
-                "status": "ok",
-                "output": {
-                    "type": "list<image>",
-                    "asset_id": asset_id,
-                    "scene_id": scene_id,
-                    "path": relative_path,
-                    "url": asset_manager.get_asset_url(relative_path),
-                    "width": config.get("width", 1024),
-                    "height": config.get("height", 768),
-                },
-            }
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="image",
+                    asset_id=asset_id,
+                    scene_id=scene_id,
+                    url=asset_manager.get_asset_url(relative_path),
+                    metadata={
+                        "path": relative_path,
+                        "width": config.get("width", 1024),
+                        "height": config.get("height", 768),
+                    },
+                ),
+                artifacts=[asset_id],
+            )
 
         except ProviderError as e:
             logger.error(f"Image generation failed: {e}")
-            return {"status": "error", "error": str(e)}
+            return NodeResult.fail(
+                code="PROVIDER_ERROR",
+                message=str(e),
+            )
 
 
 class RealImageToVideoHandler:
-    """ImageToVideo handler — uses video provider or FFmpeg."""
+    """ImageToVideo handler — uses video provider or FFmpeg.
 
-    async def execute(self, task: dict, context: dict) -> dict:
-        """Execute image-to-video node."""
+    Expects ``config["video_prompt"]`` to be set by the worker from the
+    corresponding scene's ``video_prompt`` field (via
+    :class:`~backend.app.handlers.contracts.Scene`).  Falls back to
+    ``config["prompt"]`` when no scene data is available.
+    """
+
+    async def execute(self, task: dict, context: dict) -> NodeResult:
+        """Execute image-to-video node.
+
+        The worker injects ``scene.video_prompt`` into ``config["video_prompt"]``
+        and ``scene.duration`` into ``config["duration"]`` before this handler runs.
+        """
         config = task.get("config", {})
         scene_id = task.get("item_key", "unknown")
         duration = config.get("duration", 4)
@@ -227,7 +263,10 @@ class RealImageToVideoHandler:
         )
 
         if not image_path:
-            return {"status": "error", "error": "Image path required for video generation"}
+            return NodeResult.fail(
+                code="NO_IMAGE",
+                message="Image path required for video generation",
+            )
 
         provider_name = _provider_name(config, "video")
         if provider_name in {"wan3", "comfyui"}:
@@ -238,11 +277,14 @@ class RealImageToVideoHandler:
 
     async def _use_provider(
         self, task: dict, config: dict, scene_id: str, duration: float, image_path: str
-    ) -> dict:
+    ) -> NodeResult:
         """Use video provider to generate video."""
         provider = get_provider(_provider_name(config, "video"))
         if not provider or not provider.capabilities.video:
-            return {"status": "error", "error": "No video provider available"}
+            return NodeResult.fail(
+                code="NO_VIDEO_PROVIDER",
+                message="No video provider available",
+            )
 
         try:
             asset_manager = get_asset_manager()
@@ -253,6 +295,15 @@ class RealImageToVideoHandler:
                 str(config.get("video_prompt", config.get("prompt", "镜头自然运动"))),
                 config,
             )
+
+            # Persist external_job_id if the provider exposes one
+            external_job_id = None
+            if hasattr(provider, "get_external_job_id"):
+                external_job_id = provider.get_external_job_id()
+            if external_job_id and task.get("id"):
+                from backend.app.engine.queue import save_external_job_id
+                save_external_job_id(task["id"], external_job_id)
+
             asset_id = f"vid-{uuid.uuid4().hex[:8]}"
             relative_path = asset_manager.save_asset(
                 video_data,
@@ -260,23 +311,29 @@ class RealImageToVideoHandler:
                 category="videos",
                 extension="mp4",
             )
-            return {
-                "status": "ok",
-                "output": {
-                    "type": "list<video>",
-                    "asset_id": asset_id,
-                    "scene_id": scene_id,
-                    "path": relative_path,
-                    "url": asset_manager.get_asset_url(relative_path),
-                    "duration_seconds": duration,
-                    "resolution": config.get("resolution", "480P"),
-                    "provider": provider_name,
-                },
-            }
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="video",
+                    asset_id=asset_id,
+                    scene_id=scene_id,
+                    url=asset_manager.get_asset_url(relative_path),
+                    metadata={
+                        "path": relative_path,
+                        "duration_seconds": duration,
+                        "resolution": config.get("resolution", "480P"),
+                        "provider": _provider_name(config, "video"),
+                        "external_job_id": external_job_id,
+                    },
+                ),
+                artifacts=[asset_id],
+            )
 
         except ProviderError as e:
             logger.error(f"Video generation failed: {e}")
-            return {"status": "error", "error": str(e)}
+            return NodeResult.fail(
+                code="PROVIDER_ERROR",
+                message=str(e),
+            )
 
     @staticmethod
     def _find_upstream_image(upstream_results: dict, scene_id: str) -> str:
@@ -297,7 +354,7 @@ class RealImageToVideoHandler:
 
     async def _use_ffmpeg(
         self, task: dict, config: dict, scene_id: str, image_path: str, duration: float
-    ) -> dict:
+    ) -> NodeResult:
         """Use FFmpeg to create video from image."""
         try:
             ffmpeg = get_ffmpeg_service()
@@ -324,41 +381,45 @@ class RealImageToVideoHandler:
 
             relative_path = f"videos/{output_filename}"
 
-            return {
-                "status": "ok",
-                "output": {
-                    "type": "list<video>",
-                    "asset_id": asset_id,
-                    "scene_id": scene_id,
-                    "path": relative_path,
-                    "url": asset_manager.get_asset_url(relative_path),
-                    "duration_seconds": duration,
-                },
-            }
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="video",
+                    asset_id=asset_id,
+                    scene_id=scene_id,
+                    url=asset_manager.get_asset_url(relative_path),
+                    metadata={
+                        "path": relative_path,
+                        "duration_seconds": duration,
+                    },
+                ),
+                artifacts=[asset_id],
+            )
 
         except FFmpegError as e:
             logger.error(f"FFmpeg video creation failed: {e}")
             return self._mock_video_output(scene_id, duration)
 
-    def _mock_video_output(self, scene_id: str, duration: float) -> dict:
+    def _mock_video_output(self, scene_id: str, duration: float) -> NodeResult:
         """Generate mock video output as fallback."""
         asset_id = f"vid-{uuid.uuid4().hex[:8]}"
-        return {
-            "status": "ok",
-            "output": {
-                "type": "list<video>",
-                "asset_id": asset_id,
-                "scene_id": scene_id,
-                "path": f"data/assets/videos/{asset_id}.mp4",
-                "duration_seconds": duration,
-            },
-        }
+        return NodeResult.ok(
+            output=ArtifactRef(
+                type="video",
+                asset_id=asset_id,
+                scene_id=scene_id,
+                metadata={
+                    "path": f"data/assets/videos/{asset_id}.mp4",
+                    "duration_seconds": duration,
+                },
+            ),
+            artifacts=[asset_id],
+        )
 
 
 class RealVideoConcatHandler:
     """VideoConcat handler — uses FFmpeg to concatenate videos."""
 
-    async def execute(self, task: dict, context: dict) -> dict:
+    async def execute(self, task: dict, context: dict) -> NodeResult:
         """Execute video concatenation node."""
         config = task.get("config", {})
         filename = config.get("filename", "output.mp4")
@@ -369,15 +430,17 @@ class RealVideoConcatHandler:
         if not video_paths:
             # No videos to concatenate
             asset_id = f"final-{uuid.uuid4().hex[:8]}"
-            return {
-                "status": "ok",
-                "output": {
-                    "type": "video",
-                    "asset_id": asset_id,
-                    "path": f"data/assets/final/{asset_id}.mp4",
-                    "filename": filename,
-                },
-            }
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="video",
+                    asset_id=asset_id,
+                    metadata={
+                        "path": f"data/assets/final/{asset_id}.mp4",
+                        "filename": filename,
+                    },
+                ),
+                artifacts=[asset_id],
+            )
 
         try:
             ffmpeg = get_ffmpeg_service()
@@ -400,39 +463,43 @@ class RealVideoConcatHandler:
 
             relative_path = f"final/{output_filename}"
 
-            return {
-                "status": "ok",
-                "output": {
-                    "type": "video",
-                    "asset_id": asset_id,
-                    "path": relative_path,
-                    "url": asset_manager.get_asset_url(relative_path),
-                    "filename": filename,
-                },
-            }
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="video",
+                    asset_id=asset_id,
+                    url=asset_manager.get_asset_url(relative_path),
+                    metadata={
+                        "path": relative_path,
+                        "filename": filename,
+                    },
+                ),
+                artifacts=[asset_id],
+            )
 
         except FFmpegError as e:
             logger.error(f"FFmpeg concatenation failed: {e}")
             return self._mock_concat_output(filename)
 
-    def _mock_concat_output(self, filename: str) -> dict:
+    def _mock_concat_output(self, filename: str) -> NodeResult:
         """Generate mock concat output as fallback."""
         asset_id = f"final-{uuid.uuid4().hex[:8]}"
-        return {
-            "status": "ok",
-            "output": {
-                "type": "video",
-                "asset_id": asset_id,
-                "path": f"data/assets/final/{asset_id}.mp4",
-                "filename": filename,
-            },
-        }
+        return NodeResult.ok(
+            output=ArtifactRef(
+                type="video",
+                asset_id=asset_id,
+                metadata={
+                    "path": f"data/assets/final/{asset_id}.mp4",
+                    "filename": filename,
+                },
+            ),
+            artifacts=[asset_id],
+        )
 
 
 class RealOutputHandler:
     """Output handler — finalizes assets and generates URLs."""
 
-    async def execute(self, task: dict, context: dict) -> dict:
+    async def execute(self, task: dict, context: dict) -> NodeResult:
         """Execute output node."""
         config = task.get("config", {})
 
@@ -443,21 +510,21 @@ class RealOutputHandler:
 
         if video_path and asset_manager.asset_exists(video_path):
             asset_info = asset_manager.get_asset_info(video_path)
-            return {
-                "status": "ok",
-                "output": {
-                    "type": "final",
-                    "message": "工作流执行完成",
-                    "video_path": video_path,
-                    "video_url": asset_manager.get_asset_url(video_path),
-                    "asset_info": asset_info,
-                },
-            }
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="video",
+                    url=asset_manager.get_asset_url(video_path),
+                    metadata={
+                        "message": "工作流执行完成",
+                        "video_path": video_path,
+                        "asset_info": asset_info,
+                    },
+                ),
+            )
 
-        return {
-            "status": "ok",
-            "output": {
-                "type": "final",
-                "message": "工作流执行完成",
-            },
-        }
+        return NodeResult.ok(
+            output=ArtifactRef(
+                type="video",
+                metadata={"message": "工作流执行完成"},
+            ),
+        )

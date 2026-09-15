@@ -196,5 +196,79 @@ def _find_scene_count_source(nodes: list[dict]) -> int:
         data = node.get("data", {})
         if data.get("kind") == "storyboard":
             scenes = data.get("config", {}).get("scenes", 5)
+            # scenes 可能是整数或列表
+            if isinstance(scenes, list):
+                return len(scenes)
             return int(scenes)
     return 5  # 默认
+
+
+def expand_map_items(upstream_results: dict, node_config: dict) -> list[dict]:
+    """根据上游 storyboard 实际输出动态创建 map item 列表。
+
+    从 upstream_results 中提取 ``scenes`` 数组（位于
+    ``result["output"]["metadata"]["scenes"]``），为每个 scene 生成一条
+    map item dict（包含 scene_id、index、scene 元数据）。
+
+    Args:
+        upstream_results: 上游任务的执行结果映射 (task_id -> result dict)。
+        node_config: 当前节点的配置（需要 ``mapOver: True`` 才生效）。
+
+    Returns:
+        按 scene.index 排序的 map item dict 列表。若上游无有效场景数据则
+        返回空列表。
+    """
+    if not node_config.get("mapOver"):
+        return []
+
+    # 从上游结果中定位 scenes 列表
+    scenes = _extract_scenes(upstream_results)
+
+    if not scenes:
+        return []
+
+    items = []
+    for scene in scenes:
+        scene_id = scene.get("scene_id", f"scene-{scene.get('index', 0) + 1:03d}")
+        items.append({
+            "scene_id": scene_id,
+            "index": scene.get("index", 0),
+            "narration": scene.get("narration", ""),
+            "image_prompt": scene.get("image_prompt", ""),
+            "video_prompt": scene.get("video_prompt", ""),
+            "duration_seconds": scene.get("duration_seconds", 5.0),
+            "metadata": scene.get("metadata", {}),
+        })
+
+    items.sort(key=lambda x: x["index"])
+    return items
+
+
+def _extract_scenes(upstream_results: dict) -> list[dict]:
+    """从上游任务结果中提取 scenes 列表。
+
+    支持两种存储格式：
+    1. ``result["output"]["metadata"]["scenes"]`` — NodeResult / ArtifactRef 序列化后的标准格式
+    2. ``result["output"]["scenes"]`` — 旧的直接格式（兼容）
+    3. ``result["scenes"]`` — 最外层直接存储（兼容）
+    """
+    for result in upstream_results.values():
+        if not isinstance(result, dict):
+            continue
+
+        # 格式 1: NodeResult -> output.metadata.scenes
+        output = result.get("output", {})
+        if isinstance(output, dict):
+            meta = output.get("metadata", {})
+            if isinstance(meta, dict) and "scenes" in meta:
+                return meta["scenes"]
+
+            # 格式 2: output.scenes (legacy)
+            if "scenes" in output:
+                return output["scenes"]
+
+        # 格式 3: result.scenes (flat)
+        if "scenes" in result:
+            return result["scenes"]
+
+    return []

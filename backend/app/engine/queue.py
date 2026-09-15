@@ -279,6 +279,16 @@ def recover_orphans(worker_id: str, lease_seconds: int = 30) -> list[str]:
     return []
 
 
+def save_external_job_id(task_id: str, external_job_id: str) -> None:
+    """持久化外部任务 ID（如 Wan3 API 返回的 task_id）到 tasks 表。"""
+    conn = get_connection()
+    conn.execute(
+        "UPDATE tasks SET external_job_id = ? WHERE id = ?",
+        (external_job_id, task_id),
+    )
+    conn.commit()
+
+
 def get_task(task_id: str) -> dict:
     conn = get_connection()
     row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
