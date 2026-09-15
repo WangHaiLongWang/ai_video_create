@@ -13,6 +13,40 @@ from backend.app.handlers import get_handler
 logger = logging.getLogger(__name__)
 
 
+class WorkerPool:
+    """Worker 池，管理多个 Worker 的生命周期。"""
+
+    def __init__(self, worker_count: int = 2, **worker_kwargs):
+        self.workers: list[Worker] = []
+        self._tasks: list[asyncio.Task] = []
+        self._worker_count = worker_count
+        self._worker_kwargs = worker_kwargs
+
+    async def start(self):
+        """启动所有 Worker。"""
+        for i in range(self._worker_count):
+            worker_id = f"worker-{i+1}"
+            worker = Worker(worker_id, **self._worker_kwargs)
+            self.workers.append(worker)
+            task = asyncio.create_task(worker.start())
+            self._tasks.append(task)
+            logger.info(f"启动 Worker: {worker_id}")
+
+    async def stop(self):
+        """停止所有 Worker。"""
+        for worker in self.workers:
+            await worker.stop()
+        for task in self._tasks:
+            task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+        logger.info("所有 Worker 已停止")
+
+    @property
+    def active_count(self) -> int:
+        """当前活跃的 Worker 数量。"""
+        return sum(1 for w in self.workers if w._running)
+
+
 class Worker:
     """异步 Worker，持续轮询任务队列。"""
 

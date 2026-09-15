@@ -105,21 +105,25 @@ def heartbeat(task_id: str, lease_seconds: int = 30) -> None:
 
 
 def complete_task(task_id: str, result: dict | None = None) -> None:
-    """标记任务完成，可选持久化结果。"""
+    """标记任务完成，仅当任务状态为 running 时更新。"""
     conn = get_connection()
     now = _now_iso()
     result_json = json.dumps(result, ensure_ascii=False) if result else "{}"
-    conn.execute(
-        "UPDATE tasks SET status = 'completed', completed_at = ?, result_json = ? WHERE id = ?",
+
+    # 条件更新：只更新 running 状态的任务
+    cursor = conn.execute(
+        "UPDATE tasks SET status = 'completed', completed_at = ?, result_json = ? "
+        "WHERE id = ? AND status = 'running'",
         (now, result_json, task_id),
     )
     conn.commit()
-    # 检查执行是否所有任务完成
-    _check_execution_convergence(task_id)
+
+    if cursor.rowcount > 0:
+        _check_execution_convergence(task_id)
 
 
 def fail_task(task_id: str, error: str = "", max_retries: int = 3) -> list[str]:
-    """标记任务失败，支持重试，传播到下游。"""
+    """标记任务失败，支持重试，递归传播到所有下游。"""
     conn = get_connection()
     now = _now_iso()
 
@@ -138,39 +142,122 @@ def fail_task(task_id: str, error: str = "", max_retries: int = 3) -> list[str]:
         )
         conn.commit()
         return []
-    else:
-        # 超过最大重试次数：标记为失败，传播到下游
-        conn.execute(
-            "UPDATE tasks SET status = 'failed', error = ?, attempt = ?, completed_at = ? WHERE id = ?",
-            (error, attempt, now, task_id),
+
+    # 超过重试次数，标记失败
+    conn.execute(
+        "UPDATE tasks SET status = 'failed', error = ?, attempt = ?, completed_at = ? WHERE id = ?",
+        (error, attempt, now, task_id),
+    )
+    conn.commit()
+
+    # 递归传播：找到所有直接或间接依赖此任务的 pending 任务
+    skipped = _propagate_failure_recursive(task_id, now)
+    return skipped
+
+
+def _propagate_failure_recursive(failed_task_id: str, now: str) -> list[str]:
+    """递归传播失败到所有下游任务。"""
+    conn = get_connection()
+
+    # 使用 CTE 递归查找所有依赖链
+    query = """
+    WITH RECURSIVE dependents AS (
+        -- 基础：直接依赖 failed_task_id 的任务
+        SELECT t.id, t.depends_on_json
+        FROM tasks t
+        WHERE EXISTS (
+            SELECT 1 FROM json_each(t.depends_on_json)
+            WHERE value = ?
         )
-        # 传播：所有依赖此任务的 pending 任务标记为 skipped
-        cursor = conn.execute(
-            "UPDATE tasks SET status = 'skipped', completed_at = ? "
-            "WHERE status = 'pending' AND id IN ("
-            "  SELECT t.id FROM tasks t "
-            "  WHERE EXISTS (SELECT 1 FROM json_each(t.depends_on_json) WHERE value = ?)"
-            ")",
-            (now, task_id),
+        AND t.status = 'pending'
+
+        UNION ALL
+
+        -- 递归：依赖 dependents 的任务
+        SELECT t.id, t.depends_on_json
+        FROM tasks t
+        INNER JOIN dependents d ON EXISTS (
+            SELECT 1 FROM json_each(t.depends_on_json)
+            WHERE value = d.id
+        )
+        WHERE t.status = 'pending'
+    )
+    SELECT id FROM dependents
+    """
+
+    rows = conn.execute(query, (failed_task_id,)).fetchall()
+    if rows:
+        ids = [r["id"] for r in rows]
+        placeholders = ",".join("?" * len(ids))
+        conn.execute(
+            f"UPDATE tasks SET status = 'skipped', completed_at = ? WHERE id IN ({placeholders})",
+            [now] + ids,
         )
         conn.commit()
-        # 返回被跳过的任务 ids
-        skipped = conn.execute(
-            "SELECT id FROM tasks WHERE status = 'skipped' AND completed_at = ?",
-            (now,),
-        ).fetchall()
-        return [r["id"] for r in skipped]
+        return ids
+
+    return []
 
 
-def cancel_task(task_id: str) -> None:
-    """取消任务。"""
+def cancel_task(task_id: str) -> list[str]:
+    """取消任务，递归取消所有下游 pending 任务。"""
     conn = get_connection()
     now = _now_iso()
-    conn.execute(
-        "UPDATE tasks SET status = 'cancelled', completed_at = ? WHERE id = ? AND status IN ('pending', 'running')",
+
+    # 取消当前任务（仅 pending 或 running）
+    cursor = conn.execute(
+        "UPDATE tasks SET status = 'cancelled', completed_at = ? "
+        "WHERE id = ? AND status IN ('pending', 'running')",
         (now, task_id),
     )
     conn.commit()
+
+    if cursor.rowcount == 0:
+        return []
+
+    # 递归取消下游
+    cancelled = _propagate_cancel_recursive(task_id, now)
+    return cancelled
+
+
+def _propagate_cancel_recursive(cancelled_task_id: str, now: str) -> list[str]:
+    """递归取消所有依赖此任务的 pending 任务。"""
+    conn = get_connection()
+
+    query = """
+    WITH RECURSIVE dependents AS (
+        SELECT t.id
+        FROM tasks t
+        WHERE EXISTS (
+            SELECT 1 FROM json_each(t.depends_on_json)
+            WHERE value = ?
+        )
+        AND t.status = 'pending'
+
+        UNION ALL
+
+        SELECT t.id
+        FROM tasks t
+        INNER JOIN dependents d ON EXISTS (
+            SELECT 1 FROM json_each(t.depends_on_json)
+            WHERE value = d.id
+        )
+        WHERE t.status = 'pending'
+    )
+    SELECT id FROM dependents
+    """
+
+    rows = conn.execute(query, (cancelled_task_id,)).fetchall()
+    if rows:
+        ids = [r["id"] for r in rows]
+        placeholders = ",".join("?" * len(ids))
+        conn.execute(
+            f"UPDATE tasks SET status = 'cancelled', completed_at = ? WHERE id IN ({placeholders})",
+            [now] + ids,
+        )
+        conn.commit()
+
+    return [r["id"] for r in rows]
 
 
 def recover_orphans(worker_id: str, lease_seconds: int = 30) -> list[str]:

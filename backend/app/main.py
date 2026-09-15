@@ -11,13 +11,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api.executions import router as executions_router, start_worker_background, stop_worker_background
+from .api.executions import router as executions_router
 from .api.workflows import router as workflows_router
 from .api.config import router as config_router
 from .api.agent import router as agent_router
 from .api.templates import router as templates_router
 from .api.assets import router as assets_router
 from .db.connection import close_connection, init_db
+from .engine.worker import WorkerPool
 from .models import AgentRequest, WorkflowSpec
 from .workflow_factory import create_prompt_to_video
 from .config import get_settings
@@ -27,9 +28,14 @@ from .services.asset_manager import get_asset_manager
 from .middleware import SecurityMiddleware, InputSanitizeMiddleware
 
 
+_worker_pool: WorkerPool | None = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — initialize and cleanup resources."""
+    global _worker_pool
+
     # Initialize database
     init_db()
 
@@ -155,13 +161,19 @@ async def lifespan(app: FastAPI):
     # Initialize asset manager
     get_asset_manager()
 
-    # Start background worker
-    await start_worker_background()
+    # 启动 Worker 池
+    _worker_pool = WorkerPool(
+        worker_count=settings.WORKER_COUNT,
+        poll_interval=settings.WORKER_POLL_INTERVAL,
+        lease_seconds=settings.WORKER_LEASE_SECONDS,
+    )
+    await _worker_pool.start()
 
     yield
 
-    # Cleanup
-    await stop_worker_background()
+    # 停止 Worker 池
+    if _worker_pool:
+        await _worker_pool.stop()
     close_connection()
 
 

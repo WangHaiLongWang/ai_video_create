@@ -13,15 +13,14 @@ from pydantic import BaseModel
 from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
 from backend.app.engine.queue import get_tasks_by_execution, enqueue_tasks
-from backend.app.engine.worker import Worker
+from backend.app.engine.worker import WorkerPool
 from backend.app.services.event_bus import emit_event, subscribe, unsubscribe, get_events
 from backend.app.handlers import get_handler
 
 router = APIRouter(prefix="/api/executions", tags=["executions"])
 
-# 全局 Worker 实例
-_worker: Worker | None = None
-_worker_task: asyncio.Task | None = None
+# 全局 Worker 池实例（由 main.py lifespan 管理）
+_worker_pool: WorkerPool | None = None
 
 
 def _now_iso() -> str:
@@ -29,33 +28,25 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def get_worker() -> Worker:
-    global _worker
-    if _worker is None:
-        _worker = Worker(worker_id="worker-main", poll_interval=0.3)
-    return _worker
-
-
 async def start_worker_background() -> None:
-    """在 app lifespan 中调用，后台启动 Worker。"""
-    global _worker_task
-    worker = get_worker()
-    _worker_task = asyncio.create_task(worker.start())
+    """在 app lifespan 中调用，后台启动 Worker 池。"""
+    global _worker_pool
+    from backend.app.config import get_settings
+    settings = get_settings()
+    _worker_pool = WorkerPool(
+        worker_count=settings.WORKER_COUNT,
+        poll_interval=settings.WORKER_POLL_INTERVAL,
+        lease_seconds=settings.WORKER_LEASE_SECONDS,
+    )
+    await _worker_pool.start()
 
 
 async def stop_worker_background() -> None:
-    """在 app lifespan 中调用，停止 Worker。"""
-    global _worker_task, _worker
-    if _worker:
-        await _worker.stop()
-    if _worker_task and not _worker_task.done():
-        _worker_task.cancel()
-        try:
-            await _worker_task
-        except asyncio.CancelledError:
-            pass
-    _worker = None
-    _worker_task = None
+    """在 app lifespan 中调用，停止 Worker 池。"""
+    global _worker_pool
+    if _worker_pool:
+        await _worker_pool.stop()
+        _worker_pool = None
 
 
 class ExecutionResponse(BaseModel):

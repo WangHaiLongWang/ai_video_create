@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     # Worker settings
     WORKER_POLL_INTERVAL: float = 0.5
     WORKER_LEASE_SECONDS: int = 30
-    WORKER_COUNT: int = 1
+    WORKER_COUNT: int = 2
 
     # Database
     DB_PATH: str = "data/ai_video_create.db"
@@ -110,6 +110,14 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
     }
+
+    @model_validator(mode="after")
+    def _validate_worker_count(self) -> "Settings":
+        if self.WORKER_COUNT < 1:
+            self.WORKER_COUNT = 1
+        elif self.WORKER_COUNT > 8:
+            self.WORKER_COUNT = 8
+        return self
 
     def get_provider_config(self, provider_type: ProviderType) -> ProviderConfig:
         """Get configuration for a specific provider type."""
