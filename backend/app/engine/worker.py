@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import Protocol, Any
 
-from backend.app.engine.queue import claim_task, complete_task, fail_task, heartbeat, recover_orphans
+from backend.app.engine.queue import claim_task, complete_task, fail_task, heartbeat, recover_orphans, get_upstream_results
 from backend.app.services.event_bus import emit_event
 from backend.app.handlers import get_handler
 
@@ -54,6 +54,7 @@ class Worker:
         node_id = task.get("node_id", "")
         kind = task.get("kind", "")
         item_key = task.get("item_key")
+        depends_on = task.get("depends_on", [])
 
         handler = get_handler(kind)
         if handler is None:
@@ -63,6 +64,9 @@ class Worker:
                        item_key=item_key, message=f"无 Handler: {kind}")
             return
 
+        # 获取上游任务结果
+        upstream = get_upstream_results(execution_id, depends_on)
+
         # 发送开始事件
         emit_event(execution_id, node_id, "node.started", "running",
                    item_key=item_key, message=f"开始执行: {task.get('label', kind)}")
@@ -71,11 +75,12 @@ class Worker:
             # 定期续租
             heartbeat_task = asyncio.create_task(self._heartbeat_loop(task_id))
 
-            # 执行
-            result = await handler.execute(task, {"worker_id": self.worker_id})
+            # 执行，传递上游结果
+            context = {"worker_id": self.worker_id, "upstream_results": upstream}
+            result = await handler.execute(task, context)
 
             heartbeat_task.cancel()
-            complete_task(task_id)
+            complete_task(task_id, result)
             self._task_count += 1
 
             # 发送完成事件

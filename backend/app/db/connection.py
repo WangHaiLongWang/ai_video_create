@@ -49,5 +49,32 @@ def init_db() -> None:
     migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
     for mf in migration_files:
         sql = mf.read_text(encoding="utf-8")
-        conn.executescript(sql)
+        # 按分号分割语句并逐个执行
+        # 这样可以单独处理 ALTER TABLE 的 duplicate column 错误
+        statements = []
+        current = []
+        for line in sql.split('\n'):
+            stripped = line.strip()
+            # 跳过空行和纯注释行
+            if not stripped or stripped.startswith('--'):
+                if current:  # 如果当前有积累的语句，保留注释
+                    current.append(line)
+                continue
+            current.append(line)
+            if stripped.endswith(';'):
+                statements.append('\n'.join(current))
+                current = []
+        if current:
+            statements.append('\n'.join(current))
+
+        for stmt in statements:
+            stmt = stmt.strip()
+            if not stmt:
+                continue
+            try:
+                conn.execute(stmt)
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e):
+                    continue  # 列已存在，跳过
+                raise
     conn.commit()

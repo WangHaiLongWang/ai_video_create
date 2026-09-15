@@ -20,6 +20,7 @@ from .config import get_settings
 from .providers import init_providers
 from .handlers import init_handlers
 from .services.asset_manager import get_asset_manager
+from .middleware import SecurityMiddleware, InputSanitizeMiddleware
 
 
 @asynccontextmanager
@@ -64,6 +65,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityMiddleware, rate_limit=200)
+app.add_middleware(InputSanitizeMiddleware)
 
 # Include routers
 app.include_router(workflows_router)

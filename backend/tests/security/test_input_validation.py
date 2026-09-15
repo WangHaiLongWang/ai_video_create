@@ -52,10 +52,10 @@ class TestXSSPrevention:
         assert response.status_code == 200
 
     def test_xss_in_query_param(self, client):
-        """查询参数包含 XSS。"""
+        """查询参数包含 XSS — 安全中间件应拦截。"""
         response = client.get("/api/workflows?search=<script>alert(1)</script>")
-        # 应该正常返回空结果
-        assert response.status_code == 200
+        # 安全中间件检测到 XSS 模式，返回 400
+        assert response.status_code == 400
 
 
 class TestSQLInjection:

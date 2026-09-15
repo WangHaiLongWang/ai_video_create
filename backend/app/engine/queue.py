@@ -104,15 +104,18 @@ def heartbeat(task_id: str, lease_seconds: int = 30) -> None:
     conn.commit()
 
 
-def complete_task(task_id: str) -> None:
-    """标记任务完成。"""
+def complete_task(task_id: str, result: dict | None = None) -> None:
+    """标记任务完成，可选持久化结果。"""
     conn = get_connection()
     now = _now_iso()
+    result_json = json.dumps(result, ensure_ascii=False) if result else "{}"
     conn.execute(
-        "UPDATE tasks SET status = 'completed', completed_at = ? WHERE id = ?",
-        (now, task_id),
+        "UPDATE tasks SET status = 'completed', completed_at = ?, result_json = ? WHERE id = ?",
+        (now, result_json, task_id),
     )
     conn.commit()
+    # 检查执行是否所有任务完成
+    _check_execution_convergence(task_id)
 
 
 def fail_task(task_id: str, error: str = "") -> list[str]:
@@ -179,6 +182,7 @@ def get_task(task_id: str) -> dict:
     result = dict(row)
     result["config"] = json.loads(result.pop("config_json", "{}"))
     result["depends_on"] = json.loads(result.pop("depends_on_json", "[]"))
+    result["result"] = json.loads(result.pop("result_json", "{}"))
     return result
 
 
@@ -193,5 +197,72 @@ def get_tasks_by_execution(execution_id: str) -> list[dict]:
         r = dict(row)
         r["config"] = json.loads(r.pop("config_json", "{}"))
         r["depends_on"] = json.loads(r.pop("depends_on_json", "[]"))
+        r["result"] = json.loads(r.pop("result_json", "{}"))
         results.append(r)
     return results
+
+
+def get_upstream_results(execution_id: str, depends_on: list[str]) -> dict[str, dict]:
+    """获取上游任务的结果。"""
+    conn = get_connection()
+    if not depends_on:
+        return {}
+    placeholders = ",".join("?" * len(depends_on))
+    rows = conn.execute(
+        f"SELECT id, result_json FROM tasks WHERE execution_id = ? AND id IN ({placeholders})",
+        [execution_id] + depends_on,
+    ).fetchall()
+    return {row["id"]: json.loads(row["result_json"]) for row in rows}
+
+
+def _check_execution_convergence(task_id: str) -> None:
+    """检查执行是否所有任务完成，更新执行状态。"""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT execution_id FROM tasks WHERE id = ?", (task_id,)
+    ).fetchone()
+    if not row:
+        return
+    execution_id = row["execution_id"]
+
+    # 统计任务状态
+    stats = conn.execute(
+        "SELECT status, COUNT(*) as cnt FROM tasks WHERE execution_id = ? GROUP BY status",
+        (execution_id,),
+    ).fetchall()
+    status_counts = {r["status"]: r["cnt"] for r in stats}
+    total = sum(status_counts.values())
+    completed = status_counts.get("completed", 0)
+    failed = status_counts.get("failed", 0)
+    skipped = status_counts.get("skipped", 0)
+    cancelled = status_counts.get("cancelled", 0)
+
+    # 更新 executions 表
+    now = _now_iso()
+    if completed + failed + skipped + cancelled >= total:
+        # 所有任务已结束
+        if failed > 0 or skipped > 0:
+            new_status = "failed"
+        elif cancelled > 0:
+            new_status = "cancelled"
+        else:
+            new_status = "completed"
+        conn.execute(
+            "UPDATE executions SET status = ?, completed_at = ?, completed_count = ? "
+            "WHERE id = ?",
+            (new_status, now, completed, execution_id),
+        )
+        conn.commit()
+        # 发送执行完成事件
+        from backend.app.services.event_bus import emit_event
+        emit_event(
+            execution_id, "", f"execution.{new_status}", new_status,
+            message=f"执行{new_status}: {completed}/{total} 任务完成"
+        )
+    else:
+        # 仅更新完成计数
+        conn.execute(
+            "UPDATE executions SET completed_count = ? WHERE id = ?",
+            (completed, execution_id),
+        )
+        conn.commit()

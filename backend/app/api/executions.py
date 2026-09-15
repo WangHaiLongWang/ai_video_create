@@ -86,10 +86,11 @@ def start_execution(workflow_id: str) -> dict:
     # 创建执行记录
     execution_id = f"exec-{uuid.uuid4().hex[:12]}"
     now = _now_iso()
+    task_count = len(plan.tasks)
     conn.execute(
-        "INSERT INTO executions (id, workflow_id, workflow_snapshot, status, created_at) "
-        "VALUES (?, ?, ?, 'running', ?)",
-        (execution_id, workflow_id, json.dumps(spec, ensure_ascii=False), now),
+        "INSERT INTO executions (id, workflow_id, workflow_snapshot, status, task_count, created_at) "
+        "VALUES (?, ?, ?, 'running', ?, ?)",
+        (execution_id, workflow_id, json.dumps(spec, ensure_ascii=False), task_count, now),
     )
     conn.commit()
 
