@@ -1,7 +1,7 @@
 # Phase E: 发布验收
 
 > 2026-09-15
-> 状态：Superseded，历史方案。当前发布门禁未通过。后续任务以 `2026-09-15-company-delivery-plan.md` 的 Epic E0、E7 和 CI 门禁为准。
+> 状态：Superseded，历史方案。后续任务以 `docs/plans/active/DELIVERY-PLAN.md` 为准。
 
 ---
 

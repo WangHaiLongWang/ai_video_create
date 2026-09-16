@@ -1,5 +1,8 @@
 # FFmpeg Integration Report
 
+> 报告类型：集成验收证据  
+> 测试日期：2026-09-17
+
 ## 1. FFmpeg Installation Check
 
 | Item | Value |

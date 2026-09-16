@@ -2,9 +2,9 @@
 
 > 日期：2026-09-14  
 > 状态：Superseded，保留为初始方案记录
-> 依据：`docs/prd.md`、`docs/dp.md` 与“通过 Agent 生成可拖动、可编辑、可执行的流程图，并完成提示词 → 文本 → 分镜 → 图片 → 视频 → 合成”的目标。
+> 依据：`docs/product/PRD.md`、`docs/architecture/SYSTEM-DESIGN.md` 与“通过 Agent 生成可拖动、可编辑、可执行的流程图，并完成提示词 → 文本 → 分镜 → 图片 → 视频 → 合成”的目标。
 
-> 后续开发请使用 `docs/plans/2026-09-15-company-delivery-plan.md`。新计划基于实际代码审计重排了依赖、Sprint、发布门禁和回滚策略；本文不再作为进度或任务领取依据。
+> 后续开发请使用 `docs/plans/active/DELIVERY-PLAN.md`。新计划基于实际代码审计重排了依赖、Sprint、发布门禁和回滚策略；本文不再作为进度或任务领取依据。
 
 ## 1. 最终目标
 

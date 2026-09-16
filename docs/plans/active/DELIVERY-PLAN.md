@@ -4,9 +4,9 @@
 > 制定日期：2026-09-15
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
-> 产品基线：`docs/prd.md`
-> 架构参考：`docs/dp.md`
-> 替代计划：`2026-09-14-ai-video-create-implementation-plan.md`、`phase-c-plan.md`、`phase-d-plan.md`、`phase-e-plan.md`
+> 产品基线：`docs/product/PRD.md`
+> 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
+> 历史计划：`docs/plans/archive/`
 
 ## 0. 2026-09-15 执行检查点
 

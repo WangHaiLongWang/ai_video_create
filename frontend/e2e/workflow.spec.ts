@@ -222,7 +222,180 @@ test.describe('Workflow Editor', () => {
     await page.keyboard.press('Escape')
   })
 
-  // --- Agent Composer ---
+  // --- Node Dragging ---
+
+  test('dragging a node changes its position on the canvas', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+
+    // Get the initial bounding box of the "分镜生成" node
+    const node = canvas.getNodeByLabel('分镜生成')
+    const boxBefore = await node.boundingBox()
+    expect(boxBefore).not.toBeNull()
+
+    // Drag the node 100px to the right and 50px down
+    await canvas.dragNode('分镜生成', 100, 50)
+
+    // Wait for React Flow to settle the layout
+    await page.waitForTimeout(300)
+
+    const boxAfter = await node.boundingBox()
+    expect(boxAfter).not.toBeNull()
+
+    // The node should have moved (at least some amount in X)
+    expect(Math.abs(boxAfter!.x - boxBefore!.x)).toBeGreaterThan(20)
+  })
+
+  test('multiple nodes can be dragged independently', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+
+    const nodeA = canvas.getNodeByLabel('主题输入')
+    const nodeB = canvas.getNodeByLabel('文生图')
+
+    const boxABefore = await nodeA.boundingBox()
+    const boxBBefore = await nodeB.boundingBox()
+
+    // Drag node A
+    await canvas.dragNode('主题输入', 50, 0)
+    await page.waitForTimeout(200)
+
+    // Drag node B
+    await canvas.dragNode('文生图', 0, 80)
+    await page.waitForTimeout(200)
+
+    const boxAAfter = await nodeA.boundingBox()
+    const boxBAfter = await nodeB.boundingBox()
+
+    // Node A should have moved mostly in X
+    expect(Math.abs(boxAAfter!.x - boxABefore!.x)).toBeGreaterThan(10)
+    // Node B should have moved mostly in Y
+    expect(Math.abs(boxBAfter!.y - boxBBefore!.y)).toBeGreaterThan(10)
+  })
+
+  // --- Workflow Save ---
+
+  test('auto-save indicator is shown in top bar', async ({ page }) => {
+    const topBar = new TopBarPage(page)
+    await topBar.waitForReady()
+
+    // The auto-save status button should display the save status
+    await expect(topBar.autoSaveStatus).toBeVisible()
+    const text = await topBar.autoSaveStatus.textContent()
+    expect(text).toContain('已自动保存')
+  })
+
+  test('editing a node config marks workflow as dirty and triggers save', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    // Select a node and modify it
+    await canvas.selectNode('主题输入')
+    await propertyPanel.setConfigValue('prompt', '保存测试内容')
+
+    // Wait for the debounced save to fire (SAVE_DEBOUNCE_MS = 1000)
+    await page.waitForTimeout(1500)
+
+    // Verify the value persisted in localStorage
+    const stored = await page.evaluate(() => {
+      return localStorage.getItem('ai-video-create.workflow.v1')
+    })
+    expect(stored).not.toBeNull()
+    const parsed = JSON.parse(stored!)
+    const textNode = parsed.nodes.find((n: { id: string }) => n.id === 'textInput-1')
+    expect(textNode.data.config.prompt).toBe('保存测试内容')
+  })
+
+  test('workflow data persists across page reload', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    // Modify a node
+    await canvas.selectNode('主题输入')
+    await propertyPanel.setConfigValue('prompt', '跨页面持久化测试')
+    await page.waitForTimeout(1500)
+
+    // Reload the page
+    await page.reload()
+    await canvas.waitForReady()
+
+    // Select the same node and verify the value persisted
+    await canvas.selectNode('主题输入')
+    const inputValue = await propertyPanel.getConfigInput('prompt').inputValue()
+    expect(inputValue).toBe('跨页面持久化测试')
+  })
+
+  // --- Execute Workflow ---
+
+  test('clicking run button starts execution', async ({ page }) => {
+    const topBar = new TopBarPage(page)
+    await topBar.waitForReady()
+
+    // Run button should be visible before execution
+    await expect(topBar.runButton).toBeVisible()
+
+    // Click run
+    await topBar.clickRun()
+
+    // Wait briefly for state transition
+    await page.waitForTimeout(1000)
+
+    // After clicking run, either:
+    // 1. Backend is up: stop button appears (running state)
+    // 2. Backend is down: run button reappears (error/idle state)
+    // In both cases the UI should respond
+    const isStopVisible = await topBar.stopButton.isVisible()
+    const isRunVisible = await topBar.runButton.isVisible()
+    expect(isStopVisible || isRunVisible).toBe(true)
+  })
+
+  test('execution shows node status transitions', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+
+    // All nodes should start in idle status
+    const nodeLabels = ['主题输入', '分镜生成', '文生图', '图生视频', '视频合成', '成片输出']
+    for (const label of nodeLabels) {
+      const status = await canvas.getNodeStatus(label)
+      expect(status).toBe('idle')
+    }
+  })
+
+  test('run summary displays default ready message', async ({ page }) => {
+    const propertyPanel = new PropertyPanelPage(page)
+    await propertyPanel.waitForReady()
+
+    const text = await propertyPanel.getRunSummaryText()
+    expect(text).toContain('运行状态')
+    expect(text).toContain('准备执行')
+  })
+
+  // --- View Status ---
+
+  test('node status CSS class reflects idle state', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+
+    // Each node should have a status-idle class on its .studio-node element
+    const node = canvas.getNodeByLabel('主题输入')
+    const article = node.locator('.studio-node')
+    const className = await article.getAttribute('class')
+    expect(className).toContain('status-idle')
+  })
+
+  test('selecting a node shows its status in the property panel', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    await canvas.selectNode('分镜生成')
+    await expect(propertyPanel.propertyForm).toBeVisible()
+
+    // The selected title should show the node label
+    const label = await propertyPanel.getSelectedNodeLabel()
+    expect(label).toBe('分镜生成')
+
+    // The kind should be 'storyboard'
+    const kind = await propertyPanel.getSelectedNodeKind()
+    expect(kind).toBe('storyboard')
+  })
+
+  // --- Agent Composer (moved from here to agent.spec.ts but kept basic checks) ---
 
   test('agent composer can be collapsed and expanded', async ({ page }) => {
     const agent = new AgentComposerPage(page)

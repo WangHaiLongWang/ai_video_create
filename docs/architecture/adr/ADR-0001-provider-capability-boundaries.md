@@ -3,6 +3,7 @@
 > 状态：Accepted  
 > 日期：2026-09-15  
 > 决策人：项目维护者  
+> 所属：`docs/architecture/adr/`
 > 关联：Qwen Image 3.0、Wan3.0 Video、ComfyUI
 
 ## 背景

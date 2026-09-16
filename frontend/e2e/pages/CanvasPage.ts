@@ -72,6 +72,28 @@ export class CanvasPage {
     return this.getEdges().count()
   }
 
+  /** Drag a node by its label to a new position. */
+  async dragNode(label: string, deltaX: number, deltaY: number) {
+    const node = this.getNodeByLabel(label)
+    const box = await node.boundingBox()
+    if (!box) throw new Error(`Node "${label}" not found on canvas`)
+
+    const startX = box.x + box.width / 2
+    const startY = box.y + box.height / 2
+
+    await this.page.mouse.move(startX, startY)
+    await this.page.mouse.down()
+    // Move in small steps so React Flow picks up the drag
+    const steps = 5
+    for (let i = 1; i <= steps; i++) {
+      await this.page.mouse.move(
+        startX + (deltaX * i) / steps,
+        startY + (deltaY * i) / steps,
+      )
+    }
+    await this.page.mouse.up()
+  }
+
   /** Zoom controls */
   async zoomIn() {
     await this.controls.locator('button[title="Zoom in"]').click()

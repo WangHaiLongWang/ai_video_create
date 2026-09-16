@@ -1,4 +1,8 @@
-极简本地架构：Node + Python + 可配置 LLM
+# 系统架构设计
+
+> 架构基线：本地优先，Node + Python + SQLite + 可配置 AI Provider
+
+## 架构目标
 本次架构彻底去除 Docker、PostgreSQL、MinIO、Redis 等所有中间件依赖，只需一台装有 Node 和 Python 的机器即可运行。数据落 SQLite 单文件，文件落本地磁盘，任务队列在进程内调度，LLM 完全配置化（远程/本地均可）。
 
 ## 2026-09-15 架构补充（当前有效）
