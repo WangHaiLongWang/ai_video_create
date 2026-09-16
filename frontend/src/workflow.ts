@@ -70,7 +70,9 @@ export function createNode(kind: NodeKind, x: number, y: number, id?: string): S
 }
 
 export function createPromptToVideoWorkflow(prompt?: string): WorkflowSpec {
-  const nodes = order.map((kind, index) => createNode(kind, 110 + index * 285, index % 2 ? 220 : 150, `${kind}-1`))
+  const NODE_WIDTH = 228
+  const GAP = 60
+  const nodes = order.map((kind, index) => createNode(kind, 110 + index * (NODE_WIDTH + GAP), index % 2 ? 220 : 150, `${kind}-1`))
   if (prompt) nodes[0].data.config.prompt = prompt
   const edges: Edge[] = nodes.slice(1).map((node, index) => ({
     id: `edge-${index + 1}`,

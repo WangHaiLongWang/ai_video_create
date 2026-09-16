@@ -7,7 +7,12 @@ export function NodePalette() {
   const { workflow, setWorkflow } = useStudioStore()
 
   const addNode = (kind: NodeKind) => {
-    const node = createNode(kind, 160 + workflow.nodes.length * 28, 380)
+    // 节点宽度 228px + 间距 60px = 288px
+    const NODE_WIDTH = 228
+    const GAP = 60
+    const x = 110 + workflow.nodes.length * (NODE_WIDTH + GAP)
+    const y = 150 + (workflow.nodes.length % 2) * 70
+    const node = createNode(kind, x, y)
     setWorkflow({ ...workflow, nodes: [...workflow.nodes, node] })
   }
 
