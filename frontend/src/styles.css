@@ -98,6 +98,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .studio-node small { display: block; color: #868d81; font-size: 10px; line-height: 1.35; }
 .node-meta { display: flex; justify-content: space-between; padding: 9px 13px; border-top: 1px solid #30342e; color: #777e73; font: 9px "Cascadia Code", monospace; }
 .node-handle { width: 9px !important; height: 9px !important; border: 2px solid #1b1e1a !important; background: var(--accent) !important; }
+
+/* Multi-handle port colors */
+.node-handle.handle-text { background: #6ee7b7; }
+.node-handle.handle-scene { background: #93c5fd; }
+.node-handle.handle-image { background: #fca5a5; }
+.node-handle.handle-video { background: #c084fc; }
+.node-handle.handle-audio { background: #fcd34d; }
+.node-handle.handle-any { background: #94a3b8; }
+.node-handle.handle-required { border: 2px solid #fbbf24 !important; }
+
+/* Port labels */
+.port-label { font-size: 10px; opacity: 0.7; }
+.port-input { margin-right: 4px; }
+.port-output { margin-left: 4px; }
+
+/* Edge labels */
+.edge-label-container { overflow: visible; }
+.edge-label { font-size: 11px; fill: #94a3b8; pointer-events: none; color: #94a3b8; text-align: center; line-height: 24px; }
 .node-progress { height: 2px; background: var(--accent); transform-origin: left; animation: progress 1.1s ease-in-out infinite; }
 @keyframes progress { 0% { transform: scaleX(.08); opacity: .5; } 75% { transform: scaleX(.82); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
 

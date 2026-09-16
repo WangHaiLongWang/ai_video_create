@@ -1,11 +1,14 @@
 import { useCallback, useMemo } from 'react'
 import {
+  BaseEdge,
   Background,
   BackgroundVariant,
   Controls,
   MiniMap,
   ReactFlow,
+  getSmoothStepPath,
   useReactFlow,
+  type EdgeProps,
   type ReactFlowInstance,
 } from '@xyflow/react'
 import { StudioNodeView } from '../StudioNode'
@@ -14,10 +17,26 @@ import { createNode } from '../workflow'
 import type { NodeKind } from '../types'
 import { AgentComposer } from './AgentComposer'
 
+function LabelEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, style, markerEnd }: EdgeProps) {
+  const [edgePath, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      {data?.label && (
+        <foreignObject x={labelX - 30} y={labelY - 12} width={60} height={24} className="edge-label-container">
+          <span className="edge-label">{data.label as string}</span>
+        </foreignObject>
+      )}
+    </>
+  )
+}
+
 function CanvasInner() {
   const { workflow, onNodesChange, onEdgesChange, onConnect, selectNode, setWorkflow } = useStudioStore()
   const reactFlowInstance: ReactFlowInstance = useReactFlow()
   const nodeTypes = useMemo(() => ({ studio: StudioNodeView }), [])
+  const edgeTypes = useMemo(() => ({ default: LabelEdge }), [])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -44,6 +63,7 @@ function CanvasInner() {
         nodes={workflow.nodes}
         edges={workflow.edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

@@ -1,5 +1,6 @@
-import type { Edge } from '@xyflow/react'
 import type { CatalogNodeData, NodeKind, StudioNode, WorkflowSpec } from './types'
+import type { WorkflowSpecV2 } from './schemas/workflow-spec'
+import { NODE_CATALOG } from './schemas/node-manifest'
 
 export const nodeCatalog: Record<NodeKind, CatalogNodeData> = {
   textInput: {
@@ -60,30 +61,65 @@ const order: NodeKind[] = [
 ]
 
 export function createNode(kind: NodeKind, x: number, y: number, id?: string): StudioNode {
+  const manifest = NODE_CATALOG[kind]
   const item = nodeCatalog[kind]
+  const ports = manifest ? {
+    inputs: manifest.ports.inputs.map(p => ({ id: p.id, type: p.type, required: p.required, cardinality: p.cardinality, label: p.label ?? p.id })),
+    outputs: manifest.ports.outputs.map(p => ({ id: p.id, type: p.type, required: false, cardinality: p.cardinality, label: p.label ?? p.id })),
+  } : undefined
+
   return {
     id: id ?? `${kind}-${crypto.randomUUID()}`,
     type: 'studio',
     position: { x, y },
-    data: { ...item, config: { ...item.config }, status: 'idle' },
+    data: {
+      ...item,
+      config: { ...item.config },
+      inputType: manifest?.ports.inputs[0]?.type,
+      outputType: manifest?.ports.outputs[0]?.type,
+      status: 'idle',
+      ports,
+    },
   }
 }
 
-export function createPromptToVideoWorkflow(prompt?: string): WorkflowSpec {
+export function createPromptToVideoWorkflow(prompt?: string): WorkflowSpecV2 {
   const NODE_WIDTH = 228
   const GAP = 60
   const nodes = order.map((kind, index) => createNode(kind, 110 + index * (NODE_WIDTH + GAP), index % 2 ? 220 : 150, `${kind}-1`))
   if (prompt) nodes[0].data.config.prompt = prompt
-  const edges: Edge[] = nodes.slice(1).map((node, index) => ({
-    id: `edge-${index + 1}`,
-    source: nodes[index].id,
-    target: node.id,
-    type: 'smoothstep',
-    animated: false,
-  }))
-  return { schemaVersion: '1.0', id: 'prompt-to-video', name: '提示词到短视频', nodes, edges }
+
+  // Create edges with sourceHandle/targetHandle from node manifests
+  const edges = []
+  for (let i = 0; i < order.length - 1; i++) {
+    const sourceKind = order[i]
+    const targetKind = order[i + 1]
+    const sourceManifest = NODE_CATALOG[sourceKind]
+    const targetManifest = NODE_CATALOG[targetKind]
+    edges.push({
+      id: `edge-${i + 1}`,
+      source: nodes[i].id,
+      sourceHandle: sourceManifest?.ports.outputs[0]?.id ?? 'out',
+      target: nodes[i + 1].id,
+      targetHandle: targetManifest?.ports.inputs[0]?.id ?? 'in',
+      type: 'smoothstep',
+      data: { mode: 'direct' as const, label: '' },
+    })
+  }
+
+  return {
+    schemaVersion: '2.0',
+    manifestVersion: '1.0',
+    id: 'prompt-to-video',
+    name: prompt ? `视频生成: ${prompt.slice(0, 30)}` : 'Prompt → 视频工作流',
+    nodes,
+    edges,
+    viewport: { x: 0, y: 0, zoom: 1 },
+    metadata: { tags: ['default'] },
+  }
 }
 
+/** Legacy validateConnection — kept for backward compat with tests */
 export function validateConnection(source: StudioNode, target: StudioNode): boolean {
   return Boolean(source.data.outputType && target.data.inputType && source.data.outputType === target.data.inputType)
 }

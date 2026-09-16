@@ -29,15 +29,25 @@ class WorkflowEdge(BaseModel):
     id: str
     source: str
     target: str
+    sourceHandle: str | None = None
+    targetHandle: str | None = None
     type: str = "smoothstep"
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkflowSpec(BaseModel):
-    schemaVersion: Literal["1.0"] = "1.0"
+    schemaVersion: Literal["1.0", "2.0"] = "1.0"
+    manifestVersion: str | None = None
     id: str
     name: str
+    description: str = ""
     nodes: list[WorkflowNode]
     edges: list[WorkflowEdge]
+    viewport: dict[str, float] | None = None
+    metadata: dict[str, Any] | None = None
+
+    class Config:
+        populate_by_name = True
 
     @model_validator(mode="after")
     def validate_graph(self) -> "WorkflowSpec":
@@ -48,6 +58,10 @@ class WorkflowSpec(BaseModel):
         for edge in self.edges:
             if edge.source not in known or edge.target not in known:
                 raise ValueError(f"连线 {edge.id} 引用了不存在的节点")
+            # V2 edges use explicit handle-based validation via graph_validator
+            # V1 edges use outputType/inputType compatibility check
+            if edge.sourceHandle and edge.targetHandle:
+                continue
             source = next(node for node in self.nodes if node.id == edge.source)
             target = next(node for node in self.nodes if node.id == edge.target)
             if source.data.outputType != target.data.inputType:

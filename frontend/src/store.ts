@@ -13,8 +13,11 @@
 import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type EdgeChange, type NodeChange } from '@xyflow/react'
 import { create } from 'zustand'
 import * as api from './api'
-import { createPromptToVideoWorkflow, validateConnection } from './workflow'
-import type { RunStatus, StudioNode, WorkflowSpec } from './types'
+import { createPromptToVideoWorkflow } from './workflow'
+import { validateConnection as validateConnectionNew, validateGraph } from './schemas/graph-validation'
+import { NODE_CATALOG } from './schemas/node-manifest'
+import { upgradeWorkflowSpec } from './schemas/workflow-spec'
+import type { NodeKind, RunStatus, StudioNode, WorkflowSpec } from './types'
 
 const STORAGE_KEY = 'ai-video-create.workflow.v1'
 const MAX_HISTORY = 30
@@ -23,11 +26,14 @@ const SAVE_DEBOUNCE_MS = 1000
 function initialWorkflow(): WorkflowSpec {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return JSON.parse(saved) as WorkflowSpec
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      return upgradeWorkflowSpec(parsed)
+    }
   } catch {
     localStorage.removeItem(STORAGE_KEY)
   }
-  return createPromptToVideoWorkflow()
+  return createPromptToVideoWorkflow() as unknown as WorkflowSpec
 }
 
 function persistLocal(workflow: WorkflowSpec) {
@@ -95,6 +101,11 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
   future: [],
 
   setWorkflow: (workflow) => {
+    // Run graph validation on the incoming workflow
+    const errors = validateGraph(workflow.nodes, workflow.edges, NODE_CATALOG)
+    if (errors.length > 0) {
+      console.warn('Graph validation issues:', errors)
+    }
     const history = pushHistory(get(), workflow)
     persistLocal(workflow)
     set({ workflow, selectedNodeId: null, isDirty: true, ...history })
@@ -118,8 +129,29 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
   onConnect: (connection) => set((state) => {
     const source = state.workflow.nodes.find((node) => node.id === connection.source)
     const target = state.workflow.nodes.find((node) => node.id === connection.target)
-    if (!source || !target || !validateConnection(source, target)) return state
-    const workflow = { ...state.workflow, edges: addEdge({ ...connection, type: 'smoothstep' }, state.workflow.edges) }
+    if (!source || !target || !connection.sourceHandle || !connection.targetHandle) return state
+
+    // Build nodeKinds map for catalog-based validation
+    const nodeKinds: Record<string, NodeKind> = {}
+    state.workflow.nodes.forEach(n => { nodeKinds[n.id] = n.data.kind })
+
+    const error = validateConnectionNew(
+      connection.source, connection.sourceHandle,
+      connection.target, connection.targetHandle,
+      nodeKinds, NODE_CATALOG, state.workflow.edges,
+    )
+    if (error) {
+      // TODO: show error in UI (toast/snackbar)
+      console.warn('Connection rejected:', error.message)
+      return state
+    }
+
+    const newEdge = {
+      ...connection,
+      type: 'smoothstep',
+      data: { mode: 'direct' as const, label: '' },
+    }
+    const workflow = { ...state.workflow, edges: addEdge(newEdge, state.workflow.edges) }
     const history = pushHistory(state, workflow)
     persistLocal(workflow)
     return { workflow, isDirty: true, ...history }
@@ -237,7 +269,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     try {
       if (id) {
         const detail = await api.getWorkflow(id)
-        const spec = detail.spec as unknown as WorkflowSpec
+        const spec = upgradeWorkflowSpec(detail.spec)
         persistLocal(spec)
         set({ workflow: spec, serverVersion: detail.version, isDirty: false, past: [], future: [] })
       } else {
@@ -245,7 +277,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
         if (list.length > 0) {
           const latest = list[0]
           const detail = await api.getWorkflow(latest.id)
-          const spec = detail.spec as unknown as WorkflowSpec
+          const spec = upgradeWorkflowSpec(detail.spec)
           persistLocal(spec)
           set({ workflow: spec, serverVersion: detail.version, isDirty: false, past: [], future: [] })
         }
