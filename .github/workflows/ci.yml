@@ -73,15 +73,15 @@ jobs:
       - name: 代码质量检查 (ruff lint)
         run: |
           cd backend
-          ruff check app/ --output-format=github || true
-          echo "::warning::Ruff lint 检查完成"
+          ruff check app/ --output-format=github
+          echo "Ruff lint 检查通过"
 
       # ---------- 类型检查 (mypy) ----------
       - name: 类型检查 (mypy)
         run: |
           cd backend
-          mypy app/ --ignore-missing-imports --no-error-summary || true
-          echo "::warning::Mypy 类型检查完成"
+          mypy app/ --ignore-missing-imports --no-error-summary
+          echo "Mypy 类型检查通过"
 
       # ---------- 运行 pytest 测试 ----------
       # 所有平台都运行基础测试
@@ -227,7 +227,8 @@ jobs:
 
           # 测试后端 API 响应
           echo "=== 后端健康检查 ==="
-          curl -s -o /dev/null -w "HTTP 状态码: %{http_code}\n" http://127.0.0.1:8000/ || true
+          curl -s -o /dev/null -w "HTTP 状态码: %{http_code}\n" http://127.0.0.1:8000/api/health
+          curl -s -o /dev/null -w "HTTP 状态码: %{http_code}\n" http://127.0.0.1:8000/docs
 
           # 停止后端
           kill $BACKEND_PID 2>/dev/null || true

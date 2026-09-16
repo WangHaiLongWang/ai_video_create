@@ -2,8 +2,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 // 模拟 window 对象（Node.js 环境中不存在）
 if (typeof globalThis.window === 'undefined') {
-  // @ts-expect-error — 测试环境补丁
-  globalThis.window = {
+  // 测试环境补丁 — 部分 Location 属性足够测试使用
+  ;(globalThis as any).window = {
     location: {
       protocol: 'http:',
       host: 'localhost:5173',
