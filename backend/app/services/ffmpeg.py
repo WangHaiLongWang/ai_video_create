@@ -6,11 +6,80 @@ import asyncio
 import json
 import logging
 import os
+import re
+import shutil
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FFmpegVersionInfo:
+    """Parsed FFmpeg version and build information."""
+
+    version: str = ""
+    major: int = 0
+    minor: int = 0
+    patch: int = 0
+    build_config: str = ""
+    libavcodec_version: str = ""
+    libavformat_version: str = ""
+    libavutil_version: str = ""
+    full_output: str = ""
+
+    @property
+    def version_tuple(self) -> tuple[int, int, int]:
+        return (self.major, self.minor, self.patch)
+
+    def __str__(self) -> str:
+        return f"FFmpeg {self.version}" if self.version else "FFmpeg (version unknown)"
+
+
+def parse_ffmpeg_version(output: str) -> FFmpegVersionInfo:
+    """Parse FFmpeg -version output into structured info.
+
+    Args:
+        output: Raw text output from ``ffmpeg -version``.
+
+    Returns:
+        FFmpegVersionInfo with parsed fields.
+    """
+    info = FFmpegVersionInfo(full_output=output)
+
+    # First line: "ffmpeg version X.Y.Z-... Copyright ..." or "ffmpeg version X.Y-..."
+    version_match = re.search(r"ffmpeg\s+version\s+(\d+)\.(\d+)\.?(\d*)", output)
+    if version_match:
+        info.major = int(version_match.group(1))
+        info.minor = int(version_match.group(2))
+        patch_str = version_match.group(3)
+        info.patch = int(patch_str) if patch_str else 0
+        info.version = f"{info.major}.{info.minor}.{info.patch}"
+
+    # Build configuration line
+    config_match = re.search(r"configuration:\s*(.+)", output)
+    if config_match:
+        info.build_config = config_match.group(1).strip()
+
+    # Library versions — format is "libavcodec     61. 19.100 / 61. 19.100"
+    lib_pattern = re.compile(r"^(lib\w+)\s+(\d+)\.\s*(\d+\.\d+)")
+    for line in output.splitlines():
+        m = lib_pattern.match(line)
+        if m:
+            lib_name = m.group(1)
+            major_ver = m.group(2)
+            minor_ver = m.group(3)
+            full_ver = f"{major_ver}.{minor_ver}"
+            if lib_name == "libavcodec":
+                info.libavcodec_version = full_ver
+            elif lib_name == "libavformat":
+                info.libavformat_version = full_ver
+            elif lib_name == "libavutil":
+                info.libavutil_version = full_ver
+
+    return info
 
 
 class FFmpegError(Exception):
@@ -25,6 +94,9 @@ class FFmpegError(Exception):
 class FFmpegService:
     """Service for FFmpeg video processing operations."""
 
+    # Minimum required FFmpeg version (major, minor, patch)
+    MIN_VERSION: tuple[int, int, int] = (4, 0, 0)
+
     def __init__(self, ffmpeg_path: str = "ffmpeg"):
         """Initialize FFmpeg service.
 
@@ -33,6 +105,36 @@ class FFmpegService:
         """
         self.ffmpeg_path = ffmpeg_path
         self._ffmpeg_available: bool | None = None
+        self._version_info: FFmpegVersionInfo | None = None
+
+    # ------------------------------------------------------------------
+    # Version detection
+    # ------------------------------------------------------------------
+
+    async def get_version_info(self) -> FFmpegVersionInfo:
+        """Return parsed FFmpeg version info (cached).
+
+        Raises:
+            FFmpegError: If FFmpeg is not reachable.
+        """
+        if self._version_info is not None:
+            return self._version_info
+
+        if not await self.check_ffmpeg_available():
+            raise FFmpegError(
+                f"FFmpeg is not available at '{self.ffmpeg_path}'. "
+                "Install FFmpeg and ensure it is on your PATH or set FFMPEG_PATH."
+            )
+
+        proc = await asyncio.create_subprocess_exec(
+            self.ffmpeg_path, "-version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        output = stdout.decode("utf-8", errors="replace")
+        self._version_info = parse_ffmpeg_version(output)
+        return self._version_info
 
     async def check_ffmpeg_available(self) -> bool:
         """Check if FFmpeg is available on the system.
@@ -55,6 +157,28 @@ class FFmpegService:
         except FileNotFoundError:
             self._ffmpeg_available = False
             return False
+
+    async def check_version_compatible(self) -> tuple[bool, str]:
+        """Check whether installed FFmpeg meets minimum version requirement.
+
+        Returns:
+            Tuple of (is_compatible, message).
+        """
+        try:
+            info = await self.get_version_info()
+        except FFmpegError as exc:
+            return False, str(exc)
+
+        if info.version_tuple >= self.MIN_VERSION:
+            return True, (
+                f"{info} is compatible (minimum required: "
+                f"{'.'.join(map(str, self.MIN_VERSION))})"
+            )
+        return False, (
+            f"{info} is below the minimum required version "
+            f"{'.'.join(map(str, self.MIN_VERSION))}. "
+            "Please upgrade FFmpeg."
+        )
 
     async def concatenate_videos(
         self,
@@ -116,6 +240,63 @@ class FFmpegService:
             # Cleanup temp file
             if concat_list_path and os.path.exists(concat_list_path):
                 os.unlink(concat_list_path)
+
+    async def normalize_video(
+        self,
+        input_path: str,
+        output_path: str,
+        target_width: int = 1920,
+        target_height: int = 1080,
+        target_fps: int = 30,
+        video_codec: str = "libx264",
+        audio_codec: str = "aac",
+        callback: Callable[[float], Awaitable[None]] | None = None,
+    ) -> str:
+        """Normalize a video to a standard format suitable for concatenation.
+
+        Re-encodes the video with consistent codec, resolution, frame rate
+        and pixel format so that multiple clips can be safely concatenated.
+
+        Args:
+            input_path: Path to source video.
+            output_path: Path for the normalized output.
+            target_width: Target width in pixels.
+            target_height: Target height in pixels.
+            target_fps: Target frames per second.
+            video_codec: Video encoder (e.g. libx264, libx265).
+            audio_codec: Audio encoder (e.g. aac, copy).
+            callback: Optional async progress callback.
+
+        Returns:
+            Path to the normalized video.
+
+        Raises:
+            FFmpegError: On missing input or FFmpeg failure.
+        """
+        if not await self.check_ffmpeg_available():
+            raise FFmpegError("FFmpeg is not available")
+
+        if not os.path.exists(input_path):
+            raise FFmpegError(f"Input video not found: {input_path}")
+
+        cmd = [
+            self.ffmpeg_path,
+            "-y",
+            "-i", input_path,
+            "-vf", f"scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,"
+                   f"pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,"
+                   f"fps={target_fps}",
+            "-c:v", video_codec,
+            "-pix_fmt", "yuv420p",
+            "-c:a", audio_codec,
+            "-ar", "44100",
+            "-ac", "2",
+            "-movflags", "+faststart",
+            output_path,
+        ]
+
+        await self._run_ffmpeg(cmd, callback)
+        return output_path
 
     async def image_to_video(
         self,
@@ -280,7 +461,7 @@ class FFmpegService:
             callback: Optional progress callback
 
         Raises:
-            FFmpegError: If command fails
+            FFmpegError: If command fails, with detailed diagnostic info.
         """
         logger.debug(f"Running FFmpeg: {' '.join(cmd)}")
 
@@ -294,8 +475,15 @@ class FFmpegService:
 
         if proc.returncode != 0:
             stderr_text = stderr.decode('utf-8', errors='replace')
+            # Extract the last meaningful error line from FFmpeg output
+            error_lines = [
+                ln.strip() for ln in stderr_text.splitlines()
+                if ln.strip() and not ln.strip().startswith("frame=")
+            ]
+            last_error = error_lines[-1] if error_lines else "unknown error"
             raise FFmpegError(
-                f"FFmpeg failed with return code {proc.returncode}",
+                f"FFmpeg failed (rc={proc.returncode}): {last_error}\n"
+                f"Command: {' '.join(cmd[:6])}{'...' if len(cmd) > 6 else ''}",
                 returncode=proc.returncode,
                 stderr=stderr_text,
             )

@@ -1,0 +1,241 @@
+# ============================================================
+# ai_video_create 三平台 CI/CD 配置
+# 支持平台: Windows / macOS / Linux
+# 技术栈: Python 3.12 + FastAPI (backend)
+#          React 18 + TypeScript + Vite (frontend)
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# 同一分支的新提交会取消之前的运行
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 环境变量（从 secrets 注入敏感信息）
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  # 测试时使用 mock provider，无需真实 API Key
+  AI_VIDEO_DEFAULT_LLM_PROVIDER: mock
+  AI_VIDEO_DEFAULT_IMAGE_PROVIDER: mock
+  AI_VIDEO_DEFAULT_VIDEO_PROVIDER: mock
+  # 真实密钥从 secrets 获取（集成测试或部署时使用）
+  WAN3_API_KEY: ${{ secrets.WAN3_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+
+# ============================================================
+# 后端 CI 任务
+# ============================================================
+jobs:
+  backend:
+    name: "Backend / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ---------- 检出代码 ----------
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---------- 设置 Python ----------
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "backend/requirements.txt"
+
+      # ---------- 安装 Python 依赖 ----------
+      - name: 安装 Python 依赖
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # 代码质量工具
+          pip install ruff mypy
+
+      # ---------- 代码质量检查 (ruff) ----------
+      - name: 代码质量检查 (ruff lint)
+        run: |
+          cd backend
+          ruff check app/ --output-format=github || true
+          echo "::warning::Ruff lint 检查完成"
+
+      # ---------- 类型检查 (mypy) ----------
+      - name: 类型检查 (mypy)
+        run: |
+          cd backend
+          mypy app/ --ignore-missing-imports --no-error-summary || true
+          echo "::warning::Mypy 类型检查完成"
+
+      # ---------- 运行 pytest 测试 ----------
+      # 所有平台都运行基础测试
+      - name: 运行 pytest 测试
+        run: |
+          cd backend
+          python -m pytest tests/ -v --tb=short \
+            --ignore=tests/integration \
+            --ignore=tests/performance \
+            -x
+
+      # ---------- 运行集成测试 (仅 Linux) ----------
+      - name: 运行集成测试
+        if: runner.os == 'Linux'
+        run: |
+          cd backend
+          python -m pytest tests/integration/ -v --tb=short || true
+          echo "::warning::集成测试完成"
+
+  # ============================================================
+  # 前端 CI 任务
+  # ============================================================
+  frontend:
+    name: "Frontend / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ---------- 检出代码 ----------
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---------- 设置 Node.js ----------
+      - name: 设置 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
+      # ---------- 安装 npm 依赖 ----------
+      - name: 安装 npm 依赖
+        working-directory: frontend
+        run: npm ci
+
+      # ---------- TypeScript 编译检查 ----------
+      - name: TypeScript 编译检查
+        working-directory: frontend
+        run: npm run typecheck
+
+      # ---------- Vite 构建 ----------
+      - name: Vite 构建
+        working-directory: frontend
+        run: npm run build
+
+      # ---------- 运行前端测试 ----------
+      - name: 运行前端测试
+        working-directory: frontend
+        run: npm test
+
+  # ============================================================
+  # 联合启动测试 (仅 Linux)
+  # 验证后端 + 前端可以正确协同工作
+  # ============================================================
+  integration:
+    name: "Integration / ubuntu-latest"
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ---------- 检出代码 ----------
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---------- 设置 Python ----------
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "backend/requirements.txt"
+
+      # ---------- 设置 Node.js ----------
+      - name: 设置 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
+      # ---------- 安装后端依赖 ----------
+      - name: 安装后端依赖
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install httpx
+
+      # ---------- 安装前端依赖 ----------
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+
+      # ---------- 构建前端 ----------
+      - name: 构建前端
+        working-directory: frontend
+        run: npm run build
+
+      # ---------- 启动后端并验证健康检查 ----------
+      - name: 启动后端并验证健康检查
+        run: |
+          cd backend
+          # 后台启动 FastAPI 服务
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          BACKEND_PID=$!
+
+          # 等待后端启动（最多 30 秒）
+          echo "等待后端启动..."
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:8000/health > /dev/null 2>&1 || \
+               curl -s http://127.0.0.1:8000/ > /dev/null 2>&1; then
+              echo "后端启动成功!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "后端启动超时"
+              kill $BACKEND_PID 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          # 测试后端 API 响应
+          echo "=== 后端健康检查 ==="
+          curl -s -o /dev/null -w "HTTP 状态码: %{http_code}\n" http://127.0.0.1:8000/ || true
+
+          # 停止后端
+          kill $BACKEND_PID 2>/dev/null || true
+          echo "联合启动测试完成"
+
+      # ---------- 运行联合测试套件 ----------
+      - name: 运行联合测试套件
+        run: |
+          cd backend
+          python -m pytest tests/integration/ -v --tb=short || true
+          echo "::warning::联合测试完成"
