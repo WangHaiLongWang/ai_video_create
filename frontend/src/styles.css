@@ -76,7 +76,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .palette-footer strong { display: flex; align-items: center; gap: 6px; color: #aeb6a7; font-weight: 500; }
 .palette-footer i { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 
-.canvas-shell { grid-column: 2; position: relative; min-width: 0; min-height: 0; background: #171916; }
+.canvas-shell { grid-column: 2; position: relative; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: #171916; }
 .react-flow__edge-path { stroke: #5c6358; stroke-width: 1.5; }
 .react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); }
 .react-flow__controls { box-shadow: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }

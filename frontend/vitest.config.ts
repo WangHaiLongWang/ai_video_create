@@ -10,7 +10,11 @@ export default defineConfig({
       'node_modules/**',
       'dist/**',
     ],
-    environment: 'jsdom',
+    environment: 'node',
     globals: true,
+    environmentMatchGlobs: [
+      ['src/**/*.test.tsx', 'happy-dom'],
+      ['src/components/**/*.test.ts', 'happy-dom'],
+    ],
   },
 })

@@ -401,6 +401,19 @@ Demo：全新 Node/Python 环境安装后，一条命令得到全绿门禁。
 
 里程碑：`v0.9.1`，恢复可重复构建状态。
 
+### 已完成：React Flow 交互修复（2026-09-16）
+
+范围：CANVAS-001 至 CANVAS-003。
+
+1. ✅ 修复 `.canvas-shell` CSS，添加 `height: 100%` 和 `overflow: hidden` 确保 React Flow 正确填充。
+2. ✅ Canvas 组件添加显式 `panOnDrag`、`nodesDraggable`、`nodesConnectable`、`selectNodesOnDrag={false}`。
+3. ✅ NodePalette 添加 HTML5 Drag and Drop 支持 — 节点可从侧栏拖拽到画布。
+4. ✅ Canvas 添加 `onDragOver`/`onDrop` 处理器，使用 `screenToFlowPosition` 计算放置坐标。
+5. ✅ 修复 jsdom 30 + undici 8 与 Node 26 不兼容问题，切换到 happy-dom。
+6. ✅ vitest.config.ts 使用 `environmentMatchGlobs` 按文件类型选择环境。
+
+里程碑：画布可平移、节点可拖拽、可从侧栏拖入节点。
+
 ### 下一 Sprint：产品闭环（1 周）
 
 范围：AVC-305 至 308、AVC-404/405、恢复性补充。

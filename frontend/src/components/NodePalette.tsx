@@ -5,20 +5,32 @@ import type { NodeKind } from '../types'
 
 export function NodePalette() {
   const { workflow, setWorkflow } = useStudioStore()
+
   const addNode = (kind: NodeKind) => {
     const node = createNode(kind, 160 + workflow.nodes.length * 28, 380)
     setWorkflow({ ...workflow, nodes: [...workflow.nodes, node] })
   }
+
+  const onDragStart = (event: React.DragEvent, kind: NodeKind) => {
+    event.dataTransfer.setData('application/reactflow', kind)
+    event.dataTransfer.effectAllowed = 'move'
+  }
+
   return (
     <aside className="palette">
       <div className="panel-heading">
         <span>节点库</span>
         <button aria-label="添加节点"><Plus size={15} /></button>
       </div>
-      <p className="panel-hint">点击添加到画布</p>
+      <p className="panel-hint">点击或拖拽到画布</p>
       <div className="node-list">
         {(Object.keys(nodeCatalog) as NodeKind[]).map((kind) => (
-          <button key={kind} onClick={() => addNode(kind)}>
+          <button
+            key={kind}
+            draggable
+            onDragStart={(e) => onDragStart(e, kind)}
+            onClick={() => addNode(kind)}
+          >
             <span>{nodeCatalog[kind].label}</span>
             <small>{nodeCatalog[kind].outputType ?? '终点'}</small>
           </button>
