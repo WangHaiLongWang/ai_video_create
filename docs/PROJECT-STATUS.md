@@ -1,7 +1,7 @@
 # ai_video_create 项目状态
 
 > 基线日期：2026-09-16
-> 状态版本：8.0
+> 状态版本：9.0
 > Active 计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > 评估原则：只采用当前环境可重复结果；历史报告单独列为证据，不替代当前门禁。
 
@@ -22,39 +22,40 @@
 
 当前发布门禁状态：
 
-1. ✅ Vitest 配置修复，`vitest.config.ts` 排除 `e2e/`，`npm test` 通过。
-2. ✅ TypeScript Location mock 类型修复，typecheck/build 通过。
-3. ✅ Node 26.7.0 已安装，Playwright 可运行。
-4. ✅ Pillow/imageio-ffmpeg 已加入 requirements.txt。
-5. ⚠️ FFmpeg 集成测试依赖系统 FFmpeg，CI 使用 mock 模式。
-6. ✅ CI 已移除 `|| true`，健康检查路径修正为 `/api/health`。
+1. ✅ Vitest 已隔离 `e2e/`，前端 105 项通过。
+2. ✅ TypeScript 和生产构建通过。
+3. ✅ Node 20.19.0 满足 Playwright 版本要求。
+4. ❌ Pillow 未安装到当前 venv，完整后端测试收集失败。
+5. ⚠️ FFmpeg 报告在另一 Python 环境通过，当前 venv 仍需复现。
+6. ⚠️ CI/Playwright 文件存在，但本次未取得同一 commit 的三平台绿色证据。
+7. ⚠️ React Flow 仍缺多端口、Handle ID、边语义和权威图校验。
+8. ⚠️ Scene 尚无独立编辑、版本化 Prompt Bundle 和 Provider 请求导出。
 
 ### 当前评分
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
-| 架构骨架 | 90% | 分层完整，安全/备份/恢复已实现 |
-| Mock 用户链路 | 92% | 前后端 558 测试全绿，UI 功能完整 |
-| 真实多模态 | 75% | MiMo/Qwen/Wan3 有真实证据，待环境复现 |
-| Agent 与模板 | 78% | preview/diff/装载已接入，结构化工具待完善 |
-| 发布工程 | 90% | 安全加固/性能基准/操作文档/Release Check 全绿 |
-| 综合产品完成度 | **约 92%** | 可生成 RC，准备外部验收 |
+| 架构骨架 | 90% | 分层完整，共享图/Scene Schema 待补 |
+| React Flow 编辑器 | 55% | 基础拖拽连线可用，多端口和边语义缺失 |
+| Mock 用户链路 | 90% | 执行器成熟，完整后端门禁仍被依赖阻断 |
+| 真实多模态 | 78% | MiMo/Qwen/Wan3 有真实证据，FFmpeg 当前环境待复现 |
+| Agent 与模板 | 80% | preview/diff/装载已接入，Scene 编辑/导出缺失 |
+| 发布工程 | 65% | 前端绿色，完整后端/媒体/三平台证据不足 |
+| 综合产品完成度 | **约 78%** | 内部验收阶段，不是 RC |
 
 ## 2. 当前可重复测试基线
 
-当前本机：Windows、Node 26.7.0、npm 11.19.0、Python 3.12.3。
+当前本机：Windows、Node 20.19.0、npm 10.8.2、Python 3.12.3。
 
 | 验证项 | 结果 | 状态 |
 |---|---:|---|
 | 前端 Vitest (8 files) | 105 passed | ✅ 通过 |
 | TypeScript typecheck | 0 errors | ✅ 通过 |
-| Vite production build | 509KB JS | ✅ 通过 |
-| 后端全量（排除 integration） | 453 passed、7 skipped | ✅ 通过 |
-| 后端 security tests | 84 passed、1 skipped | ✅ 通过 |
-| 后端 recovery tests | 55 passed | ✅ 通过 |
-| 后端 performance tests | 19 passed | ✅ 通过 |
-| 后端 acceptance tests | 37 passed | ✅ 通过 |
-| Release Check | 32 passed, 0 failed, 1 skipped | ✅ 通过 |
+| Vite production build | 493.02KB JS / gzip 144.22KB | ✅ 通过 |
+| 后端核心（排除 integration） | 504 passed、7 skipped | ✅ 通过 |
+| 后端完整 pytest | Pillow 缺失，Wan3 UAT 收集失败 | ❌ 失败 |
+| 根 `npm test` | 前端通过，后端收集失败 | ❌ 失败 |
+| Playwright | Node 已满足；本次未运行浏览器套件 | ⚠️ 未验证 |
 
 ### 报告可追溯性说明
 
@@ -86,14 +87,21 @@ Host      127.0.0.1
 
 | 能力 | 状态 | 缺口 |
 |---|---|---|
-| 画布移动/缩放/连线/删除 | 已实现 | 无浏览器回归门禁 |
-| 节点添加 | 部分 | 点击添加，非侧栏拖入 |
-| 属性配置 | 已实现 | 仍是手写配置，非 Node Manifest 生成 |
+| 画布移动/缩放/连线/删除 | 已实现 | 浏览器连线矩阵仍需专项 E2E |
+| 节点添加 | 已实现 | 支持点击和侧栏拖入 |
+| 属性配置 | 已实现 | 手写 key/value，非 Node Manifest/Schema 表单 |
 | Undo/Redo | 已实现 | 拖动过程可能产生过多历史项 |
 | localStorage | 已实现 | 只维护当前工作流 |
 | SQLite CRUD/乐观锁 | 已实现 | Update body 仍需强类型收紧 |
-| 导入/导出 | API 已实现 | UI 入口缺失 |
+| 工作流导入/导出 | 已实现 | 仅 WorkflowSpec 1.0，无 Scene Prompt 导出 |
 | 自动保存 | 部分 | 失败只进 console，保存文案可能误导 |
+| Handle/端口 | 初级 | 每节点最多一个无 ID 输入和一个输出 |
+| 连线验证 | 初级 | 只比较字符串类型相等 |
+| 多端口/基数 | 未实现 | 不支持命名端口、one/many、required |
+| Edge 语义 | 未实现 | 无 map/aggregate、顺序、映射路径和标签 |
+| 图版本迁移 | 未实现 | WorkflowSpec 固定 1.0，无 viewport/manifestVersion |
+| Scene 编辑器 | 未实现 | Scene 只存在于运行结果 |
+| Scene/Prompt 导入导出 | 未实现 | 无 Bundle/Markdown/CSV/JSONL |
 
 ### 4.2 执行引擎
 
@@ -108,7 +116,7 @@ Host      127.0.0.1
 | external_job_id | 已实现 | Migration 006 + persistence tests |
 | WorkerPool | 已实现 | worker pool tests |
 | 执行收敛 | 已实现 | Scheduler/queue tests |
-| 节点级手动重试 | 未闭环 | 前端 `retryNode` 仍是 TODO |
+| 节点级手动重试 | 已实现 | executionStore 调用 retry API并更新节点状态 |
 | 长任务重启续轮询 | 部分 | ID 持久化已完成，恢复编排仍需端到端验证 |
 | 正式 schema migration 表 | 未实现 | 当前按 SQL 文件执行并忽略重复列 |
 
@@ -117,15 +125,15 @@ Host      127.0.0.1
 | 能力 | 状态 | 缺口 |
 |---|---|---|
 | REST 启动/取消/轮询 | 已实现 | 错误态仍需统一 |
-| WebSocket 重连/补拉 | 已实现 | Vitest 配置导致总测试失败 |
-| ExecutionPanel | 已实现 | retry 按钮后端闭环未完成 |
+| WebSocket 重连/补拉 | 已实现 | 单元测试通过，浏览器断线 E2E 待补 |
+| ExecutionPanel | 已实现 | retry API/UI 已接通，仍需浏览器 E2E |
 | Agent generate preview | 已实现 | 严格工具调用/Schema constrained output 待加强 |
 | GraphPatch diff/warning | 已实现 | 有损操作和 expected_version 需完整 UAT |
-| TemplateSelector 装载 | 已实现 | 缺浏览器 E2E 证据 |
+| TemplateSelector 装载 | 已实现 | API 返回 spec 已装入画布，缺浏览器 E2E 证据 |
 | Provider 设置 | 已实现 | API 只改内存，重启以 `.env` 为准 |
 | 自定义 LLM | 已实现 | 单配置槽，尚非多 Provider CRUD |
-| 资产预览/下载页 | 未完成 | API 有，完整产品页面不足 |
-| 工作流列表/历史页 | 未完成 | API 有，UI 不完整 |
+| 资产预览/下载页 | 已实现基础版 | AssetPanel 有列表/筛选/预览/下载/删除 |
+| 工作流列表 | 已实现基础版 | WorkflowListPage 有搜索/加载/删除/导入导出 |
 
 ### 4.4 Provider 与媒体
 
@@ -158,70 +166,71 @@ Host      127.0.0.1
 3. **配置持久化不足**：设置页只改内存，未落 ProviderConfig/secret reference。
 4. **队列事务需压力验证**：claim 的 SELECT/BEGIN 时序仍需多连接并发证明。
 5. **资产安全需收紧**：路径 root、原子写、MIME/大小和引用删除策略需统一验收。
-6. **执行状态双轨**：`store.ts` 和 `executionStore.ts` 同时包含执行逻辑，应只保留一个事实入口。
-7. **外部任务恢复未产品化**：Wan3 ID 可保存，但重启恢复的完整状态机和 UI 证据不足。
+6. **图契约过于前端化**：Handle、Edge 映射和 Node Manifest 尚未成为共享 Schema。
+7. **Scene 数据缺少产品层**：运行时 Scene 已存在，但无 draft/override/lock、编辑器与标准导出。
+8. **外部任务恢复证据不足**：Wan3 ID 可保存，但重启恢复的完整状态机和 UI 仍需端到端验证。
 
 ## 6. 发布阻断清单
 
 | ID | 阻断项 | 优先级 | 关闭标准 |
 |---|---|---:|---|
-| R0-1 | Vitest 收集 Playwright | P0 | Vitest include 仅 `src/**/*.test.*`，`npm test` 通过 |
-| R0-2 | Location mock 类型错误 | P0 | typecheck 和 build 通过 |
-| R0-3 | Node 版本不一致 | P0 | 本地/README/CI 统一 Node 20+ |
-| R0-4 | Pillow 未声明 | P0 | requirements 安装后完整 pytest 可收集 |
-| R0-5 | FFmpeg 路径不可复现 | P0 | venv 声明依赖或系统安装；integration 19/19 当前环境通过 |
-| R0-6 | CI 吞掉失败 | P0 | 移除关键 job 的 `|| true`，正确请求 `/api/health` |
-| R0-7 | CI YAML 乱码 | P1 | UTF-8 可读 job 名称和注释 |
-| R0-8 | Playwright 未执行 | P0 | Node 20 安装浏览器后核心 E2E 通过 |
-| R0-9 | 前端 retry TODO | P1 | 失败节点可调用 retry API并恢复状态 |
-| R0-10 | 报告元数据不一致 | P1 | 校正日期，记录 commit、环境、命令和原始输出 |
+| R0-1 | 完整后端测试缺 Pillow | P0 | requirements 安装后完整 pytest 可收集 |
+| R0-2 | FFmpeg 路径不可复现 | P0 | venv 声明依赖或系统安装；integration 19/19 当前环境通过 |
+| R0-3 | 三平台 CI 未提供本次 run 证据 | P0 | 同一 commit Windows/macOS/Linux 全绿 |
+| R0-4 | Playwright 未执行本次基线 | P0 | Chromium 核心 E2E 通过并归档 |
+| R0-5 | React Flow 图契约过弱 | P0 | 多端口、Handle ID、基数/环/重复边校验完成 |
+| R0-6 | Scene Prompt 不可独立编辑/导出 | P0 | Bundle Schema、Editor、标准导入导出完成 |
+| R0-7 | 报告元数据不一致 | P1 | 校正日期，记录 commit、环境、命令和原始输出 |
 
 ## 7. 里程碑
 
 | 里程碑 | 当前状态 | 下一出口 |
 |---|---|---|
-| M0 工程基线 | ✅ 绿色 | typecheck/build/tests 全部通过 |
-| M1 编辑闭环 | ✅ 完成 | 工作流列表/导入导出/资产管理 UI |
-| M2 Mock 执行闭环 | ✅ 完成 | retry UI、executionStore 统一 |
+| M0 工程基线 | 部分绿色 | 完整后端 pytest + Playwright + 三平台证据 |
+| M1 编辑闭环 | 基础完成 | WorkflowSpec 2.0、多端口/边语义、Scene 导出 |
+| M2 Mock 执行闭环 | 基本完成 | 浏览器 E2E 和重启恢复证据 |
 | M3 真实多模态 | 有历史 UAT | 待锁定环境复现 Qwen/Wan3/FFmpeg |
 | M4 Agent/模板 | 功能已接入 | E2E + 结构化工具 + 设置持久化 |
-| M5 Release Candidate | ✅ 完成 | 安全/恢复/性能/文档全绿，Release Check 32/32 |
+| M5 Release Candidate | 未达到 | 所有发布阻断关闭后重新运行 Release Check |
 
 ## 8. 下一阶段计划
 
-### Sprint 0：恢复绿色门禁 ✅ 已完成
+### 专项 F1：React Flow 端口图契约（2 周）
 
-1. ✅ Vitest `vitest.config.ts` 配置 include/exclude，排除 `e2e/`。
-2. ✅ 修复 `executionSocket.test.ts` 的 Window/Location mock 类型。
-3. ✅ Node 升级到 26.7.0，Playwright chromium 已安装。
-4. ✅ Pillow/imageio-ffmpeg 加入 requirements.txt。
-5. ✅ CI 移除 `|| true`，健康检查路径修正为 `/api/health`。
-6. ✅ 全量测试通过：63 frontend + 332 backend = 395 tests。
+1. Node Manifest 与稳定 Port ID。
+2. 多输入/多输出 Handle 渲染。
+3. 类型、方向、cardinality、required、自环、重复边和环检测。
+4. Edge mode：direct/map/aggregate，保存 sourceHandle/targetHandle。
+5. WorkflowSpec 2.0、viewport 和 1.0 migration。
+6. 连线兼容端口高亮、失败原因、重连与键盘可访问性。
 
-出口：`npm test` ✅、typecheck ✅、build ✅、后端 pytest ✅、Release Check 32/32 ✅。
+出口：复杂节点能够可靠连线，旧工作流无损迁移，前后端验证结果一致。
 
-### Sprint 1：产品闭环（1 周）✅ 已完成
+### 专项 F2：Scene Prompt Bundle（2 周）
 
-1. ✅ 节点级 retry API/UI — `retryNode` 连接后端 `/retry` 端点，失败节点可重试。
-2. ✅ executionStore 统一 — 执行逻辑完全在 `executionStore.ts`，`store.ts` 只管画布。
-3. ✅ 工作流列表 UI — `WorkflowListPage.tsx`，支持列表/搜索/加载/删除/导出/导入。
-4. ✅ 资产管理 UI — `AssetPanel.tsx`，支持列表/筛选/预览/下载/删除。
-5. ⏳ Mock 浏览器全链 E2E — Playwright 已配置，待 Chromium E2E 录制。
-6. ⏳ Wan3 重启恢复验证 — 待真实环境测试。
+1. 冻结 Scene Prompt Bundle JSON Schema。
+2. 将 execution Storyboard 结果 materialize 为 Bundle。
+3. Scene draft/override/lock 持久化。
+4. Scene Editor 支持逐镜和批量编辑。
+5. JSON、Markdown、CSV 和纯文本导入导出。
+6. 导出内容扫描 Key、签名 URL 和绝对路径。
 
-出口：内容创作者可以在浏览器完成创建、执行、失败重试、刷新恢复、预览与下载。
-里程碑：`v0.10.0`，内部验收候选。
+出口：用户可编辑、锁定、导出、导入 Scene，并保持 scene_id 与顺序稳定。
 
-### Sprint 2：Release Candidate（1-2 周）✅ 已完成
+### 专项 F3：Provider Prompt 与发布门禁（1-2 周）
 
-1. ✅ 安全加固 — SSRF 防护、路径穿越保护、密钥脱敏、安全响应头 (84 tests)。
-2. ✅ DB 备份/恢复 — backup/restore 脚本 (bash + PowerShell)、灾难恢复测试 (55 tests)。
-3. ✅ 性能基准 — 100 节点编译、4 Worker 吞吐、API P95、内存基准 (19 tests)。
-4. ✅ 操作文档 — 安装/升级/回滚/故障排查/安全手册。
-5. ✅ Release Check — 32/32 全部通过。
-6. ⏳ 真实 Provider 环境复现 — 待配置密钥后验证。
+1. Qwen Image JSONL 请求预览。
+2. Wan3 JSONL 请求预览，first frame 使用 Asset ID。
+3. 画布 viewport、语义 Undo/Redo、复制粘贴和自动布局。
+4. React Flow 连线和 Scene 导入导出 Playwright E2E。
+5. 补齐 Pillow/FFmpeg 当前环境依赖并运行完整 pytest。
+6. 同一 commit 三平台 CI、Playwright、Release Check 全绿。
 
-出口：Release Checklist 全绿。可以生成 `v1.0.0-rc.1`。
+出口：专项计划验收通过后，重新评估 `v1.0.0-rc.1`。
+
+详细工单、Schema 和验收场景见：
+
+- [`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
 
 ## 9. 文档治理
 

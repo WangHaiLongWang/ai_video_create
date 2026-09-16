@@ -3,6 +3,7 @@
 ## Active
 
 - [`active/DELIVERY-PLAN.md`](active/DELIVERY-PLAN.md)：当前唯一主交付计划。所有新工单、Sprint、里程碑和发布门禁以此为准。
+- [`active/FRONTEND-FLOW-SCENE-PLAN.md`](active/FRONTEND-FLOW-SCENE-PLAN.md)：React Flow 端口图与 Scene Prompt 产品化子计划。
 
 ## Status baseline
 

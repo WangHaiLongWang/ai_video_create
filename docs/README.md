@@ -8,6 +8,7 @@
 | [产品需求](product/PRD.md) | v1.0 范围、用户流程、验收要求 | 需求变化时 |
 | [系统架构](architecture/SYSTEM-DESIGN.md) | 模块边界、数据流、Provider 架构 | 架构决策变化时 |
 | [Active 交付计划](plans/active/DELIVERY-PLAN.md) | Sprint、工单、门禁和发布计划 | Planning/Review 后 |
+| [Flow/Scene 专项计划](plans/active/FRONTEND-FLOW-SCENE-PLAN.md) | React Flow 连线、Scene 编辑与 Prompt 导出 | 专项 Review 后 |
 
 阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。
 

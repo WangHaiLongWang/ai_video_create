@@ -53,6 +53,9 @@ ai_video_create 是一个本地优先、可视化编排 AI 内容生成流程的
 | 撤销/重做 | Ctrl/Cmd+Z、Shift+Z/Y | 至少 20 个语义步骤 |
 | 保存 | SQLite + 乐观锁 | 冲突不静默覆盖 |
 | 导入导出 | WorkflowSpec JSON | roundtrip 结构等价 |
+| 多端口 | 节点可声明多个命名输入/输出 | Handle ID、类型和基数保存后不丢失 |
+| 连线校验 | 类型、方向、基数、自环、重复边和环检测 | 前端即时提示，后端权威拒绝 |
+| Edge 语义 | direct/map/aggregate | 映射模式、顺序和标签可保存、迁移 |
 
 ### 4.2 节点类型（P0）
 
@@ -128,6 +131,15 @@ TextInput → Storyboard → TextToImage × N
 - 记录 execution、node、task、scene、Provider、模型、参数、SHA-256 和 source assets。
 - 被引用资产不能直接删除。
 - 清理先 dry-run，防止误删。
+
+### 4.8 Scene Prompt 管理（P0）
+
+- 将 Storyboard 实际结果保存为版本化 Scene Prompt Bundle。
+- 支持逐镜编辑 narration、image_prompt、video_prompt、时长和 Provider 参数。
+- 支持锁定 scene，重新生成时不覆盖用户修改。
+- 支持 JSON、Markdown、CSV、纯文本导入导出。
+- 支持 Qwen Image 与 Wan3 JSONL 请求预览，不包含 Key、签名 URL或绝对路径。
+- Workflow 定义导出与 Scene 运行数据导出必须分离。
 
 ## 5. 核心用户流程
 

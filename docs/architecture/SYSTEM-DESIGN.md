@@ -100,6 +100,40 @@ ai_video_create/
 - `TemplateSelector.tsx` 将后端返回的 WorkflowSpec 装入画布。
 - 有损 GraphPatch 必须显式确认并携带 expected_version。
 
+### 4.4 React Flow 图契约目标
+
+当前 `inputType/outputType` 将升级为 Node Manifest：每个端口具备稳定 `id`、方向、类型、required 和 cardinality。Edge 必须保存 `sourceHandle`、`targetHandle` 及 data mapping。
+
+```text
+NodeManifest
+  ├─ input ports[]
+  ├─ output ports[]
+  ├─ config JSON Schema
+  └─ execution map/aggregate hints
+
+WorkflowEdge
+  ├─ source/sourceHandle
+  ├─ target/targetHandle
+  └─ data: mode/sourcePath/targetPath/itemKey/order/label
+```
+
+前端负责即时反馈，后端负责最终验证。验证范围包括类型、方向、基数、必填输入、自环、重复边和 DAG 环。
+
+### 4.5 Scene Prompt 数据流
+
+```text
+Storyboard NodeResult
+  → Storyboard Materializer
+  → Scene Prompt Bundle
+  → Scene Draft / Override / Lock
+  → T2I/I2V NodeInput
+  → Exporters(JSON/Markdown/CSV/JSONL/Text)
+```
+
+WorkflowSpec 描述“如何生成”，Scene Prompt Bundle 描述“本次具体生成什么”，二者不得混用。Provider-specific JSONL 只是请求预览，标准存储始终使用 Provider-neutral Bundle。
+
+详细 Schema、工单和验收见 [`../plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](../plans/active/FRONTEND-FLOW-SCENE-PLAN.md)。
+
 ## 5. 后端分层
 
 ### 5.1 API 层

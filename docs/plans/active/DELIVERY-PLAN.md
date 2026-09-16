@@ -1,6 +1,6 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.1
+> 计划版本：1.2
 > 制定日期：2026-09-16
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
@@ -31,21 +31,21 @@
 | AVC-203 scene map/input assembly | Done | scene mapping integration tests |
 | AVC-205 取消竞态 | Done | 状态条件更新和递归取消 |
 | AVC-207 WorkerPool | Done | 多 Worker tests |
-| AVC-302/303 WebSocket executionStore | Done/需修复测试 | 客户端已实现，当前 Vitest/TS 配置阻断 |
+| AVC-302/303 WebSocket executionStore | Done/需 E2E | 客户端与单元测试已通过，浏览器断线恢复待验收 |
 | AVC-508 Wan3 external job | Done/需复现 | Migration 006、UAT 报告存在，当前 venv 缺 Pillow |
 
 ### 当前质量基线
 
-- 前端指定单元测试：63 passed；根测试、typecheck 和 build 当前失败。
-- 后端核心：383 passed、6 skipped；完整测试因 Pillow/FFmpeg 环境失败。
-- Playwright 当前无法在 Node 16 运行；要求 Node 20+。
-- 当前综合产品完成度约 70%，但发布门禁为红色，详见 `docs/PROJECT-STATUS.md`。
+- 前端：105 passed；typecheck 和 production build 通过。
+- 后端核心：504 passed、7 skipped；完整测试因 Pillow 缺失失败。
+- 当前 Node 20.19.0；Playwright 本次基线未运行。
+- 当前综合产品完成度约 78%，但 React Flow/Scene 产品能力和完整发布门禁未完成。
 
 ### 剩余工作量重估
 
-- 2 人工程团队 + 0.5 QA：约 3-5 周。
-- 单人全栈：约 6-9 周。
-- 最大不确定性：测试环境锁定、FFmpeg 跨平台、浏览器 E2E 和长任务恢复复现。
+- 2 人工程团队 + 0.5 QA：约 5-7 周。
+- 单人全栈：约 9-13 周。
+- 最大不确定性：WorkflowSpec 2.0 migration、Scene Bundle 交互、FFmpeg 跨平台和浏览器 E2E。
 
 ## 1. 计划目标
 
@@ -389,13 +389,13 @@ Worker 只负责租约和运行 Handler；Scheduler 负责依赖、输入组装�
 
 范围：TEST-001 至 TEST-008。
 
-1. 隔离 Vitest 与 Playwright 测试目录。
-2. 修复 WebSocket Location mock 类型。
-3. 统一 Node 20+。
-4. 声明 Pillow 与 FFmpeg 测试/运行依赖。
-5. 固定 FFmpeg 路径解析，在当前 venv 复现集成测试。
-6. CI 移除 `|| true`、修复 `/api/health` 和 UTF-8 文本。
-7. 运行并归档 unit、integration、typecheck、build 和 Chromium E2E。
+1. ✅ 隔离 Vitest 与 Playwright，前端 105 项通过。
+2. ✅ 修复 WebSocket Location mock，typecheck/build 通过。
+3. ✅ 当前 Node 20.19.0 满足 Playwright 要求。
+4. ❌ Pillow 未进入当前 venv，完整 pytest 收集失败。
+5. ❌ FFmpeg 当前路径无法复现历史 19/19 报告。
+6. ⏳ 取得同一 commit 的三平台 CI 和 Chromium E2E 证据。
+7. ⏳ 校正 UAT 报告日期、commit 和环境元数据。
 
 Demo：全新 Node/Python 环境安装后，一条命令得到全绿门禁。
 
@@ -414,33 +414,24 @@ Demo：全新 Node/Python 环境安装后，一条命令得到全绿门禁。
 
 里程碑：画布可平移、节点可拖拽、可从侧栏拖入节点。
 
-### 下一 Sprint：产品闭环（1 周）
+### 下一阶段：React Flow 与 Scene Prompt 产品化（4-6 周）
 
-范围：AVC-305 至 308、AVC-404/405、恢复性补充。
+专项计划：[`FRONTEND-FLOW-SCENE-PLAN.md`](FRONTEND-FLOW-SCENE-PLAN.md)
 
-1. 完成节点级 retry API/UI。
-2. 统一 executionStore，移除旧执行状态双轨。
-3. 工作流列表、导入导出、保存错误和版本冲突 UI。
-4. 资产列表、预览、下载与血缘入口。
-5. Mock 浏览器完整 E2E。
-6. Wan3 external_job_id 重启恢复验证。
+1. F1 端口图契约：Node Manifest、多 Handle、连接校验、WorkflowSpec 2.0。
+2. F2 Scene Bundle：materialize、draft/lock、Scene Editor、标准导入导出。
+3. F3 Provider Prompt：Qwen/Wan3 JSONL 预览、画布打磨、浏览器 E2E。
 
-Demo：浏览器完成创建、运行、失败重试、刷新恢复、预览和下载。
+Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导入的 Prompt Bundle 与 Provider 请求预览。
 
-里程碑：`v0.10.0`，内部验收候选。
+里程碑：`v0.11.0`，工作流与 Scene 数据产品化完成。
 
 ### Release Candidate Sprint（1-2 周）
 
-范围：AVC-701 至 707、三平台与 UAT 缺陷。
-
-1. Windows/macOS/Linux CI 全绿。
-2. 安全、恢复、磁盘满和 Provider 超时演练。
-3. DB 备份/恢复和迁移演练。
-4. 性能与资源基准。
-5. 锁定环境复现 MiMo → Qwen → Wan3 → FFmpeg。
-6. 安装、升级、回滚与故障排查手册。
-
-Demo：Release Checklist 与证据归档全部通过。
+1. 完整 pytest、FFmpeg 集成、Playwright 和三平台 CI 全绿。
+2. 安全、恢复、磁盘满、Provider 超时和迁移演练。
+3. 锁定环境复现 MiMo → Qwen → Wan3 → FFmpeg。
+4. 安装、升级、回滚与故障排查手册。
 
 里程碑：`v1.0.0-rc.1`，验收通过后发布 `v1.0.0`。
 
@@ -590,7 +581,7 @@ v1.0 发布目标：
 
 ## 14. 下一 Sprint 可直接领取的任务
 
-当前只领取发布门禁修复，不新增 Provider 或节点：
+优先关闭发布环境阻断，然后按专项计划冻结图与 Scene Schema：
 
 | 顺序 | 工单 | 交付 | 验收 |
 |---:|---|---|---|
@@ -602,8 +593,10 @@ v1.0 发布目标：
 | 6 | CI-001 | CI UTF-8、health 路径、移除吞错 | 任一关键失败阻断 PR |
 | 7 | E2E-001 | Chromium 核心集 | 编辑/执行/Agent 主路径通过 |
 | 8 | DOC-001 | 报告日期、commit、环境和原始输出 | 证据可复现 |
+| 9 | FLOW-001 | Node Manifest/Port Schema | 前后端 fixture 一致 |
+| 10 | SCENE-001 | Scene Prompt Bundle Schema | JSON roundtrip 通过 |
 
-以上全部完成前，不标记 RC，不继续扩展模型接入。
+以上环境工单和 FLOW-001/SCENE-001 评审完成前，不标记 RC，不继续扩展模型接入。
 
 ## 15. 计划维护
 
