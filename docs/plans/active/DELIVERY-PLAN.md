@@ -1,16 +1,16 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.0
-> 制定日期：2026-09-15
+> 计划版本：1.1
+> 制定日期：2026-09-16
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-09-15 执行检查点
+## 0. 2026-09-16 执行检查点
 
-本计划发布后已经完成一批基线与 Provider 工作，后续排期从“执行语义收敛”继续，不从 Sprint 0 重做。
+项目主要功能模块已完成，当前重点从“扩充能力”切换为“恢复可复现绿色门禁与产品闭环”。
 
 ### 已完成
 
@@ -19,26 +19,33 @@
 | AVC-001 FastAPI 204 契约 | Done | Workflow/Asset DELETE 可导入，API 测试通过 |
 | AVC-002 配置前缀 | Done | `AI_VIDEO_` env prefix |
 | AVC-003 async 测试真实性 | Done | pytest-asyncio 已启用，loop scope 已固定 |
-| AVC-202 Worker 结果落库基础 | Done/需深化 | result_json 已保存，业务 error 不再 completed |
-| AVC-204 execution 收敛基础 | Done/需深化 | 终态统计已实现，深层传播仍未完成 |
+| AVC-202 Worker 结果落库 | Done | result_json 已保存，业务 error 不再 completed |
+| AVC-204 execution 收敛/传播 | Done | 终态统计和递归失败传播已实现 |
 | AVC-301 前端 Execution API | Done | 保存、启动、查询、取消、轮询已接入 |
 | AVC-401 Asset 表/API 基础 | Done/需深化 | Migration 003、Repository 和 API 存在 |
 | AVC-501 capability 独立 Provider | Done | image/video 可分别选择 DashScope/Wan3/ComfyUI |
 | Qwen Image 3.0 | Done（单次 UAT） | 真实生成 1280×720 PNG |
-| Wan3.0 480P Provider | Contract Done | 鉴权、参数、异步轮询、下载测试通过；未做计费 UAT |
+| Wan3.0 480P Provider | Historical UAT Done/当前需复现 | 报告记录真实任务通过；当前 venv 缺 Pillow |
 | Xiaomi MiMo v2.5 Pro | Done（单次 UAT） | 自定义配置、Contract、`/models` 和真实 Chat Completions 已通过 |
+| AVC-201 NodeResult/ArtifactRef | Done | contracts 与 handlers 已接入 |
+| AVC-203 scene map/input assembly | Done | scene mapping integration tests |
+| AVC-205 取消竞态 | Done | 状态条件更新和递归取消 |
+| AVC-207 WorkerPool | Done | 多 Worker tests |
+| AVC-302/303 WebSocket executionStore | Done/需修复测试 | 客户端已实现，当前 Vitest/TS 配置阻断 |
+| AVC-508 Wan3 external job | Done/需复现 | Migration 006、UAT 报告存在，当前 venv 缺 Pillow |
 
 ### 当前质量基线
 
-- 前端：16 tests passed，TypeScript 和 production build 通过。
-- 后端：226 passed，6 个 FFmpeg 环境测试 skipped。
-- 当前综合产品完成度约 55%，详见 `docs/PROJECT-STATUS.md`。
+- 前端指定单元测试：63 passed；根测试、typecheck 和 build 当前失败。
+- 后端核心：383 passed、6 skipped；完整测试因 Pillow/FFmpeg 环境失败。
+- Playwright 当前无法在 Node 16 运行；要求 Node 20+。
+- 当前综合产品完成度约 70%，但发布门禁为红色，详见 `docs/PROJECT-STATUS.md`。
 
 ### 剩余工作量重估
 
-- 2 人工程团队 + 0.5 QA：约 8-10 周。
-- 单人全栈：约 14-18 周。
-- 最大不确定性：动态 scene map、Wan3 长任务恢复、FFmpeg 环境和真实 UAT 成本。
+- 2 人工程团队 + 0.5 QA：约 3-5 周。
+- 单人全栈：约 6-9 周。
+- 最大不确定性：测试环境锁定、FFmpeg 跨平台、浏览器 E2E 和长任务恢复复现。
 
 ## 1. 计划目标
 
@@ -378,61 +385,51 @@ Worker 只负责租约和运行 Handler；Scheduler 负责依赖、输入组装�
 
 ## 8. Sprint 与里程碑安排
 
-### Sprint 0：恢复工程基线（已基本完成）
+### 当前 Sprint：恢复绿色门禁（2-3 天）
 
-范围：AVC-001 至 AVC-005。
+范围：TEST-001 至 TEST-008。
 
-Demo：全新 venv 安装后后端启动，完整测试真实收集，CI 显示独立 job。
+1. 隔离 Vitest 与 Playwright 测试目录。
+2. 修复 WebSocket Location mock 类型。
+3. 统一 Node 20+。
+4. 声明 Pillow 与 FFmpeg 测试/运行依赖。
+5. 固定 FFmpeg 路径解析，在当前 venv 复现集成测试。
+6. CI 移除 `|| true`、修复 `/api/health` 和 UTF-8 文本。
+7. 运行并归档 unit、integration、typecheck、build 和 Chromium E2E。
 
-剩余：AVC-004 CI 独立 jobs 和 AVC-005 完整启动检查。完成后标记 `v0.2.1`。
+Demo：全新 Node/Python 环境安装后，一条命令得到全绿门禁。
 
-### 当前 Sprint：契约、动态映射和结果持久化（未来 2 周）
+里程碑：`v0.9.1`，恢复可重复构建状态。
 
-范围：AVC-101、102、104、105、201、203、204、205。AVC-202 已有基础实现，本 Sprint 做契约化和并发收紧。
+### 下一 Sprint：产品闭环（1 周）
 
-Demo：3 个实际 Storyboard scene 精确生成 3 个 image input 和 3 个 video input；失败、取消和重启后状态收敛。
+范围：AVC-305 至 308、AVC-404/405、恢复性补充。
 
-里程碑：`v0.4.0`，NodeResult、scene map 和 external job 契约冻结。
+1. 完成节点级 retry API/UI。
+2. 统一 executionStore，移除旧执行状态双轨。
+3. 工作流列表、导入导出、保存错误和版本冲突 UI。
+4. 资产列表、预览、下载与血缘入口。
+5. Mock 浏览器完整 E2E。
+6. Wan3 external_job_id 重启恢复验证。
 
-### 下一 Sprint：Mock 浏览器闭环与 Wan3 最小 UAT（未来第 3-4 周）
+Demo：浏览器完成创建、运行、失败重试、刷新恢复、预览和下载。
 
-范围：AVC-206 至 208、AVC-302 至 308、AVC-508。AVC-301/304 已有轮询实现，改为 WebSocket 和恢复模式。
+里程碑：`v0.10.0`，内部验收候选。
 
-Demo：浏览器运行 3 镜头 Mock 完整链路；经费用确认后执行 Wan3 480P/2 秒真实任务并验证 task_id 恢复。
+### Release Candidate Sprint（1-2 周）
 
-里程碑：`v0.6.0`，Phase B 正式通过，Wan3 最小 UAT 完成。
+范围：AVC-701 至 707、三平台与 UAT 缺陷。
 
-### 后续 Sprint 3：完整编辑器与资产 UI（未来第 5 周，1 周收敛迭代）
+1. Windows/macOS/Linux CI 全绿。
+2. 安全、恢复、磁盘满和 Provider 超时演练。
+3. DB 备份/恢复和迁移演练。
+4. 性能与资源基准。
+5. 锁定环境复现 MiMo → Qwen → Wan3 → FFmpeg。
+6. 安装、升级、回滚与故障排查手册。
 
-范围：AVC-103、305 至 307、402、404、405。AVC-401 已有基础实现，本 Sprint 做血缘和删除约束收紧。
+Demo：Release Checklist 与证据归档全部通过。
 
-Demo：浏览器 E2E 覆盖拖入节点、保存、运行、刷新恢复、查看 Mock 资产、失败项重试。
-
-里程碑：`v0.7.0`，可供内部内容团队试用。
-
-### 后续 Sprint 4：真实媒体和 Provider（未来第 6 周，1 周 UAT 迭代）
-
-范围：AVC-403、406、502 至 507、508 的恢复增强。Qwen Image、Wan3 和 capability 注册已有基础实现。
-
-Demo：真实 LLM/图像服务生成图片，FFmpeg 生成并合成可播放 MP4，资产血缘完整。
-
-里程碑：`v0.8.0`，Phase C 通过。
-
-### 后续 Sprint 5：Agent 与模板产品化（未来第 7-8 周）
-
-范围：AVC-601 至 608、Migration 004。
-
-Demo：用中文生成或修改流程，查看 diff、确认、撤销；设置和模板重启后恢复。
-
-里程碑：`v0.9.0`，功能冻结，进入 RC。
-
-### 后续 Sprint 6：发布候选（未来第 9-10 周，含发布缓冲）
-
-范围：AVC-701 至 707、全量回归、UAT 缺陷。
-
-Demo：三平台安装与 Mock smoke、真实 Provider 可选 smoke、备份恢复、安全和性能报告。
-
-里程碑：`v1.0.0-rc.1` → `v1.0.0`。
+里程碑：`v1.0.0-rc.1`，验收通过后发布 `v1.0.0`。
 
 ## 9. API 交付契约
 
@@ -580,23 +577,25 @@ v1.0 发布目标：
 
 ## 14. 下一 Sprint 可直接领取的任务
 
-当前只允许领取以下任务，完成顺序不可倒置：
+当前只领取发布门禁修复，不新增 Provider 或节点：
 
-1. AVC-001：修复 204 路由并恢复 App 导入。
-2. AVC-002：增加配置前缀与 `.env.example`。
-3. AVC-003：恢复 async 测试真实性。
-4. AVC-004：建立 CI 独立门禁。
-5. AVC-104：迁移运行器。
-6. AVC-101/102：统一节点契约和后端权威校验。
-7. AVC-105/201：task result 与 NodeResult。
-8. AVC-202：Worker 正确落结果和错误。
+| 顺序 | 工单 | 交付 | 验收 |
+|---:|---|---|---|
+| 1 | TEST-001 | Vitest include/exclude | `npm test` 不收集 `e2e/` |
+| 2 | TEST-002 | Location mock 类型修复 | typecheck/build 通过 |
+| 3 | ENV-001 | Node 20 和 engines/README | Playwright 可启动 |
+| 4 | ENV-002 | Pillow/imageio-ffmpeg 或系统 FFmpeg 依赖 | 完整 pytest 可收集 |
+| 5 | MEDIA-001 | FFmpeg 路径统一 | 当前 venv integration 19/19 |
+| 6 | CI-001 | CI UTF-8、health 路径、移除吞错 | 任一关键失败阻断 PR |
+| 7 | E2E-001 | Chromium 核心集 | 编辑/执行/Agent 主路径通过 |
+| 8 | DOC-001 | 报告日期、commit、环境和原始输出 | 证据可复现 |
 
-Sprint 0/1 期间不新增 Provider、不扩充节点类型、不美化未挂载组件。评审会议需要先确认 `NodeResult`、map 语义和 Migration 002，再开始并行编码。
+以上全部完成前，不标记 RC，不继续扩展模型接入。
 
 ## 15. 计划维护
 
 - 本文件是唯一 Active 主计划；拆分工单后在表格增加 Issue/PR 链接和状态。
 - `PROJECT-STATUS.md` 每个 Sprint Demo 后更新实测数据。
-- 架构决策写入 `docs/adr/ADR-xxxx.md`，至少包括 NodeResult、map、Provider JobHandle、密钥存储和数据库升级策略。
+- 架构决策写入 `docs/architecture/adr/ADR-xxxx.md`，至少包括 NodeResult、map、Provider JobHandle、密钥存储和数据库升级策略。
 - 需求变化先由 Product Owner 更新 PRD 和验收标准，再调整本计划，不允许仅在代码中改变行为。
 - 工期变化超过 20%、P0 范围变化或外部 Provider 选择变化时，必须重新基线并记录版本。

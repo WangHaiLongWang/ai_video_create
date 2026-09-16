@@ -3,6 +3,8 @@
 > 报告类型：集成验收证据  
 > 测试日期：2026-09-17
 
+> 证据说明（2026-09-16 审计）：本报告使用另一个 Python 环境中的 `imageio-ffmpeg`。当前项目 venv 无法复现，发布前需要声明依赖/路径，并补充被测 commit 和原始输出。
+
 ## 1. FFmpeg Installation Check
 
 | Item | Value |

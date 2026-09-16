@@ -1,36 +1,47 @@
 # ai_video_create
 
-本地优先、可视化的 AI 视频工作流平台。当前首个可运行切片包含：
+本地优先的可视化 AI 视频工作流平台。
 
-- React Flow 可拖动画布与类型化连线
-- 节点配置、自动保存、删除和画布导航
-- 本地规则版 Workflow Agent，可从中文需求生成完整流程
-- 提示词、结构化分镜、文生图、图生视频、合成与输出节点
-- 无外部模型依赖的 Mock 顺序执行和状态反馈
-- FastAPI 健康检查、工作流校验与 Agent 生成接口
+```text
+MiMo 分镜 → Qwen Image 图片 → Wan3 视频片段 → FFmpeg 合成
+```
 
-## 环境
+项目提供 React Flow 编辑器、SQLite DAG 执行器、实时状态、Agent/模板、资产血缘和可替换 Provider。
 
-- 推荐 Node.js 18 或更高版本。当前依赖临时固定为兼容 Node 16 的 Vite 4。
-- Python 3.10 或更高版本
-- FFmpeg（后续真实视频合成使用）
+## 当前阶段
+
+项目处于内部验收前的集成收敛期，综合完成度约 70%。当前发布门禁不是全绿状态，请先阅读：
+
+- [项目状态](docs/PROJECT-STATUS.md)
+- [文档中心](docs/README.md)
+- [Active 交付计划](docs/plans/active/DELIVERY-PLAN.md)
+
+## 环境要求
+
+- Node.js 20+（Playwright 要求；当前项目机器仍需升级）
+- Python 3.12
+- FFmpeg 4+，通过 `AI_VIDEO_FFMPEG_PATH` 指定
+- 可选外部服务：MiMo、阿里云百炼、Ollama、ComfyUI、OpenAI
 
 ## 安装
 
 ```powershell
 npm install
 npm --prefix frontend install
-python -m pip install -r backend/requirements.txt
-```
 
-推荐先创建项目内虚拟环境：
-
-```powershell
 python -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 ```
 
-macOS/Linux 对应解释器路径为 `backend/.venv/bin/python`。根脚本会自动选择当前平台的虚拟环境解释器。
+macOS/Linux 使用 `backend/.venv/bin/python`。
+
+复制配置：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+不要提交 `.env` 或 API Key。
 
 ## 启动
 
@@ -38,25 +49,26 @@ macOS/Linux 对应解释器路径为 `backend/.venv/bin/python`。根脚本会�
 npm run dev
 ```
 
-前端地址：`http://127.0.0.1:5173`  
-API 文档：`http://127.0.0.1:8000/docs`
+- 前端：`http://127.0.0.1:5173`
+- API：`http://127.0.0.1:8000`
+- Health：`http://127.0.0.1:8000/api/health`
+- OpenAPI：`http://127.0.0.1:8000/docs`
 
 ## 验证
+
+目标命令：
 
 ```powershell
 npm test
 npm run typecheck
 npm run build
+npm --prefix frontend run test:e2e:chromium
 ```
 
-当前项目状态见 `docs/PROJECT-STATUS.md`。
+截至 2026-09-16，根测试、typecheck/build、完整 pytest 和 Playwright 仍有环境/配置阻断。真实结果与修复顺序见 [项目状态](docs/PROJECT-STATUS.md)。
 
-后续开发、Sprint、工单和发布门禁统一使用 `docs/plans/2026-09-15-company-delivery-plan.md`。
+## Provider 文档
 
-全部文档入口见 `docs/README.md`。
-
-Qwen Image 3.0 的官方协议配置见 `docs/integrations/qwen-image-3.0.md`。
-
-万相 3.0 视频与 ComfyUI 的配置边界见 `docs/integrations/wan3-video.md`。
-
-Xiaomi MiMo 与自定义 OpenAI-compatible LLM 配置见 `docs/integrations/mimo-v2.5-pro.md`。
+- [Xiaomi MiMo](docs/integrations/mimo-v2.5-pro.md)
+- [Qwen Image 3.0](docs/integrations/qwen-image-3.0.md)
+- [Wan3.0 Video / ComfyUI](docs/integrations/wan3-video.md)

@@ -1,29 +1,68 @@
-# ai_video_create 文档索引
+# ai_video_create 文档中心
 
-## 当前基线
+## 从这里开始
 
-1. `PROJECT-STATUS.md`：项目完成度、测试证据、风险和下一批工单。开始开发前先阅读。
-2. `plans/2026-09-15-company-delivery-plan.md`：唯一 Active 交付计划，包含工单、Sprint、门禁和发布策略。
-3. `prd.md`：v1.0 产品范围与验收需求。
-4. `dp.md`：目标架构和 Provider 边界。
+| 文档 | 用途 | 更新时机 |
+|---|---|---|
+| [项目状态](PROJECT-STATUS.md) | 当前完成度、可重复测试、阻断项 | 每个 Sprint Demo 后 |
+| [产品需求](product/PRD.md) | v1.0 范围、用户流程、验收要求 | 需求变化时 |
+| [系统架构](architecture/SYSTEM-DESIGN.md) | 模块边界、数据流、Provider 架构 | 架构决策变化时 |
+| [Active 交付计划](plans/active/DELIVERY-PLAN.md) | Sprint、工单、门禁和发布计划 | Planning/Review 后 |
 
-## Provider 集成
+阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。
 
-- `integrations/mimo-v2.5-pro.md`：Xiaomi MiMo LLM 及通用 OpenAI-compatible 自定义配置。
-- `integrations/qwen-image-3.0.md`：Qwen Image 3.0 官方协议、参数和当前验证状态。
-- `integrations/wan3-video.md`：Wan3.0 视频、480P 默认值、异步任务及与 ComfyUI 的边界。
+## AI Provider 集成
+
+[查看集成索引](integrations/README.md)
+
+| Provider | 文档 | 当前用途 |
+|---|---|---|
+| Xiaomi MiMo | [mimo-v2.5-pro.md](integrations/mimo-v2.5-pro.md) | 默认 LLM/分镜 |
+| Qwen Image 3.0 | [qwen-image-3.0.md](integrations/qwen-image-3.0.md) | 默认文生图 |
+| Wan3.0 Video | [wan3-video.md](integrations/wan3-video.md) | 默认图生视频 |
 
 ## 架构决策
 
-- `adr/ADR-0001-provider-capability-boundaries.md`：按 text/image/video 能力拆分 Provider，并明确 Wan3 与 ComfyUI 的边界。
+- [ADR-0001：按能力拆分 Provider](architecture/adr/ADR-0001-provider-capability-boundaries.md)
 
-## 历史计划
+重要架构决策进入 `architecture/adr/`，不埋在计划或状态报告中。
 
-`plans/README.md` 列出了历史方案。标记为 Superseded 的文档只用于追溯，不作为任务领取或完成度依据。
+## 验收与测试报告
 
-## 更新规则
+[查看报告索引](reports/README.md)
 
-- 每个 Sprint Demo 后更新 `PROJECT-STATUS.md` 的测试数字和里程碑。
-- 需求变更先更新 PRD，再修改 Active 计划。
-- 架构决策进入 `docs/adr/`；Provider 官方参数进入 `docs/integrations/`。
-- “完成”必须具备代码、自动测试、主路径接入和验收证据。
+- [Wan3 真实 UAT](reports/wan3-uat.md)
+- [FFmpeg 集成报告](reports/ffmpeg-integration.md)
+
+报告是特定环境下的证据，不自动代表当前分支门禁通过。报告必须包含日期、commit、环境、命令和原始结果。
+
+## 研发计划
+
+- `plans/active/`：唯一当前计划。
+- `plans/archive/`：历史方案，仅供追溯。
+- [计划索引](plans/README.md)
+
+## 目录规范
+
+```text
+docs/
+├── README.md                         文档入口
+├── PROJECT-STATUS.md                 当前事实基线
+├── product/                          产品需求
+├── architecture/                     系统设计与 ADR
+├── integrations/                     Provider 官方协议与配置
+├── reports/                          UAT/集成/性能证据
+└── plans/
+    ├── active/                       当前唯一交付计划
+    └── archive/                      已废弃历史计划
+```
+
+## 文档治理
+
+- PRD 不记录实现百分比。
+- 架构文档不复制 PRD，不记录短期任务状态。
+- 当前实现只写 `PROJECT-STATUS.md`。
+- 任务排期只写 Active 计划。
+- Provider 参数只写 `integrations/`。
+- 测试结果只写 `reports/`，并同步状态摘要。
+- Superseded 文档不得作为任务领取或完成度依据。

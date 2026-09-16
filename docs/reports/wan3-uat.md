@@ -2,6 +2,8 @@
 
 > 报告类型：真实 Provider UAT 证据
 
+> 证据说明（2026-09-16 审计）：报告记录的测试日期晚于当前文档基线。作为发布门禁前，需要确认日期并补充被测 commit、环境锁文件和原始输出。
+
 > Test Date: 2026-09-17
 > Provider: Alibaba Cloud Bailian Wan3.0 Video (wan3)
 > Model: wan3.0-video
