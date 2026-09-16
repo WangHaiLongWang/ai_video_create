@@ -6,11 +6,13 @@
  */
 
 import { useState, useCallback } from 'react'
-import { CaretDown, FloppyDisk, GearSix, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
+import { CaretDown, FloppyDisk, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
+import { AssetPanel } from './AssetPanel'
 import SettingsPanel from './SettingsPanel'
 import TemplateSelector from './TemplateSelector'
+import WorkflowListPage from './WorkflowListPage'
 
 export function TopBar() {
   const { workflow, ensureSavedToServer, setWorkflow } = useStudioStore()
@@ -25,6 +27,8 @@ export function TopBar() {
 
   const [showSettings, setShowSettings] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showWorkflowList, setShowWorkflowList] = useState(false)
+  const [showAssets, setShowAssets] = useState(false)
 
   const isRunning = executionStatus === 'running'
 
@@ -70,6 +74,12 @@ export function TopBar() {
           <button>{workflow.name}<CaretDown size={12} /></button>
         </div>
         <div className="top-actions">
+          <button className="icon-button" onClick={() => setShowWorkflowList(true)} aria-label="工作流列表">
+            <List size={18} />
+          </button>
+          <button className="icon-button" onClick={() => setShowAssets(true)} aria-label="资产">
+            <Folder size={18} />
+          </button>
           <button className="icon-button" onClick={() => setShowTemplates(true)} aria-label="模板">
             <TreeStructure size={18} />
           </button>
@@ -103,6 +113,8 @@ export function TopBar() {
 
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showTemplates && <TemplateSelector onSelect={handleTemplateSelect} onClose={() => setShowTemplates(false)} />}
+      {showWorkflowList && <WorkflowListPage onClose={() => setShowWorkflowList(false)} />}
+      {showAssets && <AssetPanel onClose={() => setShowAssets(false)} />}
     </>
   )
 }

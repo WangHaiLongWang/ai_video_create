@@ -176,9 +176,35 @@ export const useExecutionStore = create<ExecutionState>((set, get) => ({
   },
 
   // --- 重试单个节点 ---
-  retryNode: async (_nodeId: string) => {
-    // TODO: 实现节点级别重试 (后端需要支持)
-    console.warn('节点重试功能尚未实现')
+  retryNode: async (nodeId: string) => {
+    const { executionId, nodeStates } = get()
+    if (!executionId) {
+      console.warn('无活跃执行，无法重试节点')
+      return
+    }
+
+    // 检查节点状态，只有 failed 节点可重试
+    const nodeState = nodeStates.get(nodeId)
+    if (nodeState && nodeState.status !== 'failed') {
+      console.warn(`节点 ${nodeId} 状态为 ${nodeState.status}，无需重试`)
+      return
+    }
+
+    try {
+      await api.retryExecution(executionId, nodeId)
+
+      // 更新节点状态为 waiting，等待 Worker 重新调度
+      const updatedNodeStates = new Map(nodeStates)
+      const existing = updatedNodeStates.get(nodeId)
+      if (existing) {
+        updatedNodeStates.set(nodeId, { ...existing, status: 'waiting', failedCount: 0 })
+      }
+
+      useExecutionStore.setState({ nodeStates: updatedNodeStates })
+    } catch (err) {
+      console.error(`节点 ${nodeId} 重试失败:`, err)
+      throw err
+    }
   },
 
   // --- 添加执行事件 ---

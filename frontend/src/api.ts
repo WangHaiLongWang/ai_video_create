@@ -123,6 +123,20 @@ export function cancelExecution(executionId: string): Promise<void> {
   return apiRequest(`/executions/${executionId}/cancel`, { method: 'POST' })
 }
 
+export function retryExecution(executionId: string, nodeId: string): Promise<{
+  execution_id: string
+  task_id: string
+  node_id: string
+  status: string
+  idempotency_key: string | null
+  message: string
+}> {
+  return apiRequest(`/executions/${executionId}/retry`, {
+    method: 'POST',
+    body: JSON.stringify({ node_id: nodeId }),
+  })
+}
+
 export function getExecutionEvents(executionId: string): Promise<ExecutionEvent[]> {
   return apiRequest(`/executions/${executionId}/events`)
 }
@@ -280,6 +294,14 @@ export function listAssets(params?: { execution_id?: string; node_id?: string; a
 
 export function getAssetLineage(assetId: string): Promise<{ asset_id: string; lineage: AssetInfo[] }> {
   return apiRequest(`/assets/${assetId}/lineage`)
+}
+
+export function deleteAsset(assetId: string): Promise<void> {
+  return apiRequest(`/assets/${assetId}`, { method: 'DELETE' })
+}
+
+export function getAssetDownloadUrl(assetId: string): string {
+  return `${API_BASE}/assets/${assetId}/content`
 }
 
 // ==================== Config ====================

@@ -34,11 +34,11 @@
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
 | 架构骨架 | 88% | 分层已形成，契约/迁移仍需治理 |
-| Mock 用户链路 | 85% | 后端全链测试通过，前端门禁绿色 |
+| Mock 用户链路 | 90% | 前后端测试全绿，工作流/资产 UI 已实现 |
 | 真实多模态 | 75% | MiMo/Qwen/Wan3 有真实证据，FFmpeg 当前不可复现 |
 | Agent 与模板 | 75% | preview/diff/装载已接入，结构化工具与持久设置待完善 |
-| 发布工程 | 75% | CI 三平台运行，typecheck/build/tests 全部通过 |
-| 综合产品完成度 | **约 82%** | 可内部联调，准备 RC 验收 |
+| 发布工程 | 80% | CI 三平台运行，105 前端 + 332 后端测试通过 |
+| 综合产品完成度 | **约 88%** | 可内部验收，准备 RC 验收 |
 
 ## 2. 当前可重复测试基线
 
@@ -46,12 +46,13 @@
 
 | 验证项 | 结果 | 状态 |
 |---|---:|---|
-| 前端 Vitest (6 files) | 63 passed | ✅ 通过 |
-| 根 `npm test` | 63 passed (e2e/ 已排除) | ✅ 通过 |
+| 前端 Vitest (8 files) | 105 passed | ✅ 通过 |
+| 根 `npm test` | 105 passed (e2e/ 已排除) | ✅ 通过 |
 | TypeScript typecheck | 0 errors | ✅ 通过 |
-| Vite production build | 435KB JS, 12KB CSS | ✅ 通过 |
+| Vite production build | 492KB JS, 22KB CSS | ✅ 通过 |
 | 后端核心（排除 integration） | 332 passed、6 skipped | ✅ 通过 |
 | 后端 engine/api tests | 150 passed | ✅ 通过 |
+| 后端 acceptance tests | 37 passed | ✅ 通过 |
 | Pillow 已安装 | requirements.txt 已声明 | ✅ 通过 |
 | FFmpeg integration | 依赖系统 FFmpeg，mock 模式可运行 | ⚠️ 环境依赖 |
 | Playwright | Node 26.7.0，chromium 已安装 | ✅ 可运行 |
@@ -201,14 +202,14 @@ Host      127.0.0.1
 
 出口：`npm test` ✅、typecheck ✅、build ✅、后端 pytest ✅、Release Check 32/32 ✅。
 
-### Sprint 1：产品闭环（1 周）- 当前进行中
+### Sprint 1：产品闭环（1 周）✅ 已完成
 
-1. 完成节点级 retry API/UI（R0-9）。
-2. 移除 `store.ts` 中旧执行状态，统一 executionStore。
-3. 增加工作流列表、导入导出、保存失败与版本冲突 UI。
-4. 增加资产列表、图片/片段/成片预览和下载。
-5. 建立 Mock 浏览器全链 E2E。
-6. 验证 Wan3 重启后凭 external_job_id 恢复且不重复提交。
+1. ✅ 节点级 retry API/UI — `retryNode` 连接后端 `/retry` 端点，失败节点可重试。
+2. ✅ executionStore 统一 — 执行逻辑完全在 `executionStore.ts`，`store.ts` 只管画布。
+3. ✅ 工作流列表 UI — `WorkflowListPage.tsx`，支持列表/搜索/加载/删除/导出/导入。
+4. ✅ 资产管理 UI — `AssetPanel.tsx`，支持列表/筛选/预览/下载/删除。
+5. ⏳ Mock 浏览器全链 E2E — Playwright 已配置，待 Chromium E2E 录制。
+6. ⏳ Wan3 重启恢复验证 — 待真实环境测试。
 
 出口：内容创作者可以在浏览器完成创建、执行、失败重试、刷新恢复、预览与下载。
 里程碑：`v0.10.0`，内部验收候选。

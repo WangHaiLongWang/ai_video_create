@@ -14,7 +14,7 @@
  * 组件渲染行为通过 store 状态间接验证。
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from 'vitest'
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -39,6 +39,14 @@ vi.mock('../api', () => ({
   getExecution: vi.fn().mockResolvedValue({ id: 'exec-test-1', workflow_id: 'wf-1', status: 'running', task_count: 3 }),
   getExecutionTasks: vi.fn().mockResolvedValue([]),
   cancelExecution: vi.fn().mockResolvedValue(undefined),
+  retryExecution: vi.fn().mockResolvedValue({
+    execution_id: 'exec-test-1',
+    task_id: 'task-1',
+    node_id: 'node-1',
+    status: 'pending',
+    idempotency_key: null,
+    message: '节点已重置为待执行，等待 Worker 调度',
+  }),
 }))
 
 // Mock ExecutionSocket
@@ -54,6 +62,7 @@ vi.mock('../api/executionSocket', () => ({
 // 动态导入 store，确保 mock 已就位
 const { useExecutionStore } = await import('../stores/executionStore')
 const apiMock = await import('../api')
+const retryExecutionMock = apiMock.retryExecution as unknown as Mock
 
 describe('executionStore', () => {
   beforeEach(() => {
@@ -217,11 +226,79 @@ describe('executionStore', () => {
       expect(nodeState?.status).toBe('failed')
     })
 
-    it('retryNode 不抛出异常', async () => {
-      // retryNode 目前只是打日志，确认不报错
+    it('retryNode 调用 retryExecution API', async () => {
+      useExecutionStore.setState({
+        executionId: 'exec-test-1',
+        status: 'failed',
+        nodeStates: new Map([
+          ['node-1', { nodeId: 'node-1', status: 'failed', taskCount: 1, completedCount: 0, failedCount: 1 }],
+        ]),
+      })
+
+      await useExecutionStore.getState().retryNode('node-1')
+
+      expect(apiMock.retryExecution).toHaveBeenCalledWith('exec-test-1', 'node-1')
+    })
+
+    it('retryNode 将失败节点状态更新为 waiting', async () => {
+      useExecutionStore.setState({
+        executionId: 'exec-test-1',
+        status: 'failed',
+        nodeStates: new Map([
+          ['node-1', { nodeId: 'node-1', status: 'failed', taskCount: 1, completedCount: 0, failedCount: 1 }],
+        ]),
+      })
+
+      await useExecutionStore.getState().retryNode('node-1')
+
+      const nodeState = useExecutionStore.getState().nodeStates.get('node-1')
+      expect(nodeState).toBeDefined()
+      expect(nodeState?.status).toBe('waiting')
+      expect(nodeState?.failedCount).toBe(0)
+    })
+
+    it('retryNode 无 executionId 时不调用 API', async () => {
+      useExecutionStore.setState({
+        executionId: null,
+        status: 'idle',
+      })
+
+      await useExecutionStore.getState().retryNode('node-1')
+
+      expect(apiMock.retryExecution).not.toHaveBeenCalled()
+    })
+
+    it('retryNode 对非 failed 节点不调用 API', async () => {
+      useExecutionStore.setState({
+        executionId: 'exec-test-1',
+        status: 'running',
+        nodeStates: new Map([
+          ['node-1', { nodeId: 'node-1', status: 'running', taskCount: 1, completedCount: 0, failedCount: 0 }],
+        ]),
+      })
+
+      await useExecutionStore.getState().retryNode('node-1')
+
+      expect(apiMock.retryExecution).not.toHaveBeenCalled()
+    })
+
+    it('retryNode API 失败时抛出错误', async () => {
+      retryExecutionMock.mockRejectedValueOnce(new Error('Retry failed: 400'))
+      useExecutionStore.setState({
+        executionId: 'exec-test-1',
+        status: 'failed',
+        nodeStates: new Map([
+          ['node-1', { nodeId: 'node-1', status: 'failed', taskCount: 1, completedCount: 0, failedCount: 1 }],
+        ]),
+      })
+
       await expect(
         useExecutionStore.getState().retryNode('node-1'),
-      ).resolves.toBeUndefined()
+      ).rejects.toThrow('Retry failed: 400')
+
+      // 节点状态不应被修改
+      const nodeState = useExecutionStore.getState().nodeStates.get('node-1')
+      expect(nodeState?.status).toBe('failed')
     })
   })
 
