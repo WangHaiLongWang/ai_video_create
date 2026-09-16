@@ -1,15 +1,18 @@
 # ai_video_create 项目状态报告
 
 > 基线日期：2026-09-15
-> 状态版本：6.0
+> 状态版本：7.0
 > Active 计划：`docs/plans/2026-09-15-company-delivery-plan.md`
 > 评估口径：以代码审计、可重复测试和端到端用户链路为准；文件存在不等于功能完成。
 
 ## 1. 管理摘要
 
-项目已完成 RC (Release Candidate) 阶段的关键里程碑：
+项目已完成 v0.9.0 RC 功能冻结，具备发布候选条件：
 - ✅ NodeResult/ArtifactRef 统一 Schema 已冻结并通过25项测试
 - ✅ Wan3 真实 UAT 16/16 测试全部通过 (480P/2s视频生成验证)
+- ✅ Scheduler 调度器已实现，Mock 全链集成测试37项通过
+- ✅ ExecutionPanel 执行监控 UI 已实现，29项测试通过
+- ✅ Retry/退避机制已实现，58项测试通过
 - ✅ 2-4 Worker 并发模型已实现并通过10项测试
 - ✅ WebSocket 前端客户端已实现并集成
 - ✅ Agent/模板前端已产品化接入后端 API
@@ -22,21 +25,21 @@
 
 | 维度 | 完成度 | 说明 |
 |---|---:|---|
-| 架构骨架 | 90% | 主要模块和 API 已存在，统一 Schema 已冻结 |
-| Mock 用户闭环 | 85% | scene 映射、失败传播、Worker 并发、WebSocket 实时更新 |
-| 真实多模态闭环 | 75% | Qwen 生图已验证，Wan3 真实 UAT 16/16 通过，FFmpeg 环境待配置 |
-| Agent/模板体验 | 80% | 后端 preview 端点、前端 AgentComposer 接 API、TemplateSelector 装载 |
-| 发布就绪度 | 70% | 测试基线健全（354+ tests），CI/CD 已配置，E2E 测试框架已搭建 |
-| 综合产品完成度 | **约 80%** | RC 阶段完成，可进入内部验收 |
+| 架构骨架 | 95% | Scheduler/Worker/Queue/Retry 完整，统一 Schema 已冻结 |
+| Mock 用户闭环 | 92% | 全链集成测试通过，scene 映射、失败传播、重试、WebSocket |
+| 真实多模态闭环 | 80% | Qwen 生图已验证，Wan3 UAT 16/16 通过，FFmpeg 环境待配置 |
+| Agent/模板体验 | 85% | 后端 preview 端点、前端 AgentComposer 接 API、TemplateSelector 装载 |
+| 发布就绪度 | 82% | 测试基线健全（513+ tests），CI/CD 已配置，E2E 框架已搭建 |
+| 综合产品完成度 | **约 88%** | v0.9.0 RC 功能冻结，可进入内部验收 |
 
 ### 当前阶段
 
 ```text
-Phase A 类型化画布       90%  ██████████████████░░
-Phase B Mock 执行器      85%  █████████████████░░░
-Phase C 真实多模态       75%  ███████████████░░░░░
-Phase D Agent 与模板     80%  ████████████████░░░░
-Phase E 发布验收         70%  ██████████████░░░░░░
+Phase A 类型化画布       95%  ███████████████████░
+Phase B Mock 执行器      92%  ██████████████████░░
+Phase C 真实多模态       80%  ████████████████░░░░
+Phase D Agent 与模板     85%  █████████████████░░░
+Phase E 发布验收         82%  ████████████████░░░░
 ```
 
 百分比表示阶段验收标准满足程度，不表示代码行数或已消耗工时。
@@ -47,8 +50,8 @@ Phase E 发布验收         70%  ██████████████░�
 
 | 检查 | 最新结果 | 状态 |
 |---|---:|---|
-| 前端 Vitest | 34 passed | 通过 |
-| 后端 Pytest | 320+ passed、6 skipped | 通过（FFmpeg 环境项跳过） |
+| 前端 Vitest | 63 passed | 通过 |
+| 后端 Pytest | 450 passed、6 skipped | 通过（FFmpeg 环境项跳过） |
 | Wan3 真实 UAT | 16/16 passed | 通过 |
 | TypeScript | `tsc --noEmit` | 通过 |
 | Vite 生产构建 | JS gzip 约 124 KB | 通过 |
@@ -60,9 +63,13 @@ Phase E 发布验收         70%  ██████████████░�
 | Wan3 真实 UAT | 16/16 全部通过 | 通过 |
 | MiMo/OpenAI-compatible Contract Test | 认证头、模型、token 参数和采样参数 | 通过 |
 | MiMo 真实文本调用 | `mimo-v2.5-pro`，HTTP 200，finish_reason=stop | 通过 |
+| Mock 全链集成 | 37 tests passed | 通过 |
+| Scheduler 调度器 | 功能完整，全链测试通过 | 通过 |
+| Retry/退避机制 | 58 tests passed | 通过 |
+| ExecutionPanel UI | 29 tests passed | 通过 |
 | FFmpeg 真实媒体 | 本机未安装，6 项跳过 | 未验收 |
-| 浏览器 E2E | 未配置 Playwright | 未实现 |
-| macOS/Linux smoke | 无 CI matrix 证据 | 未验证 |
+| 浏览器 E2E | Playwright 已配置，待运行 | 待验证 |
+| macOS/Linux smoke | CI matrix 已配置 | 待验证 |
 
 测试仍有一条 Starlette TestClient 弃用警告，不影响当前通过结果，但需要在依赖升级前处理。
 

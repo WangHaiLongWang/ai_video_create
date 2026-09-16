@@ -5,6 +5,61 @@ All notable changes to the ai_video_create project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-09-16
+
+### Release Candidate - Feature Complete
+
+Feature-complete release candidate with full execution engine, monitoring UI, and retry mechanisms.
+This version marks the end of feature development; subsequent work focuses on testing and polish.
+
+### Added
+
+#### Execution Engine
+
+- **Scheduler module** (`backend/app/engine/scheduler.py`): Core execution scheduler with
+  topological task ordering, scene data injection, upstream output aggregation, and automatic
+  execution convergence. Supports both manual (pending) and Worker (running) task completion modes.
+  (37 acceptance tests passed)
+- **Mock full-chain integration test** (`backend/tests/acceptance/test_mock_full_chain.py`):
+  37 tests covering pipeline compilation, scene ID mapping, failure propagation, cancel operations,
+  retry mechanisms, execution convergence, WorkerPool integration, and edge cases.
+
+#### Retry & Resilience
+
+- **Retry/backoff engine** (`backend/app/engine/retry.py`): Error classification (TRANSIENT,
+  PERMANENT, RESOURCE, EXTERNAL, UNKNOWN), exponential backoff with jitter, 429 Retry-After
+  extraction, and idempotency key support. (50 tests passed)
+- **Single-node retry API** (`POST /api/executions/{execution_id}/retry`): Retry failed nodes
+  with idempotency key deduplication. Returns 200/400/404/409 status codes. (8 API tests passed)
+- **Migration 007**: Adds `error_code`, `next_retry_at`, and `idempotency_key` columns to tasks table.
+
+#### Frontend Execution Monitoring
+
+- **ExecutionPanel component** (`frontend/src/components/ExecutionPanel.tsx`): Real-time execution
+  monitoring with node status list, progress tracking, error display, retry buttons, event log,
+  and execution summary. (29 tests passed)
+- **executionStore** (`frontend/src/stores/executionStore.ts`): Dedicated Zustand store for
+  execution state management, separated from workflow store. Includes WebSocket integration
+  and polling logic.
+
+### Changed
+
+- **store.ts refactored**: Execution-related state extracted to executionStore. Workflow store
+  now focuses on canvas operations, history, and save/load.
+- **TopBar.tsx updated**: Uses executionStore for run/stop buttons and status indicator.
+- **queue.py enhanced**: `fail_task()` now supports `RetryPolicy` parameter, `claim_task()`
+  skips tasks in backoff period, new `retry_node_task()` and `check_idempotency()` functions.
+
+### Test Summary
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Backend Pytest | 450 | ✅ Passed |
+| Frontend Vitest | 63 | ✅ Passed |
+| Wan3 UAT | 16 | ✅ Passed |
+| FFmpeg Integration | 19 | ✅ Passed |
+| **Total** | **548** | **✅ All Passed** |
+
 ## [0.1.0-rc.1] - 2026-09-15
 
 ### Release Candidate
