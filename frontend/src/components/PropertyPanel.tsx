@@ -1,8 +1,23 @@
 import { ArrowsClockwise, Check, Sparkle, SquaresFour } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
+import { useExecutionStore } from '../stores/executionStore'
+
+/** 根据执行状态生成提示文本 */
+function getRunMessage(status: string): string {
+  switch (status) {
+    case 'idle': return '准备执行'
+    case 'running': return '执行中...'
+    case 'completed': return '执行完成'
+    case 'failed': return '执行失败'
+    case 'cancelled': return '执行已取消'
+    default: return status
+  }
+}
 
 export function PropertyPanel() {
-  const { workflow, selectedNodeId, updateConfig, runMessage, isRunning } = useStudioStore()
+  const { workflow, selectedNodeId, updateConfig } = useStudioStore()
+  const executionStatus = useExecutionStore((s) => s.status)
+  const isRunning = executionStatus === 'running'
   const node = workflow.nodes.find((item) => item.id === selectedNodeId)
   return (
     <aside className="properties">
@@ -37,7 +52,7 @@ export function PropertyPanel() {
       )}
       <div className={`run-summary ${isRunning ? 'is-active' : ''}`}>
         {isRunning ? <Sparkle size={18} weight="fill" /> : <Check size={18} weight="bold" />}
-        <div><strong>{isRunning ? 'Mock 执行中' : '运行状态'}</strong><span>{runMessage}</span></div>
+        <div><strong>{isRunning ? 'Mock 执行中' : '运行状态'}</strong><span>{getRunMessage(executionStatus)}</span></div>
       </div>
     </aside>
   )

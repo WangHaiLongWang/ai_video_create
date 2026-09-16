@@ -1,17 +1,63 @@
-import { useState } from 'react'
+/**
+ * TopBar — 顶部工具栏
+ *
+ * 使用 executionStore 管理执行操作 (启动/停止)
+ * 使用 workflowStore 管理工作流状态
+ */
+
+import { useState, useCallback } from 'react'
 import { CaretDown, FloppyDisk, GearSix, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
+import { useExecutionStore } from '../stores/executionStore'
 import SettingsPanel from './SettingsPanel'
 import TemplateSelector from './TemplateSelector'
 
 export function TopBar() {
-  const { workflow, isRunning, runExecution, stopRun, runMessage, execution, setWorkflow } = useStudioStore()
+  const { workflow, ensureSavedToServer, setWorkflow } = useStudioStore()
+  const {
+    status: executionStatus,
+    socketStatus,
+    completedCount,
+    taskCount,
+    startExecution,
+    stopExecution,
+  } = useExecutionStore()
+
   const [showSettings, setShowSettings] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
 
-  const handleTemplateSelect = (templateId: string) => {
+  const isRunning = executionStatus === 'running'
+
+  const handleTemplateSelect = (_templateId: string) => {
     // TemplateSelector 内部已处理创建，这里刷新工作流
     setShowTemplates(false)
+  }
+
+  /** 运行工作流: 先确保保存到服务器，再启动执行 */
+  const handleRun = useCallback(async () => {
+    const saved = await ensureSavedToServer()
+    if (!saved) {
+      console.error('保存失败，无法执行')
+      return
+    }
+    startExecution(workflow.id)
+  }, [ensureSavedToServer, startExecution, workflow.id])
+
+  /** 停止执行 */
+  const handleStop = useCallback(() => {
+    stopExecution()
+  }, [stopExecution])
+
+  /** 获取执行状态提示文本 */
+  const getStatusText = (): string => {
+    switch (executionStatus) {
+      case 'idle': return '准备执行'
+      case 'running': return `执行中: ${completedCount}/${taskCount} 任务`
+      case 'completed': return '执行完成'
+      case 'failed': return '执行失败'
+      case 'cancelled': return '执行已取消'
+      default: return executionStatus
+    }
   }
 
   return (
@@ -32,23 +78,25 @@ export function TopBar() {
           </button>
           <button className="secondary-button"><FloppyDisk size={17} />已自动保存</button>
           {isRunning ? (
-            <button className="stop-button" onClick={stopRun}><Pause size={17} weight="fill" />停止</button>
+            <button className="stop-button" onClick={handleStop}><Pause size={17} weight="fill" />停止</button>
           ) : (
-            <button className="run-button" onClick={runExecution}><Play size={17} weight="fill" />运行工作流</button>
+            <button className="run-button" onClick={handleRun}><Play size={17} weight="fill" />运行工作流</button>
           )}
         </div>
-        {isRunning && execution && (
+        {isRunning && (
           <div className="execution-status">
             <span
-              className={`ws-indicator ws-${execution.socketStatus}`}
+              className={`ws-indicator ws-${socketStatus}`}
               title={
-                execution.socketStatus === 'connected' ? 'WebSocket 已连接' :
-                execution.socketStatus === 'connecting' ? 'WebSocket 连接中...' :
+                socketStatus === 'connected' ? 'WebSocket 已连接' :
+                socketStatus === 'connecting' ? 'WebSocket 连接中...' :
                 'WebSocket 已断开'
               }
             />
-            <span>{runMessage}</span>
-            <span>{execution.completedCount}/{execution.taskCount} 任务</span>
+            <span>{getStatusText()}</span>
+            {taskCount > 0 && (
+              <span>{completedCount}/{taskCount} 任务</span>
+            )}
           </div>
         )}
       </header>

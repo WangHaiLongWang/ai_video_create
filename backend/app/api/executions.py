@@ -8,11 +8,16 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
-from backend.app.engine.queue import get_tasks_by_execution, enqueue_tasks
+from backend.app.engine.queue import (
+    get_tasks_by_execution,
+    enqueue_tasks,
+    retry_node_task,
+    DuplicateRetryError,
+)
 from backend.app.engine.worker import WorkerPool
 from backend.app.services.event_bus import emit_event, subscribe, unsubscribe, get_events
 from backend.app.handlers import get_handler
@@ -54,6 +59,12 @@ class ExecutionResponse(BaseModel):
     workflow_id: str
     status: str
     task_count: int = 0
+
+
+class RetryNodeRequest(BaseModel):
+    """单节点重试请求。"""
+    node_id: str = Field(..., description="要重试的节点 ID")
+    idempotency_key: str | None = Field(None, description="幂等键，防止重复重试")
 
 
 @router.post("/{workflow_id}/start", response_model=ExecutionResponse, status_code=201)
@@ -163,6 +174,60 @@ def cancel_execution(execution_id: str) -> dict:
     conn.commit()
     emit_event(execution_id, "", "execution.cancelled", "cancelled", message="执行已取消")
     return {"id": execution_id, "status": "cancelled"}
+
+
+@router.post("/{execution_id}/retry")
+def retry_node(execution_id: str, request: RetryNodeRequest) -> dict:
+    """重试失败的单个节点。
+
+    流程：
+    1. 验证执行记录存在
+    2. 验证节点状态为 failed
+    3. 检查幂等键防止重复
+    4. 重置任务状态为 pending
+    5. 发送节点重试事件
+
+    Returns:
+        包含重试任务信息的字典
+    """
+    # 验证执行记录存在
+    conn = get_connection()
+    exec_row = conn.execute(
+        "SELECT id, status FROM executions WHERE id = ?", (execution_id,)
+    ).fetchone()
+    if exec_row is None:
+        raise HTTPException(status_code=404, detail=f"执行 {execution_id} 不存在")
+
+    try:
+        task = retry_node_task(
+            execution_id=execution_id,
+            node_id=request.node_id,
+            idempotency_key=request.idempotency_key,
+        )
+    except DuplicateRetryError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # 发送重试事件
+    item_key = task.get("item_key")
+    emit_event(
+        execution_id,
+        request.node_id,
+        "node.retrying",
+        "pending",
+        item_key=item_key,
+        message=f"节点 {request.node_id} 已重置为待重试",
+    )
+
+    return {
+        "execution_id": execution_id,
+        "task_id": task["id"],
+        "node_id": request.node_id,
+        "status": "pending",
+        "idempotency_key": request.idempotency_key,
+        "message": f"节点 {request.node_id} 已重置为待执行，等待 Worker 调度",
+    }
 
 
 # --- WebSocket ---

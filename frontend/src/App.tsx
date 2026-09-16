@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Canvas } from './components/Canvas'
+import { ExecutionPanel } from './components/ExecutionPanel'
 import { NodePalette } from './components/NodePalette'
 import { PropertyPanel } from './components/PropertyPanel'
 import { TopBar } from './components/TopBar'
@@ -40,6 +41,7 @@ export default function App() {
         <NodePalette />
         <Canvas />
         <PropertyPanel />
+        <ExecutionPanel />
       </div>
     </ReactFlowProvider>
   )
