@@ -5,41 +5,66 @@
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
 > 目标：把现有线性六节点画布升级为端口明确、可验证、可编辑、可导出的工作流与 Scene Prompt 系统。
 
+## 0. 2026-09-17 实现检查点
+
+| 工单 | 状态 | 当前证据 | 剩余工作 |
+|---|---|---|---|
+| FLOW-001 | 基础完成 | TS/Pydantic Node Manifest | 建立共享 JSON Schema/fixture 生成链 |
+| FLOW-002 | 完成基础版 | StudioNode 多 Handle + 稳定 ID | 端口 hover/连接状态视觉 |
+| FLOW-003 | 完成基础版 | 前后端 self/type/cardinality/cycle 校验 | create/update/start 强制调用与错误信封 |
+| FLOW-004 | 未完成 | 非法连接仅 console.warn | 高亮、toast、可访问提示 |
+| FLOW-005 | 部分 | EdgeData 已定义 | Edge 组件、label/mode/order/重连 UI |
+| FLOW-006 | 完成基础版 | WorkflowSpec 2.0 + v1 migration | DB/API/viewport roundtrip 验收 |
+| FLOW-007 | 未完成 | V2 有 viewport 字段 | 实际 onMoveEnd 保存与工具栏 |
+| FLOW-008 | 未完成 | 普通历史存在 | 拖动语义事务 |
+| FLOW-009 | 未完成 | 无多选复制粘贴 | UI/快捷键/E2E |
+| FLOW-010 | 部分 | 大量 schema 单测 | Playwright 连线矩阵缺失 |
+| SCENE-001 | 完成基础版 | TS/Pydantic ScenePromptBundle | 共用 fixture 与版本兼容测试 |
+| SCENE-002 | 完成基础版 | Storyboard materializer | execution endpoint 主路径验收 |
+| SCENE-003 | 部分 | CRUD/lock/merge API，内存 SceneService | SQLite migration/repository |
+| SCENE-004 | 未完成 | 无 Scene Editor | 前端逐镜/批量编辑 |
+| SCENE-005 | 后端完成 | JSON/Markdown/CSV/Text exporter | 文件下载响应与前端 UI |
+| SCENE-006 | 后端完成 | Qwen JSONL exporter | Provider 参数完整性/前端预览 |
+| SCENE-007 | 后端完成 | Wan3 JSONL exporter | firstFrame Asset ID 与 media 映射 |
+| SCENE-008 | 未完成 | 无导出 Dialog | 来源/格式/文件名/错误 UI |
+| SCENE-009 | 完成基础版 | secret/signed URL/path scanner | API 强制阻断策略 |
+| SCENE-010 | 部分 | API/unit tests 存在 | 浏览器 roundtrip E2E |
+
+专项剩余重估：2 人约 2-4 周；单人约 4-7 周。
+
 ## 1. 当前实现评估
 
 ### 1.1 已实现
 
 - React Flow 节点移动、缩放、平移、小地图和删除。
 - 从左侧节点库拖入或点击添加节点。
-- 单输入/单输出 Handle。
-- 基于 `inputType === outputType` 的前端连接判断。
+- Node Manifest 和多命名 Handle 基础。
+- sourceHandle/targetHandle 与 EdgeData 基础模型。
+- 前后端图校验：类型、方向、cardinality、自环、重复边和环检测。
+- WorkflowSpec 2.0 前端 migration 基础。
 - Edge 创建、删除并随 WorkflowSpec 保存。
 - 工作流 localStorage、SQLite、Undo/Redo、导入/导出。
 - Storyboard 运行时输出 `Scene`，包含 scene_id、index、narration、image_prompt、video_prompt、duration 和 metadata。
 - Scheduler 按 scene_id 为 map item 组装输入。
+- Scene Prompt Bundle TS/Pydantic Schema、materializer、导出器、安全扫描和 API 基础。
 
 ### 1.2 关键缺口
 
 #### React Flow 图契约
 
-- Handle 没有稳定 ID，Edge 不记录 sourceHandle/targetHandle。
-- 每个节点只能表达一个输入和一个输出。
-- 端口定义散落在 `inputType/outputType` 字符串，缺少 Node Manifest。
-- 不验证自环、重复边、输入 cardinality、多上游冲突、必填端口和边方向。
-- 连接失败没有明确原因、端口高亮或可访问提示。
-- Edge 没有数据映射模式、顺序、标签或重连能力。
-- 工作流没有 viewport、manifest version、metadata 和迁移策略。
+- Node Manifest 在前后端分别维护，尚无共享 JSON Schema/代码生成。
+- 连接失败只写 console，没有端口高亮、toast 或可访问提示。
+- EdgeData 已定义 mode/path/order/label，但没有 Edge 编辑器或执行语义完整验收。
+- WorkflowSpec 2.0 migration 已有，viewport 实际保存和后端 roundtrip 待验收。
 - Undo/Redo 记录 React Flow 临时变化，缺少语义事务。
 
 #### Scene 与 Prompt
 
-- Scene 只存在于运行结果，画布没有 Scene 编辑器。
-- 前端没有 Scene TypeScript Schema。
-- 整个工作流可以导出，但不能单独导出 materialized storyboard。
-- 没有 Provider-neutral Prompt Bundle。
-- 无 Qwen/Wan3 请求预览或 JSONL 导出。
-- 无 Scene 导入、手工覆盖、锁定和重新生成策略。
-- 没有区分“工作流定义中的 prompt 模板”和“执行后生成的真实 scene”。
+- Scene Bundle 与导出器已实现，但画布没有 Scene Editor。
+- Scene Draft API 已有，当前只存内存，重启丢失。
+- Qwen/Wan3 JSONL 后端导出器已存在，缺参数完整性验收和前端下载 UI。
+- Scene lock/merge API 已有，缺真实执行主路径与用户交互验收。
+- Schema 已提供 draft/execution/merged 来源字段，但产品 UI 尚未清晰展示“定义”和“运行结果”的区别。
 
 ## 2. 目标用户体验
 
@@ -339,4 +364,3 @@ FLOW-001/SCENE-001（契约冻结）
 - 在浏览器直接携带 Key 调用 Provider。
 - 将 Provider-specific payload 作为唯一 Scene 存储格式。
 - v1.0 中实现专业时间线和音频轨道编辑。
-

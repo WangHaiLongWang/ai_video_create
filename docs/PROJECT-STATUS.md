@@ -28,20 +28,20 @@
 4. ❌ Pillow 未安装到当前 venv，完整后端测试收集失败。
 5. ⚠️ FFmpeg 报告在另一 Python 环境通过，当前 venv 仍需复现。
 6. ⚠️ CI/Playwright 文件存在，但本次未取得同一 commit 的三平台绿色证据。
-7. ⚠️ React Flow 仍缺多端口、Handle ID、边语义和权威图校验。
-8. ⚠️ Scene 尚无独立编辑、版本化 Prompt Bundle 和 Provider 请求导出。
+7. ⚠️ React Flow 已有多端口/Handle ID/图校验基础，仍缺连线错误 UI、Edge 编辑和主入口强制校验。
+8. ⚠️ Scene Bundle/导出 API 已有基础，仍缺 SQLite Draft、Scene Editor 和下载式产品交互。
 
 ### 当前评分
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
 | 架构骨架 | 90% | 分层完整，共享图/Scene Schema 待补 |
-| React Flow 编辑器 | 55% | 基础拖拽连线可用，多端口和边语义缺失 |
+| React Flow 编辑器 | 72% | 多端口和校验基础已实现，交互反馈/Edge 编辑待完成 |
 | Mock 用户链路 | 90% | 执行器成熟，完整后端门禁仍被依赖阻断 |
 | 真实多模态 | 78% | MiMo/Qwen/Wan3 有真实证据，FFmpeg 当前环境待复现 |
-| Agent 与模板 | 80% | preview/diff/装载已接入，Scene 编辑/导出缺失 |
+| Agent 与模板 | 82% | preview/diff/装载、Scene Schema/导出器已接入，编辑器缺失 |
 | 发布工程 | 65% | 前端绿色，完整后端/媒体/三平台证据不足 |
-| 综合产品完成度 | **约 78%** | 内部验收阶段，不是 RC |
+| 综合产品完成度 | **约 81%** | 内部验收阶段，不是 RC |
 
 ## 2. 当前可重复测试基线
 
@@ -95,13 +95,14 @@ Host      127.0.0.1
 | SQLite CRUD/乐观锁 | 已实现 | Update body 仍需强类型收紧 |
 | 工作流导入/导出 | 已实现 | 仅 WorkflowSpec 1.0，无 Scene Prompt 导出 |
 | 自动保存 | 部分 | 失败只进 console，保存文案可能误导 |
-| Handle/端口 | 初级 | 每节点最多一个无 ID 输入和一个输出 |
-| 连线验证 | 初级 | 只比较字符串类型相等 |
-| 多端口/基数 | 未实现 | 不支持命名端口、one/many、required |
-| Edge 语义 | 未实现 | 无 map/aggregate、顺序、映射路径和标签 |
-| 图版本迁移 | 未实现 | WorkflowSpec 固定 1.0，无 viewport/manifestVersion |
-| Scene 编辑器 | 未实现 | Scene 只存在于运行结果 |
-| Scene/Prompt 导入导出 | 未实现 | 无 Bundle/Markdown/CSV/JSONL |
+| Handle/端口 | 基础实现 | Node Manifest、多命名 Handle、port label/type 已有 |
+| 连线验证 | 基础实现 | 前后端覆盖类型/方向/基数/自环/重复边/环；UI 仅 console 提示 |
+| Edge 语义 | 部分 | EdgeData 有 direct/map/aggregate 字段，缺编辑器与执行语义统一验收 |
+| 图版本迁移 | 基础实现 | WorkflowSpec 2.0 和 1.0 migration 已有，viewport 保存主路径待验收 |
+| Scene Bundle | 基础实现 | TS/Pydantic、materializer、导出器和安全扫描已有 |
+| Scene Draft | 部分 | API/Service 已有但仅内存存储，重启丢失 |
+| Scene 编辑器 | 未实现 | 无可视化逐镜/批量编辑 UI |
+| Scene/Prompt 导入导出 | 后端基础实现 | JSON/Markdown/CSV/Text/Qwen/Wan3 已有，缺下载 UI/E2E |
 
 ### 4.2 执行引擎
 
@@ -166,8 +167,8 @@ Host      127.0.0.1
 3. **配置持久化不足**：设置页只改内存，未落 ProviderConfig/secret reference。
 4. **队列事务需压力验证**：claim 的 SELECT/BEGIN 时序仍需多连接并发证明。
 5. **资产安全需收紧**：路径 root、原子写、MIME/大小和引用删除策略需统一验收。
-6. **图契约过于前端化**：Handle、Edge 映射和 Node Manifest 尚未成为共享 Schema。
-7. **Scene 数据缺少产品层**：运行时 Scene 已存在，但无 draft/override/lock、编辑器与标准导出。
+6. **图契约仍有双实现**：前后端 Manifest/validator 各自维护，需要共用 fixtures 或代码生成。
+7. **Scene 数据产品层未完成**：Schema 与导出器已存在，但 Draft 仅内存、无 Scene Editor 和下载交互。
 8. **外部任务恢复证据不足**：Wan3 ID 可保存，但重启恢复的完整状态机和 UI 仍需端到端验证。
 
 ## 6. 发布阻断清单
@@ -178,8 +179,8 @@ Host      127.0.0.1
 | R0-2 | FFmpeg 路径不可复现 | P0 | venv 声明依赖或系统安装；integration 19/19 当前环境通过 |
 | R0-3 | 三平台 CI 未提供本次 run 证据 | P0 | 同一 commit Windows/macOS/Linux 全绿 |
 | R0-4 | Playwright 未执行本次基线 | P0 | Chromium 核心 E2E 通过并归档 |
-| R0-5 | React Flow 图契约过弱 | P0 | 多端口、Handle ID、基数/环/重复边校验完成 |
-| R0-6 | Scene Prompt 不可独立编辑/导出 | P0 | Bundle Schema、Editor、标准导入导出完成 |
+| R0-5 | React Flow 产品交互未闭环 | P0 | 连线错误 UI、Edge 编辑、viewport、E2E 完成 |
+| R0-6 | Scene Prompt 产品层未闭环 | P0 | SQLite Draft、Editor、下载导出和 E2E 完成 |
 | R0-7 | 报告元数据不一致 | P1 | 校正日期，记录 commit、环境、命令和原始输出 |
 
 ## 7. 里程碑
@@ -231,6 +232,7 @@ Host      127.0.0.1
 详细工单、Schema 和验收场景见：
 
 - [`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
+- [`plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](plans/active/SKI-LESSON-WORKFLOW-PLAN.md)
 
 ## 9. 文档治理
 

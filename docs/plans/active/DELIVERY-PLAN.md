@@ -426,6 +426,12 @@ Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导�
 
 里程碑：`v0.11.0`，工作流与 Scene 数据产品化完成。
 
+### 首条真实验收工作流：冬季滑雪教学
+
+执行计划：[`SKI-LESSON-WORKFLOW-PLAN.md`](SKI-LESSON-WORKFLOW-PLAN.md)
+
+该工作流作为 Flow/Scene 专项的纵向验收：一个 Scene 生成两个图片变体，每张图片生成 3 秒 Wan3 视频，再由 FFmpeg 合成为约 6 秒视频。所需 `variantCount`、scene+variant 血缘和 aggregate 顺序必须实现为通用可插拔能力。
+
 ### Release Candidate Sprint（1-2 周）
 
 1. 完整 pytest、FFmpeg 集成、Playwright 和三平台 CI 全绿。

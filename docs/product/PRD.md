@@ -219,6 +219,10 @@ TextInput → Storyboard → TextToImage × N
 6. 前端 unit/type/build/E2E 和后端 unit/integration 全绿。
 7. 安全、备份恢复、升级回滚文档和演练通过。
 
+### 8.1 指定真实验收工作流
+
+“冬季单板滑雪教学”作为首条内容质量验收：一个逻辑 Scene 生成两张写实照片，每张照片生成 3 秒视频，默认拼接为约 6 秒成片。人数、左右位置、固定器状态、单板姿态和背景无人是硬约束。具体 Prompt、任务 fan-out、资产血缘和 UAT 标准见 [`../plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](../plans/active/SKI-LESSON-WORKFLOW-PLAN.md)。
+
 ## 9. v1.0 不做
 
 - 多用户、RBAC、实时协作和云端横向扩容。
