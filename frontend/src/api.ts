@@ -174,6 +174,26 @@ export interface AgentPreviewResponse {
   diff?: string
   warnings: string[]
   destructive: boolean
+  // v2 fields (AGENT-206)
+  intent?: {
+    name: string
+    nodes: { alias: string; kind: string; config?: Record<string, unknown> }[]
+    connections: { source: { node: string; port: string }; target: { node: string; port: string }; mode: string }[]
+    scene_count?: number
+    variant_count?: number
+    warnings: string[]
+  }
+  validation_errors?: { code: string; message: string }[]
+  repair_steps?: { attempt: number; repairs_applied: string[] }[]
+  cost_estimate?: {
+    scene_count: number
+    variant_count: number
+    image_calls: number
+    video_calls: number
+    total_calls: number
+    estimated_duration_seconds: number
+  }
+  can_apply?: boolean
 }
 
 export function agentGenerate(prompt: string, options?: { scenes?: number; style?: string }): Promise<WorkflowSpec> {

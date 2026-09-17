@@ -422,21 +422,24 @@ def validate_intent(intent: WorkflowIntent) -> AgentToolResult:
 # ---------------------------------------------------------------------------
 
 def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
-    """Estimate the number of API calls this workflow will make.
+    """Estimate the number of API calls and execution duration.
 
     Based on:
     - Number of scenes
     - Variant count
     - mapOver nodes (textToImage, imageToVideo)
-    - Provider costs
+    - Duration estimates per call type:
+        * storyboard: ~10s per scene
+        * textToImage: ~5s per image
+        * imageToVideo: ~30s per video (at specified duration)
+        * videoConcat: ~10s total
     """
     scene_count = intent.scene_count or _infer_scene_count(intent)
     variant_count = intent.variant_count or 1
     image_calls = 0
     video_calls = 0
-    other_calls: list[str] = []
-
-    alias_to_node: dict[str, NodeIntent] = {n.alias: n for n in intent.nodes}
+    storyboard_calls = 0
+    concat_calls = 0
 
     for node in intent.nodes:
         if node.kind == "textToImage":
@@ -446,11 +449,33 @@ def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
             # Each image generates a video
             video_calls = scene_count * variant_count
         elif node.kind == "storyboard":
-            other_calls.append(f"storyboard({scene_count} scenes)")
+            storyboard_calls = 1
         elif node.kind == "videoConcat":
-            other_calls.append("videoConcat(1)")
+            concat_calls = 1
 
-    total = image_calls + video_calls + len(other_calls)
+    total = image_calls + video_calls + storyboard_calls + concat_calls
+
+    # Duration estimation (seconds)
+    # storyboard: ~10s per scene
+    storyboard_duration = storyboard_calls * scene_count * 10
+    # textToImage: ~5s per image
+    image_duration = image_calls * 5
+    # imageToVideo: ~30s per video (use intent.duration if specified, else 30s)
+    per_video_duration = intent.duration if intent.duration else 30
+    video_duration = video_calls * per_video_duration
+    # videoConcat: ~10s
+    concat_duration = concat_calls * 10
+
+    total_duration = storyboard_duration + image_duration + video_duration + concat_duration
+
+    # Build warnings for high costs
+    warnings: list[str] = []
+    if total > 50:
+        warnings.append(f"High call count ({total} calls). Consider reducing scenes or variants.")
+    if total_duration > 300:
+        warnings.append(f"Estimated execution time is {total_duration}s (>5 minutes).")
+    if variant_count > 3:
+        warnings.append(f"Variant count ({variant_count}) is high. Each variant multiplies image and video calls.")
 
     return AgentToolResult(
         success=True,
@@ -459,9 +484,11 @@ def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
             "variant_count": variant_count,
             "image_calls": image_calls,
             "video_calls": video_calls,
-            "other_calls": other_calls,
-            "total_estimated_calls": total,
-            "estimated_cost_hint": f"~{total} API calls",
+            "storyboard_calls": storyboard_calls,
+            "concat_calls": concat_calls,
+            "total_calls": total,
+            "estimated_duration_seconds": total_duration,
+            "warnings": warnings,
         },
     )
 

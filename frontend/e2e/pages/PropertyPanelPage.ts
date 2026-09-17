@@ -85,4 +85,86 @@ export class PropertyPanelPage {
     const className = await this.runSummary.getAttribute('class')
     return className?.includes('is-active') ?? false
   }
+
+  // --- Field operations ---
+
+  /** The "添加字段" button. */
+  get addFieldButton(): Locator {
+    return this.propertyForm.locator('button', { hasText: '添加字段' })
+  }
+
+  /** Click the "添加字段" button to open the field dialog. */
+  async clickAddField() {
+    await this.addFieldButton.click()
+  }
+
+  /** The FieldEditorDialog overlay (when open). */
+  get fieldDialog(): Locator {
+    return this.panel.locator('.field-dialog-overlay')
+  }
+
+  /** The field dialog title. */
+  get fieldDialogTitle(): Locator {
+    return this.fieldDialog.locator('h3')
+  }
+
+  /** Fill the field dialog ID input. */
+  async fillFieldId(id: string) {
+    const input = this.fieldDialog.locator('input[placeholder="snake_case_field_id"]')
+    await input.fill(id)
+  }
+
+  /** Fill the field dialog label input. */
+  async fillFieldLabel(label: string) {
+    const inputs = this.fieldDialog.locator('label').filter({ hasText: 'Label' }).locator('input')
+    await inputs.fill(label)
+  }
+
+  /** Save the field dialog. */
+  async saveFieldDialog() {
+    await this.fieldDialog.locator('button', { hasText: 'Save' }).click()
+  }
+
+  /** Cancel the field dialog. */
+  async cancelFieldDialog() {
+    await this.fieldDialog.locator('button', { hasText: 'Cancel' }).click()
+  }
+
+  /** Check if a field with given label is visible in the property panel. */
+  async hasField(label: string): Promise<boolean> {
+    return this.propertyForm.locator('.prop-field-row', { hasText: label }).isVisible()
+  }
+
+  /** Get the input for a field value by field label text. */
+  getFieldValueInput(label: string): Locator {
+    return this.propertyForm.locator('.prop-field-row', { hasText: label }).locator('input')
+  }
+
+  /** Delete a field by clicking its trash button. */
+  async deleteFieldByLabel(label: string) {
+    const fieldRow = this.propertyForm.locator('.prop-field-row', { hasText: label })
+    await fieldRow.locator('button[title="删除"]').click()
+  }
+
+  /** Confirm deletion in the confirmation dialog. */
+  async confirmDelete() {
+    const confirmDialog = this.panel.locator('.field-dialog-overlay')
+    await confirmDialog.locator('button', { hasText: '删除' }).click()
+  }
+
+  /** Cancel deletion in the confirmation dialog. */
+  async cancelDelete() {
+    const confirmDialog = this.panel.locator('.field-dialog-overlay')
+    await confirmDialog.locator('button', { hasText: '取消' }).click()
+  }
+
+  /** Get the PortEditor section. */
+  get portEditor(): Locator {
+    return this.propertyForm.locator('.port-editor')
+  }
+
+  /** Check if port editor is visible with port counts. */
+  async hasPortEditor(): Promise<boolean> {
+    return this.portEditor.isVisible()
+  }
 }

@@ -4,6 +4,7 @@ import {
   isV1,
   migrateV1toV2,
   upgradeWorkflowSpec,
+  downgradeWorkflowSpec,
   type WorkflowSpecV1,
   type WorkflowSpecV2,
 } from './workflow-spec'
@@ -248,6 +249,206 @@ describe('upgradeWorkflowSpec', () => {
     const v2 = upgradeWorkflowSpec(spec)
     expect(v2.schemaVersion).toBe('2.0')
     expect(v2.manifestVersion).toBe('1.0')
+  })
+
+  it('v1 → v2 migration preserves node data', () => {
+    const v1: WorkflowSpecV1 = {
+      schemaVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [
+        {
+          id: 'n1',
+          type: 'studio',
+          position: { x: 100, y: 200 },
+          data: {
+            label: 'My Input',
+            description: 'desc',
+            kind: 'textInput',
+            status: 'idle',
+            config: { prompt: 'hello' },
+          },
+        },
+      ],
+      edges: [],
+    }
+
+    const v2 = migrateV1toV2(v1)
+    expect(v2.nodes[0].id).toBe('n1')
+    expect(v2.nodes[0].data.label).toBe('My Input')
+    expect(v2.nodes[0].data.description).toBe('desc')
+    expect(v2.nodes[0].data.kind).toBe('textInput')
+    expect(v2.nodes[0].data.config.prompt).toBe('hello')
+    expect(v2.nodes[0].position).toEqual({ x: 100, y: 200 })
+  })
+
+  it('v1 edges get sourceHandle/targetHandle from NODE_CATALOG', () => {
+    const v1: WorkflowSpecV1 = {
+      schemaVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [makeNode('n1', 'textInput'), makeNode('n2', 'storyboard')],
+      edges: [{
+        id: 'e1',
+        source: 'n1',
+        target: 'n2',
+        type: 'smoothstep',
+      }],
+    }
+
+    const v2 = migrateV1toV2(v1)
+    const edge = v2.edges[0]
+    expect(edge.sourceHandle).toBe(NODE_CATALOG.textInput.ports.outputs[0].id)
+    expect(edge.targetHandle).toBe(NODE_CATALOG.storyboard.ports.inputs[0].id)
+  })
+
+  it('v2 → v2 passthrough does not mutate original', () => {
+    const v2: WorkflowSpecV2 = {
+      schemaVersion: '2.0',
+      manifestVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [makeNode('n1', 'textInput')],
+      edges: [],
+      viewport: { x: 5, y: 10, zoom: 1.5 },
+      metadata: { tags: ['hello'] },
+    }
+
+    const result = upgradeWorkflowSpec(v2)
+    expect(result).toBe(v2)
+    expect(result.nodes[0].data.kind).toBe('textInput')
+    expect(result.viewport).toEqual({ x: 5, y: 10, zoom: 1.5 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// downgradeWorkflowSpec
+// ---------------------------------------------------------------------------
+
+describe('downgradeWorkflowSpec', () => {
+  it('downgrades v2 → v1 with schemaVersion 1.0', () => {
+    const v2: WorkflowSpecV2 = {
+      schemaVersion: '2.0',
+      manifestVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [makeNode('n1', 'textInput')],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      metadata: { tags: [] },
+    }
+
+    const v1 = downgradeWorkflowSpec(v2)
+    expect(v1.schemaVersion).toBe('1.0')
+    expect(v1.id).toBe('test')
+    expect(v1.name).toBe('Test')
+  })
+
+  it('strips sourceHandle/targetHandle from edges', () => {
+    const v2: WorkflowSpecV2 = {
+      schemaVersion: '2.0',
+      manifestVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [makeNode('n1', 'textInput'), makeNode('n2', 'storyboard')],
+      edges: [{
+        id: 'e1',
+        source: 'n1',
+        target: 'n2',
+        sourceHandle: 'text',
+        targetHandle: 'prompt',
+        type: 'smoothstep',
+      }],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      metadata: { tags: [] },
+    }
+
+    const v1 = downgradeWorkflowSpec(v2)
+    expect(v1.edges[0].sourceHandle).toBeUndefined()
+    expect(v1.edges[0].targetHandle).toBeUndefined()
+    expect(v1.edges[0].source).toBe('n1')
+    expect(v1.edges[0].target).toBe('n2')
+  })
+
+  it('strips ports from nodes', () => {
+    const v2: WorkflowSpecV2 = {
+      schemaVersion: '2.0',
+      manifestVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [makeNode('n1', 'textInput')],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      metadata: { tags: [] },
+    }
+    // Migrate first to populate ports
+    const v2WithPorts = migrateV1toV2({
+      schemaVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [makeNode('n1', 'textInput')],
+      edges: [],
+    })
+
+    const v1 = downgradeWorkflowSpec(v2WithPorts)
+    expect(v1.nodes[0].data.ports).toBeUndefined()
+  })
+
+  it('preserves fieldSchema through downgrade', () => {
+    const node = makeNode('n1', 'textInput')
+    node.data.fieldSchema = [
+      { id: 'my_field', label: 'My Field', type: 'text', default: 'test-val' },
+    ]
+    node.data.config = { my_field: 'test-val' }
+
+    const v2: WorkflowSpecV2 = {
+      schemaVersion: '2.0',
+      manifestVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [node],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      metadata: { tags: [] },
+    }
+
+    const v1 = downgradeWorkflowSpec(v2)
+    expect(v1.nodes[0].data.fieldSchema).toEqual([
+      { id: 'my_field', label: 'My Field', type: 'text', default: 'test-val' },
+    ])
+    expect(v1.nodes[0].data.config.my_field).toBe('test-val')
+  })
+
+  it('roundtrip v1 → v2 → v1 preserves fieldSchema', () => {
+    const originalNode = makeNode('n1', 'textInput')
+    originalNode.data.fieldSchema = [
+      { id: 'custom_text', label: 'Custom Text', type: 'text', required: true },
+      { id: 'custom_num', label: 'Custom Num', type: 'number', default: 42 },
+    ]
+    originalNode.data.config = { custom_text: 'hello', custom_num: 42 }
+
+    const v1: WorkflowSpecV1 = {
+      schemaVersion: '1.0',
+      id: 'test',
+      name: 'Test',
+      nodes: [originalNode],
+      edges: [],
+    }
+
+    // Upgrade
+    const v2 = upgradeWorkflowSpec(v1)
+    expect(v2.nodes[0].data.fieldSchema).toHaveLength(2)
+    expect(v2.nodes[0].data.fieldSchema![0].id).toBe('custom_text')
+    expect(v2.nodes[0].data.fieldSchema![1].id).toBe('custom_num')
+    expect(v2.nodes[0].data.config.custom_text).toBe('hello')
+
+    // Downgrade
+    const v1Again = downgradeWorkflowSpec(v2 as WorkflowSpecV2)
+    expect(v1Again.nodes[0].data.fieldSchema).toHaveLength(2)
+    expect(v1Again.nodes[0].data.fieldSchema![0].id).toBe('custom_text')
+    expect(v1Again.nodes[0].data.fieldSchema![0].type).toBe('text')
+    expect(v1Again.nodes[0].data.config.custom_text).toBe('hello')
+    expect(v1Again.nodes[0].data.config.custom_num).toBe(42)
   })
 })
 

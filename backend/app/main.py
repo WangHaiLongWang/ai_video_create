@@ -15,6 +15,7 @@ from .api.executions import router as executions_router
 from .api.workflows import router as workflows_router
 from .api.config import router as config_router
 from .api.agent import router as agent_router
+from .api.agent_v2 import router as agent_v2_router
 from .api.templates import router as templates_router
 from .api.assets import router as assets_router
 from .api.scenes import router as scenes_router
@@ -198,6 +199,7 @@ app.include_router(workflows_router)
 app.include_router(executions_router)
 app.include_router(config_router)
 app.include_router(agent_router)
+app.include_router(agent_v2_router)
 app.include_router(templates_router)
 app.include_router(assets_router)
 app.include_router(scenes_router)

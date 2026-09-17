@@ -1,4 +1,4 @@
-import type { EnhancedEdge, StudioNode, EdgeData } from '../types'
+import type { EnhancedEdge, StudioNode, StudioNodeData, EdgeData } from '../types'
 import { NODE_CATALOG } from './node-manifest'
 
 // ---------------------------------------------------------------------------
@@ -100,6 +100,40 @@ export function migrateV1toV2(spec: WorkflowSpecV1): WorkflowSpecV2 {
     edges,
     viewport: { x: 0, y: 0, zoom: 1 },
     metadata: { tags: [], createdAt: new Date().toISOString() },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Downgrade v2 → v1 (for backward compatibility / export)
+// ---------------------------------------------------------------------------
+
+export function downgradeWorkflowSpec(v2: WorkflowSpecV2): WorkflowSpecV1 {
+  // Migrate edges: strip sourceHandle / targetHandle
+  const edges = v2.edges.map(edge => {
+    const { sourceHandle, targetHandle, ...rest } = edge
+    // Clean up edge data: remove mode/label defaults if they are the default
+    return rest as EnhancedEdge
+  })
+
+  // Migrate nodes: strip ports, keep inputType/outputType
+  const nodes = v2.nodes.map(node => {
+    const { ports, ...restData } = node.data as StudioNodeData & { ports?: unknown }
+    return {
+      ...node,
+      data: {
+        ...restData,
+        inputType: node.data.inputType ?? node.data.ports?.outputs[0]?.type,
+        outputType: node.data.outputType ?? node.data.ports?.inputs[0]?.type,
+      },
+    }
+  })
+
+  return {
+    schemaVersion: '1.0',
+    id: v2.id,
+    name: v2.name,
+    nodes,
+    edges,
   }
 }
 

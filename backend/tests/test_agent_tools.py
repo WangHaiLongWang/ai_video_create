@@ -286,7 +286,7 @@ class TestEstimateCalls:
         assert result.data["variant_count"] == 1
         assert result.data["image_calls"] == 3
         assert result.data["video_calls"] == 3
-        assert result.data["total_estimated_calls"] >= 6
+        assert result.data["total_calls"] >= 6
 
     def test_estimate_with_variants(self):
         intent = WorkflowIntent(

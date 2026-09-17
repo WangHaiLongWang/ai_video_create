@@ -428,4 +428,104 @@ test.describe('Workflow Editor', () => {
     const prompt = await agent.getPrompt()
     expect(prompt).toBe('创建一个3镜头的风景视频')
   })
+
+  // --- Field Management ---
+
+  test('add a custom field via the "添加字段" button', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    // Select a node first
+    await canvas.selectNode('主题输入')
+    await expect(propertyPanel.propertyForm).toBeVisible()
+
+    // Click "添加字段" button
+    await propertyPanel.clickAddField()
+    await expect(propertyPanel.fieldDialog).toBeVisible()
+    await expect(propertyPanel.fieldDialogTitle).toHaveText('添加字段')
+
+    // Fill in the field ID and label
+    await propertyPanel.fillFieldId('my_custom_field')
+    await propertyPanel.fillFieldLabel('My Custom Field')
+
+    // Save the field
+    await propertyPanel.saveFieldDialog()
+
+    // Dialog should close and field should appear
+    await expect(propertyPanel.fieldDialog).not.toBeVisible()
+    expect(await propertyPanel.hasField('My Custom Field')).toBe(true)
+  })
+
+  test('edit field value in property panel', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    // Select a node
+    await canvas.selectNode('主题输入')
+    await expect(propertyPanel.propertyForm).toBeVisible()
+
+    // Add a field first
+    await propertyPanel.clickAddField()
+    await propertyPanel.fillFieldId('edit_test_field')
+    await propertyPanel.fillFieldLabel('Edit Test')
+    await propertyPanel.saveFieldDialog()
+    await expect(propertyPanel.fieldDialog).not.toBeVisible()
+
+    // Now edit the field value
+    const valueInput = propertyPanel.getFieldValueInput('Edit Test')
+    await expect(valueInput).toBeVisible()
+    await valueInput.fill('new value here')
+
+    // Verify the value was set
+    const inputValue = await valueInput.inputValue()
+    expect(inputValue).toBe('new value here')
+  })
+
+  test('delete field with confirmation', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    // Select a node
+    await canvas.selectNode('主题输入')
+    await expect(propertyPanel.propertyForm).toBeVisible()
+
+    // Add a field to delete
+    await propertyPanel.clickAddField()
+    await propertyPanel.fillFieldId('to_delete')
+    await propertyPanel.fillFieldLabel('Delete Me')
+    await propertyPanel.saveFieldDialog()
+    await expect(propertyPanel.fieldDialog).not.toBeVisible()
+    expect(await propertyPanel.hasField('Delete Me')).toBe(true)
+
+    // Delete it
+    await propertyPanel.deleteFieldByLabel('Delete Me')
+
+    // Confirmation dialog should appear
+    await expect(propertyPanel.fieldDialog).toBeVisible()
+    await expect(propertyPanel.fieldDialogTitle).toHaveText('确认删除')
+
+    // Confirm deletion
+    await propertyPanel.confirmDelete()
+
+    // Field should be gone
+    await expect(propertyPanel.fieldDialog).not.toBeVisible()
+    expect(await propertyPanel.hasField('Delete Me')).toBe(false)
+  })
+
+  test('PortEditor shows ports for selected node', async ({ page }) => {
+    const canvas = new CanvasPage(page)
+    const propertyPanel = new PropertyPanelPage(page)
+
+    // Select the 分镜生成 node (has both input and output ports)
+    await canvas.selectNode('分镜生成')
+    await expect(propertyPanel.propertyForm).toBeVisible()
+
+    // PortEditor should be visible
+    expect(await propertyPanel.hasPortEditor()).toBe(true)
+
+    // Should show input port (prompt) and output port (scenes)
+    const portEditor = propertyPanel.portEditor
+    await expect(portEditor.locator('.port-section-header', { hasText: '输入端口' })).toBeVisible()
+    await expect(portEditor.locator('.port-section-header', { hasText: '输出端口' })).toBeVisible()
+  })
 })
