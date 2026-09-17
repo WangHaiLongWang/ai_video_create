@@ -102,7 +102,7 @@ export function createPromptToVideoWorkflow(prompt?: string): WorkflowSpecV2 {
       sourceHandle: sourceManifest?.ports.outputs[0]?.id ?? 'out',
       target: nodes[i + 1].id,
       targetHandle: targetManifest?.ports.inputs[0]?.id ?? 'in',
-      type: 'smoothstep',
+      // type omitted → React Flow uses 'default' → our custom LabelEdge (smoothstep path)
       data: { mode: 'direct' as const, label: '' },
     })
   }

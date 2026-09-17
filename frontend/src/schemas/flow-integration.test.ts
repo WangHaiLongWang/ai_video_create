@@ -229,7 +229,7 @@ describe('store onConnect — validation', () => {
     const newState = useStudioStore.getState()
     expect(newState.workflow.edges.length).toBe(prevEdgeCount + 1)
     const addedEdge = newState.workflow.edges[newState.workflow.edges.length - 1]
-    expect(addedEdge.type).toBe('smoothstep')
+    // type is omitted — React Flow normalizes to 'default' → custom LabelEdge (smoothstep path)
     expect(addedEdge.data).toBeDefined()
   })
 

@@ -75,6 +75,9 @@ interface WorkflowState {
   addField: (nodeId: string, field: FieldDefinition) => void
   updateField: (nodeId: string, fieldId: string, field: FieldDefinition) => void
   removeField: (nodeId: string, fieldId: string) => void
+  deleteField: (nodeId: string, fieldId: string) => void
+  reorderFields: (nodeId: string, fromIndex: number, toIndex: number) => void
+  duplicateField: (nodeId: string, fieldId: string) => void
   updateFieldConfig: (key: string, value: string | number | boolean) => void
 
   // 节点状态更新 (供 executionStore 调用)
@@ -158,7 +161,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
 
     const newEdge = {
       ...connection,
-      type: 'smoothstep',
+      // type omitted → uses 'default' → our custom LabelEdge (smoothstep path)
       data: { mode: 'direct' as const, label: '' },
     }
     const workflow = { ...state.workflow, edges: addEdge(newEdge, state.workflow.edges) }
@@ -219,6 +222,65 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
       const newSchema = schema.filter((f) => f.id !== fieldId)
       const newConfig = { ...node.data.config }
       delete newConfig[fieldId]
+      return { ...node, data: { ...node.data, fieldSchema: newSchema, config: newConfig } }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  deleteField: (nodeId, fieldId) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const schema = node.data.fieldSchema ?? []
+      const field = schema.find((f) => f.id === fieldId)
+      if (!field) return node
+      const newSchema = schema.filter((f) => f.id !== fieldId)
+      const newConfig = { ...node.data.config }
+      delete newConfig[fieldId]
+      return { ...node, data: { ...node.data, fieldSchema: newSchema, config: newConfig } }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  reorderFields: (nodeId, fromIndex, toIndex) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const schema = [...(node.data.fieldSchema ?? [])]
+      const [moved] = schema.splice(fromIndex, 1)
+      if (!moved) return node
+      schema.splice(toIndex, 0, moved)
+      return { ...node, data: { ...node.data, fieldSchema: schema } }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  duplicateField: (nodeId, fieldId) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const schema = node.data.fieldSchema ?? []
+      const fieldIndex = schema.findIndex((f) => f.id === fieldId)
+      if (fieldIndex === -1) return node
+      const original = schema[fieldIndex]
+      const newId = original.id + '_copy'
+      const duplicate: FieldDefinition = {
+        ...original,
+        id: newId,
+        label: original.label + ' (副本)',
+      }
+      const newSchema = [...schema]
+      newSchema.splice(fieldIndex + 1, 0, duplicate)
+      const newConfig = { ...node.data.config }
+      if (duplicate.default !== undefined) {
+        newConfig[duplicate.id] = duplicate.default
+      }
       return { ...node, data: { ...node.data, fieldSchema: newSchema, config: newConfig } }
     })
     const workflow = { ...state.workflow, nodes }

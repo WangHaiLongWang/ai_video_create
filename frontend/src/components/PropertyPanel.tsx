@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ArrowsClockwise, Check, Pencil, Plus, Trash, Sparkle, SquaresFour } from '@phosphor-icons/react'
+import { ArrowsClockwise, ArrowUp, ArrowDown, Check, Copy, Pencil, Plus, Trash, Sparkle, SquaresFour } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
 import { FieldEditorDialog } from './FieldEditorDialog'
+import { PortEditor } from './PortEditor'
 import type { FieldDefinition, FieldType } from '../types'
 
 /** 根据执行状态生成提示文本 */
@@ -101,7 +102,9 @@ function renderFieldValue(
 export function PropertyPanel() {
   const {
     workflow, selectedNodeId, updateConfig,
-    addField, updateField, removeField, updateFieldConfig,
+    addField, updateField, removeField,
+    deleteField, reorderFields, duplicateField,
+    updateFieldConfig,
   } = useStudioStore()
   const executionStatus = useExecutionStore((s) => s.status)
   const isRunning = executionStatus === 'running'
@@ -109,6 +112,7 @@ export function PropertyPanel() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingField, setEditingField] = useState<FieldDefinition | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ fieldId: string; fieldLabel: string } | null>(null)
 
   function handleAddField() {
     setEditingField(null)
@@ -122,9 +126,26 @@ export function PropertyPanel() {
 
   function handleDeleteField(fieldId: string) {
     if (!selectedNodeId) return
-    removeField(selectedNodeId, fieldId)
+    deleteField(selectedNodeId, fieldId)
     setDialogOpen(false)
     setEditingField(null)
+    setDeleteConfirm(null)
+  }
+
+  function handleConfirmDelete(fieldId: string, fieldLabel: string) {
+    setDeleteConfirm({ fieldId, fieldLabel })
+  }
+
+  function handleReorderField(fromIndex: number, toIndex: number) {
+    if (!selectedNodeId) return
+    const schema = node?.data.fieldSchema ?? []
+    if (toIndex < 0 || toIndex >= schema.length) return
+    reorderFields(selectedNodeId, fromIndex, toIndex)
+  }
+
+  function handleDuplicateField(fieldId: string) {
+    if (!selectedNodeId) return
+    duplicateField(selectedNodeId, fieldId)
   }
 
   function handleSaveField(field: FieldDefinition) {
@@ -174,7 +195,7 @@ export function PropertyPanel() {
             <span>自定义字段</span>
             <button onClick={handleAddField}><Plus size={12} /> 添加字段</button>
           </div>
-          {(node.data.fieldSchema ?? []).map((field) => (
+          {(node.data.fieldSchema ?? []).map((field, idx, arr) => (
             <div key={field.id}>
               <div className="prop-field-row">
                 <label>
@@ -189,8 +210,29 @@ export function PropertyPanel() {
                   )}
                 </label>
                 <div className="prop-field-actions">
-                  <button onClick={() => handleEditField(field)}><Pencil size={11} /></button>
-                  <button onClick={() => handleDeleteField(field.id)}><Trash size={11} /></button>
+                  <button
+                    onClick={() => handleReorderField(idx, idx - 1)}
+                    disabled={idx === 0}
+                    title="上移"
+                  >
+                    <ArrowUp size={11} />
+                  </button>
+                  <button
+                    onClick={() => handleReorderField(idx, idx + 1)}
+                    disabled={idx === arr.length - 1}
+                    title="下移"
+                  >
+                    <ArrowDown size={11} />
+                  </button>
+                  <button onClick={() => handleEditField(field)} title="编辑">
+                    <Pencil size={11} />
+                  </button>
+                  <button onClick={() => handleDuplicateField(field.id)} title="复制">
+                    <Copy size={11} />
+                  </button>
+                  <button onClick={() => handleConfirmDelete(field.id, field.label)} title="删除">
+                    <Trash size={11} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -230,6 +272,15 @@ export function PropertyPanel() {
               })}
             </>
           )}
+
+          {/* 端口 */}
+          <div className="prop-section-title">
+            <span>端口</span>
+          </div>
+          <PortEditor
+            inputs={node.data.ports?.inputs ?? []}
+            outputs={node.data.ports?.outputs ?? []}
+          />
         </div>
       )}
       <div className={`run-summary ${isRunning ? 'is-active' : ''}`}>
@@ -244,6 +295,27 @@ export function PropertyPanel() {
           onDelete={editingField ? () => handleDeleteField(editingField.id) : undefined}
           onClose={() => { setDialogOpen(false); setEditingField(null) }}
         />
+      )}
+
+      {deleteConfirm && (
+        <div className="field-dialog-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="field-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 'min(400px, calc(100% - 40px))' }}>
+            <h3>确认删除</h3>
+            <p style={{ fontSize: 12, color: '#c5c9be', lineHeight: 1.6, margin: '0 0 6px' }}>
+              确定要删除字段 '{deleteConfirm.fieldLabel}' 吗？
+            </p>
+            <p style={{ fontSize: 11, color: '#8b9286', lineHeight: 1.5, margin: '0 0 4px' }}>
+              对应的配置值也将被删除。
+            </p>
+            <p style={{ fontSize: 11, color: '#737a6e', lineHeight: 1.5, margin: '0 0 16px' }}>
+              此操作可以撤销 (Ctrl+Z)。
+            </p>
+            <div className="field-dialog-actions">
+              <button className="field-dialog-cancel" onClick={() => setDeleteConfirm(null)}>取消</button>
+              <button className="field-dialog-delete" onClick={() => handleDeleteField(deleteConfirm.fieldId)}>删除</button>
+            </div>
+          </div>
+        </div>
       )}
     </aside>
   )

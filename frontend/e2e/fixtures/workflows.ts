@@ -93,11 +93,11 @@ export const defaultWorkflow: WorkflowSpec = {
     },
   ],
   edges: [
-    { id: 'edge-1', source: 'textInput-1', target: 'storyboard-1', type: 'smoothstep', animated: false },
-    { id: 'edge-2', source: 'storyboard-1', target: 'textToImage-1', type: 'smoothstep', animated: false },
-    { id: 'edge-3', source: 'textToImage-1', target: 'imageToVideo-1', type: 'smoothstep', animated: false },
-    { id: 'edge-4', source: 'imageToVideo-1', target: 'videoConcat-1', type: 'smoothstep', animated: false },
-    { id: 'edge-5', source: 'videoConcat-1', target: 'output-1', type: 'smoothstep', animated: false },
+    { id: 'edge-1', source: 'textInput-1', sourceHandle: 'text', target: 'storyboard-1', targetHandle: 'prompt', type: 'smoothstep', animated: false },
+    { id: 'edge-2', source: 'storyboard-1', sourceHandle: 'scenes', target: 'textToImage-1', targetHandle: 'scene', type: 'smoothstep', animated: false },
+    { id: 'edge-3', source: 'textToImage-1', sourceHandle: 'image', target: 'imageToVideo-1', targetHandle: 'image', type: 'smoothstep', animated: false },
+    { id: 'edge-4', source: 'imageToVideo-1', sourceHandle: 'video', target: 'videoConcat-1', targetHandle: 'video', type: 'smoothstep', animated: false },
+    { id: 'edge-5', source: 'videoConcat-1', sourceHandle: 'video', target: 'output-1', targetHandle: 'video', type: 'smoothstep', animated: false },
   ],
 }
 

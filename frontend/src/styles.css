@@ -87,48 +87,31 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .react-flow__minimap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #20231f !important; }
 .react-flow__node { width: fit-content; }
 
-/* ---- Backward-compat alias (tests / old code) ---- */
-.studio-node { width: 228px; min-height: 118px; border: 1px solid #3a3f37; border-radius: var(--radius); background: #21241f; box-shadow: 0 16px 30px rgba(7, 9, 7, .18); overflow: hidden; transition: border-color .15s ease, transform .15s ease; }
-.studio-node:hover { border-color: #5b6255; }
-.studio-node.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(214, 240, 109, .16), 0 16px 30px rgba(7, 9, 7, .28); }
-.studio-node.status-running { border-color: var(--accent); }
-.studio-node.status-completed { border-color: #718544; }
-.studio-node header { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 13px; }
-.node-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--accent); background: #30352a; }
-.studio-node strong { display: block; margin: 1px 0 4px; font-size: 12px; }
-.studio-node small { display: block; color: #868d81; font-size: 10px; line-height: 1.35; }
-.node-meta { display: flex; justify-content: space-between; padding: 9px 13px; border-top: 1px solid #30342e; color: #777e73; font: 9px "Cascadia Code", monospace; }
-
 /* ================================================================
-   Node shell + card — new layout (handles outside overflow:hidden)
+   StudioNode — single article, overflow:visible for handles
    ================================================================ */
 
-/* Node shell — overflow visible so handles aren't clipped */
-.studio-node-shell {
+.studio-node {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 228px;
-}
-
-.studio-node-card {
   width: 228px;
-  min-height: 80px;
+  min-height: 118px;
   border: 1px solid #3a3f37;
   border-radius: var(--radius);
   background: #21241f;
   box-shadow: 0 16px 30px rgba(7, 9, 7, .18);
-  overflow: hidden;
+  /* overflow:visible — handles MUST extend outside the card boundary */
+  overflow: visible;
   transition: border-color .15s ease, transform .15s ease;
 }
-.studio-node-card:hover { border-color: #5b6255; }
-.studio-node-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(214, 240, 109, .16), 0 16px 30px rgba(7, 9, 7, .28); }
-.studio-node-card.status-running { border-color: var(--accent); }
-.studio-node-card.status-completed { border-color: #718544; }
+.studio-node:hover { border-color: #5b6255; }
+.studio-node.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(214, 240, 109, .16), 0 16px 30px rgba(7, 9, 7, .28); }
+.studio-node.status-running { border-color: var(--accent); }
+.studio-node.status-completed { border-color: #718544; }
 
-.studio-node-card header { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 13px; }
-.studio-node-card strong { display: block; margin: 1px 0 4px; font-size: 12px; }
-.studio-node-card small { display: block; color: #868d81; font-size: 10px; line-height: 1.35; }
+.studio-node header { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 13px; }
+.node-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--accent); background: #30352a; }
+.studio-node strong { display: block; margin: 1px 0 4px; font-size: 12px; }
+.studio-node small { display: block; color: #868d81; font-size: 10px; line-height: 1.35; }
 
 .node-config-summary {
   padding: 0 13px 10px;
@@ -137,20 +120,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   font-family: "Cascadia Code", monospace;
 }
 
-/* Port rows — handle + label on same line */
-.port-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  min-height: 22px;
-}
-.port-row-input { padding-left: 0; }
-.port-row-output { justify-content: flex-end; padding-right: 0; }
-
 /* ================================================================
-   Handle — 14px hit area (larger, easier to click)
+   Handle — 14px hit area, positioned by React Flow's top% style
    ================================================================ */
+
 .node-handle {
   width: 14px !important;
   height: 14px !important;
@@ -164,7 +137,31 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   box-shadow: 0 0 8px rgba(214, 240, 109, .5);
 }
 
-/* Keep existing port type colors */
+/* ================================================================
+   Port labels — absolutely positioned next to handles
+   ================================================================ */
+
+.port-label {
+  position: absolute;
+  font-size: 10px;
+  font-family: "Cascadia Code", monospace;
+  color: #777e73;
+  opacity: 0.8;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+  z-index: 5;
+}
+
+/* Left-side labels (next to input handles) — just right of the left edge */
+.port-label-left {
+  left: 18px;
+}
+
+/* Right-side labels (next to output handles) — just left of the right edge */
+.port-label-right {
+  right: 18px;
+}
 .node-handle.handle-text { background: #6ee7b7; }
 .node-handle.handle-scene { background: #93c5fd; }
 .node-handle.handle-image { background: #fca5a5; }
@@ -1282,6 +1279,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   font-size: 11px;
 }
 .prop-field-actions button:hover { background: #282c24; color: #c5c9be; }
+.prop-field-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
+.prop-field-actions button:disabled:hover { background: transparent; color: #8b9286; }
 
 /* ==================== Field Editor Dialog ==================== */
 .field-dialog-overlay {
@@ -1356,4 +1355,126 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .option-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
 .option-row input { flex: 1; }
 .option-row button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: #d47868; cursor: pointer; font-size: 14px; display: grid; place-items: center; }
+
+/* ==================== PortEditor ==================== */
+.port-editor { margin: 8px 0; }
+.port-section { margin-bottom: 10px; }
+.port-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #8b9286;
+}
+.port-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #1b1e1a;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: #c5c9be;
+}
+.port-row-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.port-type-badge {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: "Cascadia Code", monospace;
+  background: #2a2d27;
+  color: #8b9286;
+  text-transform: uppercase;
+}
+.port-type-badge--text { color: #93c5fd; }
+.port-type-badge--scene { color: #c4b5fd; }
+.port-type-badge--image { color: #6ee7b7; }
+.port-type-badge--video { color: #fbbf24; }
+.port-type-badge--audio { color: #f472b6; }
+.port-type-badge--any { color: #9ca397; }
+.port-cardinality {
+  font-size: 9px;
+  font-family: "Cascadia Code", monospace;
+  color: #5a6055;
+}
+.port-empty {
+  padding: 6px 8px;
+  font-size: 10px;
+  color: #5a6055;
+  font-style: italic;
+}
+.port-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px dashed #3a3f37;
+  border-radius: 6px;
+  background: transparent;
+  color: #5a6055;
+  font-size: 10px;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ==================== Delete Confirmation Dialog ==================== */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2500;
+}
+.delete-confirm-dialog {
+  background: var(--surface-raised);
+  border: 1px solid #6b3a32;
+  border-radius: var(--radius);
+  width: min(380px, calc(100% - 40px));
+  padding: 20px;
+  box-shadow: 0 20px 55px rgba(5,7,5,.5);
+}
+.delete-confirm-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #ffd7cf;
+}
+.delete-confirm-dialog p {
+  margin: 0 0 4px;
+  font-size: 11px;
+  color: #9ca397;
+  line-height: 1.5;
+}
+.delete-confirm-dialog .hint {
+  font-size: 10px;
+  color: #5a6055;
+  margin-bottom: 16px;
+}
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.delete-confirm-actions button {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+}
+.delete-confirm-actions .btn-confirm {
+  background: #3a211d;
+  color: #ffd7cf;
+  border-color: #6b3a32 !important;
+}
+.delete-confirm-actions .btn-cancel {
+  background: #20231f;
+  color: #c5c9be;
+}
 
