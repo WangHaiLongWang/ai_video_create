@@ -451,10 +451,16 @@ class Scheduler:
 
         scene_id = task.get("item_key", "")
         if scene_id and scene_id.startswith("scene-"):
+            # 解析 scene_id 和 variant_id（支持 "scene-001::variant-01" 格式）
+            actual_scene_id = scene_id
+            variant_id = ""
+            if "::" in scene_id:
+                actual_scene_id, variant_id = scene_id.split("::", 1)
+
             # map 展开任务：注入对应 scene 的数据
             scenes = _extract_scenes(upstream)
             for scene_data in scenes:
-                if scene_data.get("scene_id") == scene_id:
+                if scene_data.get("scene_id") == actual_scene_id:
                     config = task.setdefault("config", {})
                     config["image_prompt"] = scene_data.get("image_prompt", "")
                     config["video_prompt"] = scene_data.get("video_prompt", "")
@@ -463,6 +469,8 @@ class Scheduler:
                         scene_data.get("duration", 5.0),
                     )
                     config["metadata"] = scene_data.get("metadata", {})
+                    if variant_id:
+                        config["variant_id"] = variant_id
                     break
 
         return task
@@ -491,18 +499,20 @@ class Scheduler:
         outputs = list(upstream.values())
 
         if sort_by_scene_index:
-            # 尝试按 output.metadata 中的 scene index 排序
-            def _get_index(item: dict) -> int:
+            # 按 scene_index + variant_index 排序
+            def _get_sort_key(item: dict) -> tuple[int, int]:
                 if not isinstance(item, dict):
-                    return 0
+                    return (0, 0)
                 output = item.get("output", {})
                 if isinstance(output, dict):
                     meta = output.get("metadata", {})
                     if isinstance(meta, dict):
-                        return meta.get("scene_index", meta.get("index", 0))
-                return 0
+                        scene_idx = meta.get("scene_index", meta.get("index", 0))
+                        variant_idx = meta.get("variant_index", 0)
+                        return (int(scene_idx), int(variant_idx))
+                return (0, 0)
 
-            outputs.sort(key=_get_index)
+            outputs.sort(key=_get_sort_key)
 
         return outputs
 

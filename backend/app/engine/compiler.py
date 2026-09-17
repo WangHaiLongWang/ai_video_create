@@ -145,20 +145,55 @@ def compile_workflow(spec: dict) -> ExecutionPlan:
         if map_over and kind in ("textToImage", "imageToVideo"):
             # map 展开：使用全局场景数量（从 storyboard 推断）
             scene_count = int(config.get("scenes", global_scene_count))
+            variant_count = int(config.get("variantCount", 1))
+            variants = config.get("variants", [])
+
+            task_index = 0
             for i in range(scene_count):
                 scene_id = f"scene-{i + 1:03d}"
-                task = Task(
-                    id=f"{node_id}-{scene_id}",
-                    node_id=node_id,
-                    node_kind=kind,
-                    node_label=label,
-                    item_key=scene_id,
-                    index=i,
-                    config={**config, "scene_id": scene_id, "scene_index": i},
-                    depends_on=list(upstream_task_ids),  # 依赖上游所有任务
-                    is_map_expansion=True,
-                )
-                tasks.append(task)
+                if variant_count > 1:
+                    # 变体展开：每个 scene 生成 variantCount 个 task
+                    for vi in range(variant_count):
+                        variant_id = f"variant-{vi + 1:02d}"
+                        # 从 variants 列表中获取 promptSuffix
+                        variant_suffix = ""
+                        if vi < len(variants):
+                            variant_suffix = variants[vi].get("promptSuffix", "")
+                        task = Task(
+                            id=f"{node_id}-{scene_id}::{variant_id}",
+                            node_id=node_id,
+                            node_kind=kind,
+                            node_label=label,
+                            item_key=f"{scene_id}::{variant_id}",
+                            index=task_index,
+                            config={
+                                **config,
+                                "scene_id": scene_id,
+                                "scene_index": i,
+                                "variant_id": variant_id,
+                                "variant_index": vi,
+                                "variant_prompt_suffix": variant_suffix,
+                            },
+                            depends_on=list(upstream_task_ids),
+                            is_map_expansion=True,
+                        )
+                        tasks.append(task)
+                        task_index += 1
+                else:
+                    # 普通 scene 展开
+                    task = Task(
+                        id=f"{node_id}-{scene_id}",
+                        node_id=node_id,
+                        node_kind=kind,
+                        node_label=label,
+                        item_key=scene_id,
+                        index=task_index,
+                        config={**config, "scene_id": scene_id, "scene_index": i},
+                        depends_on=list(upstream_task_ids),
+                        is_map_expansion=True,
+                    )
+                    tasks.append(task)
+                    task_index += 1
             node_to_tasks[node_id] = [t.id for t in tasks if t.node_id == node_id]
         else:
             # 普通节点：单个任务

@@ -19,9 +19,13 @@ class Scene(BaseModel):
         index: Zero-based position in the storyboard sequence.
         narration: Narration / description text for this scene.
         image_prompt: Prompt to feed into a text-to-image model.
+        negative_prompt: Negative prompt for image generation.
         video_prompt: Prompt to feed into an image-to-video model.
         duration: Desired duration in seconds (accepts ``duration_seconds`` from
             storyboard output via validation alias).
+        provider: Image/video provider override (e.g. "dashscope", "wan3").
+        model: Model override (e.g. "qwen-image-3.0").
+        size: Image size (e.g. "1280x720").
         metadata: Arbitrary extra data (style hints, camera tags, etc.).
     """
 
@@ -31,8 +35,12 @@ class Scene(BaseModel):
     index: int
     narration: str = ""
     image_prompt: str = ""
+    negative_prompt: str = ""
     video_prompt: str = ""
     duration: float = Field(default=5.0, validation_alias="duration_seconds")
+    provider: str = ""
+    model: str = ""
+    size: str = ""
     metadata: dict = Field(default_factory=dict)
 
 
@@ -59,6 +67,7 @@ class ArtifactRef(BaseModel):
     type: Literal["image", "video", "text", "audio"]
     asset_id: str | None = None
     scene_id: str | None = None
+    variant_id: str | None = None
     url: str | None = None
     metadata: dict = Field(default_factory=dict)
 

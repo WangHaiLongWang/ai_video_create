@@ -182,11 +182,23 @@ class RealTextToImageHandler:
         """Execute text-to-image node.
 
         The worker injects ``scene.image_prompt`` into ``config["image_prompt"]``
-        before this handler runs.
+        before this handler runs.  When ``variant_prompt_suffix`` is present it
+        is appended to the prompt to produce variant-specific images.
         """
         config = task.get("config", {})
         prompt = config.get("image_prompt", config.get("prompt", ""))
         scene_id = task.get("item_key", "unknown")
+
+        # 解析 scene_id 和 variant_id（支持 "scene-001::variant-01" 格式）
+        actual_scene_id = scene_id
+        variant_id = config.get("variant_id", "")
+        if "::" in scene_id:
+            actual_scene_id, variant_id = scene_id.split("::", 1)
+
+        # 追加变体 prompt suffix
+        variant_suffix = config.get("variant_prompt_suffix", "")
+        if variant_suffix:
+            prompt = f"{prompt} {variant_suffix}"
 
         if not prompt:
             return NodeResult.fail(
@@ -220,12 +232,14 @@ class RealTextToImageHandler:
                 output=ArtifactRef(
                     type="image",
                     asset_id=asset_id,
-                    scene_id=scene_id,
+                    scene_id=actual_scene_id,
+                    variant_id=variant_id or None,
                     url=asset_manager.get_asset_url(relative_path),
                     metadata={
                         "path": relative_path,
                         "width": config.get("width", 1024),
                         "height": config.get("height", 768),
+                        "variant_index": config.get("variant_index", 0),
                     },
                 ),
                 artifacts=[asset_id],
@@ -258,6 +272,12 @@ class RealImageToVideoHandler:
         scene_id = task.get("item_key", "unknown")
         duration = config.get("duration", 4)
 
+        # 解析 scene_id 和 variant_id
+        actual_scene_id = scene_id
+        variant_id = config.get("variant_id", "")
+        if "::" in scene_id:
+            actual_scene_id, variant_id = scene_id.split("::", 1)
+
         image_path = config.get("image_path", "") or self._find_upstream_image(
             context.get("upstream_results", {}), scene_id
         )
@@ -270,13 +290,13 @@ class RealImageToVideoHandler:
 
         provider_name = _provider_name(config, "video")
         if provider_name in {"wan3", "comfyui"}:
-            return await self._use_provider(task, config, scene_id, duration, image_path)
+            return await self._use_provider(task, config, actual_scene_id, variant_id, duration, image_path)
         if provider_name == "mock":
-            return self._mock_video_output(scene_id, duration)
-        return await self._use_ffmpeg(task, config, scene_id, image_path, duration)
+            return self._mock_video_output(actual_scene_id, variant_id, duration)
+        return await self._use_ffmpeg(task, config, actual_scene_id, variant_id, image_path, duration)
 
     async def _use_provider(
-        self, task: dict, config: dict, scene_id: str, duration: float, image_path: str
+        self, task: dict, config: dict, scene_id: str, variant_id: str, duration: float, image_path: str
     ) -> NodeResult:
         """Use video provider to generate video."""
         provider = get_provider(_provider_name(config, "video"))
@@ -316,6 +336,7 @@ class RealImageToVideoHandler:
                     type="video",
                     asset_id=asset_id,
                     scene_id=scene_id,
+                    variant_id=variant_id or None,
                     url=asset_manager.get_asset_url(relative_path),
                     metadata={
                         "path": relative_path,
@@ -337,23 +358,45 @@ class RealImageToVideoHandler:
 
     @staticmethod
     def _find_upstream_image(upstream_results: dict, scene_id: str) -> str:
-        """Find the image output matching this mapped scene."""
+        """Find the image output matching this mapped scene and optional variant.
+
+        ``scene_id`` may be a plain ``scene-001`` or a compound
+        ``scene-001::variant-01`` key.  When a variant is present we require
+        an exact match on both ``scene_id`` and ``variant_id`` in the upstream
+        artifact metadata.
+        """
+        actual_scene = scene_id
+        variant_id = ""
+        if "::" in scene_id:
+            actual_scene, variant_id = scene_id.split("::", 1)
+
         fallback = ""
         for result in upstream_results.values():
             output = result.get("output", result) if isinstance(result, dict) else {}
             if not isinstance(output, dict):
                 continue
+            # Path may be at top level or in metadata
             path = str(output.get("path", ""))
+            if not path:
+                meta = output.get("metadata", {})
+                if isinstance(meta, dict):
+                    path = str(meta.get("path", ""))
             if not path:
                 continue
             if not fallback:
                 fallback = path
-            if output.get("scene_id") == scene_id:
-                return path
+            out_scene = output.get("scene_id", "")
+            out_variant = output.get("variant_id", "")
+            if out_scene == actual_scene:
+                if variant_id:
+                    if out_variant == variant_id:
+                        return path
+                else:
+                    return path
         return fallback
 
     async def _use_ffmpeg(
-        self, task: dict, config: dict, scene_id: str, image_path: str, duration: float
+        self, task: dict, config: dict, scene_id: str, variant_id: str, image_path: str, duration: float
     ) -> NodeResult:
         """Use FFmpeg to create video from image."""
         try:
@@ -386,6 +429,7 @@ class RealImageToVideoHandler:
                     type="video",
                     asset_id=asset_id,
                     scene_id=scene_id,
+                    variant_id=variant_id or None,
                     url=asset_manager.get_asset_url(relative_path),
                     metadata={
                         "path": relative_path,
@@ -397,9 +441,9 @@ class RealImageToVideoHandler:
 
         except FFmpegError as e:
             logger.error(f"FFmpeg video creation failed: {e}")
-            return self._mock_video_output(scene_id, duration)
+            return self._mock_video_output(scene_id, variant_id, duration)
 
-    def _mock_video_output(self, scene_id: str, duration: float) -> NodeResult:
+    def _mock_video_output(self, scene_id: str, variant_id: str = "", duration: float = 4) -> NodeResult:
         """Generate mock video output as fallback."""
         asset_id = f"vid-{uuid.uuid4().hex[:8]}"
         return NodeResult.ok(
@@ -407,6 +451,7 @@ class RealImageToVideoHandler:
                 type="video",
                 asset_id=asset_id,
                 scene_id=scene_id,
+                variant_id=variant_id or None,
                 metadata={
                     "path": f"data/assets/videos/{asset_id}.mp4",
                     "duration_seconds": duration,
