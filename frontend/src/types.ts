@@ -10,6 +10,26 @@ export type NodeKind =
 
 export type RunStatus = 'idle' | 'waiting' | 'running' | 'completed' | 'failed'
 
+/* ==================== Field Definitions ==================== */
+
+export type FieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'multi_select' | 'json' | 'prompt'
+
+export interface FieldOption {
+  label: string
+  value: string
+}
+
+export interface FieldDefinition {
+  id: string            // snake_case, unique within node
+  label: string         // display name
+  type: FieldType
+  description?: string
+  required?: boolean
+  default?: string | number | boolean
+  options?: FieldOption[]  // for select/multi_select
+  advanced?: boolean    // hidden by default in simple mode
+}
+
 export interface PortInfo {
   id: string
   type: string
@@ -26,6 +46,7 @@ export type StudioNodeData = {
   outputType?: string     // keep for backward compat
   status: RunStatus
   config: Record<string, string | number | boolean>
+  fieldSchema?: FieldDefinition[]
   ports?: {
     inputs: PortInfo[]
     outputs: PortInfo[]

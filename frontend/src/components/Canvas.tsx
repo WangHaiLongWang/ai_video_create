@@ -8,13 +8,17 @@ import {
   ReactFlow,
   getSmoothStepPath,
   useReactFlow,
+  type Connection,
   type EdgeProps,
+  type IsValidConnection,
   type ReactFlowInstance,
 } from '@xyflow/react'
 import { StudioNodeView } from '../StudioNode'
 import { useStudioStore } from '../store'
 import { createNode } from '../workflow'
-import type { NodeKind } from '../types'
+import { validateConnection as validateConnectionNew } from '../schemas/graph-validation'
+import { NODE_CATALOG } from '../schemas/node-manifest'
+import type { NodeKind, EnhancedEdge } from '../types'
 import { AgentComposer } from './AgentComposer'
 
 function LabelEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, style, markerEnd }: EdgeProps) {
@@ -37,6 +41,17 @@ function CanvasInner() {
   const reactFlowInstance: ReactFlowInstance = useReactFlow()
   const nodeTypes = useMemo(() => ({ studio: StudioNodeView }), [])
   const edgeTypes = useMemo(() => ({ default: LabelEdge }), [])
+
+  const isValidConnection: IsValidConnection<EnhancedEdge> = useCallback((connection) => {
+    const nodeKinds: Record<string, NodeKind> = {}
+    workflow.nodes.forEach(n => { nodeKinds[n.id] = n.data.kind })
+    const error = validateConnectionNew(
+      connection.source, connection.sourceHandle ?? undefined,
+      connection.target, connection.targetHandle ?? undefined,
+      nodeKinds, NODE_CATALOG, workflow.edges,
+    )
+    return !error
+  }, [workflow.nodes, workflow.edges])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -71,6 +86,9 @@ function CanvasInner() {
         onPaneClick={() => selectNode(null)}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        isValidConnection={isValidConnection}
+        connectionLineStyle={{ stroke: '#d6f06d', strokeWidth: 2 }}
+        connectionRadius={20}
         fitView
         minZoom={0.35}
         maxZoom={1.6}

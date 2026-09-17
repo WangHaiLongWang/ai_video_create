@@ -4,6 +4,7 @@ import { Canvas } from './components/Canvas'
 import { ExecutionPanel } from './components/ExecutionPanel'
 import { NodePalette } from './components/NodePalette'
 import { PropertyPanel } from './components/PropertyPanel'
+import { Toast } from './components/Toast'
 import { TopBar } from './components/TopBar'
 import { useStudioStore } from './store'
 
@@ -36,6 +37,7 @@ export default function App() {
   return (
     <ReactFlowProvider>
       <KeyboardShortcuts />
+      <Toast />
       <div className="app-shell">
         <TopBar />
         <NodePalette />

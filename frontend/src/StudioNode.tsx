@@ -7,7 +7,6 @@ import {
   TextT,
   VideoCamera,
 } from '@phosphor-icons/react'
-import { NODE_CATALOG } from './schemas/node-manifest'
 import type { StudioNode, PortInfo } from './types'
 
 const icons = {
@@ -21,7 +20,6 @@ const icons = {
 
 export function StudioNodeView({ data, selected }: NodeProps<StudioNode>) {
   const Icon = icons[data.kind]
-  const manifest = NODE_CATALOG[data.kind]
   const inputs: PortInfo[] = data.ports?.inputs ?? (
     data.inputType
       ? [{ id: 'in', type: data.inputType, required: true, cardinality: 'one' }]
@@ -34,45 +32,48 @@ export function StudioNodeView({ data, selected }: NodeProps<StudioNode>) {
   )
 
   return (
-    <article className={`studio-node status-${data.status} ${selected ? 'is-selected' : ''}`}>
-      {/* Input handles on the left */}
-      {inputs.map((port, i) => (
-        <Handle
-          key={port.id}
-          id={port.id}
-          type="target"
-          position={Position.Left}
-          className={`node-handle handle-${port.type} ${port.required ? 'handle-required' : ''}`}
-          style={{ top: `${30 + (i + 1) * (100 / (inputs.length + 1))}%` }}
-        />
-      ))}
-
-      <header>
-        <span className="node-icon"><Icon size={17} weight="duotone" /></span>
-        <div>
-          <strong>{data.label}</strong>
-          <small>{data.description}</small>
+    <div className="studio-node-shell">
+      {/* Input handles before the card */}
+      {inputs.map(port => (
+        <div key={port.id} className="port-row port-row-input">
+          <Handle
+            id={port.id}
+            type="target"
+            position={Position.Left}
+            className={`node-handle handle-${port.type} ${port.required ? 'handle-required' : ''}`}
+          />
+          <span className="port-label">{port.label ?? port.id}</span>
         </div>
-      </header>
-
-      <div className="node-meta">
-        {inputs.map(p => <span key={p.id} className="port-label port-input">{p.label ?? p.id}</span>)}
-        {outputs.map(p => <span key={p.id} className="port-label port-output">{p.label ?? p.id}</span>)}
-      </div>
-
-      {data.status === 'running' && <div className="node-progress" aria-label="执行中" />}
-
-      {/* Output handles on the right */}
-      {outputs.map((port, i) => (
-        <Handle
-          key={port.id}
-          id={port.id}
-          type="source"
-          position={Position.Right}
-          className={`node-handle handle-${port.type}`}
-          style={{ top: `${30 + (i + 1) * (100 / (outputs.length + 1))}%` }}
-        />
       ))}
-    </article>
+
+      <article className={`studio-node-card status-${data.status} ${selected ? 'is-selected' : ''}`}>
+        <header>
+          <span className="node-icon"><Icon size={17} weight="duotone" /></span>
+          <div>
+            <strong>{data.label}</strong>
+            <small>{data.description}</small>
+          </div>
+        </header>
+
+        <div className="node-config-summary">
+          {data.kind}
+        </div>
+
+        {data.status === 'running' && <div className="node-progress" aria-label="执行中" />}
+      </article>
+
+      {/* Output handles after the card */}
+      {outputs.map(port => (
+        <div key={port.id} className="port-row port-row-output">
+          <span className="port-label">{port.label ?? port.id}</span>
+          <Handle
+            id={port.id}
+            type="source"
+            position={Position.Right}
+            className={`node-handle handle-${port.type}`}
+          />
+        </div>
+      ))}
+    </div>
   )
 }

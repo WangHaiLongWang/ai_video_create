@@ -87,6 +87,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .react-flow__minimap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #20231f !important; }
 .react-flow__node { width: fit-content; }
 
+/* ---- Backward-compat alias (tests / old code) ---- */
 .studio-node { width: 228px; min-height: 118px; border: 1px solid #3a3f37; border-radius: var(--radius); background: #21241f; box-shadow: 0 16px 30px rgba(7, 9, 7, .18); overflow: hidden; transition: border-color .15s ease, transform .15s ease; }
 .studio-node:hover { border-color: #5b6255; }
 .studio-node.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(214, 240, 109, .16), 0 16px 30px rgba(7, 9, 7, .28); }
@@ -97,9 +98,73 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .studio-node strong { display: block; margin: 1px 0 4px; font-size: 12px; }
 .studio-node small { display: block; color: #868d81; font-size: 10px; line-height: 1.35; }
 .node-meta { display: flex; justify-content: space-between; padding: 9px 13px; border-top: 1px solid #30342e; color: #777e73; font: 9px "Cascadia Code", monospace; }
-.node-handle { width: 9px !important; height: 9px !important; border: 2px solid #1b1e1a !important; background: var(--accent) !important; }
 
-/* Multi-handle port colors */
+/* ================================================================
+   Node shell + card — new layout (handles outside overflow:hidden)
+   ================================================================ */
+
+/* Node shell — overflow visible so handles aren't clipped */
+.studio-node-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 228px;
+}
+
+.studio-node-card {
+  width: 228px;
+  min-height: 80px;
+  border: 1px solid #3a3f37;
+  border-radius: var(--radius);
+  background: #21241f;
+  box-shadow: 0 16px 30px rgba(7, 9, 7, .18);
+  overflow: hidden;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.studio-node-card:hover { border-color: #5b6255; }
+.studio-node-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(214, 240, 109, .16), 0 16px 30px rgba(7, 9, 7, .28); }
+.studio-node-card.status-running { border-color: var(--accent); }
+.studio-node-card.status-completed { border-color: #718544; }
+
+.studio-node-card header { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 13px; }
+.studio-node-card strong { display: block; margin: 1px 0 4px; font-size: 12px; }
+.studio-node-card small { display: block; color: #868d81; font-size: 10px; line-height: 1.35; }
+
+.node-config-summary {
+  padding: 0 13px 10px;
+  font-size: 9px;
+  color: #777e73;
+  font-family: "Cascadia Code", monospace;
+}
+
+/* Port rows — handle + label on same line */
+.port-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  min-height: 22px;
+}
+.port-row-input { padding-left: 0; }
+.port-row-output { justify-content: flex-end; padding-right: 0; }
+
+/* ================================================================
+   Handle — 14px hit area (larger, easier to click)
+   ================================================================ */
+.node-handle {
+  width: 14px !important;
+  height: 14px !important;
+  border: 2px solid #1b1e1a !important;
+  background: var(--accent) !important;
+  z-index: 10;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.node-handle:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(214, 240, 109, .5);
+}
+
+/* Keep existing port type colors */
 .node-handle.handle-text { background: #6ee7b7; }
 .node-handle.handle-scene { background: #93c5fd; }
 .node-handle.handle-image { background: #fca5a5; }
@@ -108,10 +173,53 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .node-handle.handle-any { background: #94a3b8; }
 .node-handle.handle-required { border: 2px solid #fbbf24 !important; }
 
-/* Port labels */
-.port-label { font-size: 10px; opacity: 0.7; }
+/* Port labels — inline with handles */
+.port-label {
+  font-size: 10px;
+  font-family: "Cascadia Code", monospace;
+  color: #777e73;
+  opacity: 0.8;
+  white-space: nowrap;
+}
 .port-input { margin-right: 4px; }
 .port-output { margin-left: 4px; }
+
+/* ================================================================
+   Connection feedback
+   ================================================================ */
+.react-flow__connection-line { stroke: var(--accent); stroke-width: 2; }
+.react-flow__connection-line-invalid { stroke: #d9534f; stroke-width: 2; }
+
+/* ================================================================
+   Toast notification
+   ================================================================ */
+.toast-container {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #e3e6dd;
+  background: #2a2d27;
+  border: 1px solid #3a3f37;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  animation: toast-in .2s ease;
+  max-width: 360px;
+}
+.toast--error { border-color: #6b3a32; background: #3a211d; color: #ffd7cf; }
+.toast--success { border-color: #2d5a2d; background: #1a2e1a; color: #7dce7d; }
+.toast--exit { animation: toast-out .2s ease forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
 
 /* Edge labels */
 .edge-label-container { overflow: visible; }
@@ -1126,4 +1234,126 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   color: #737a6e;
   font-family: "Cascadia Code", monospace;
 }
+
+/* ==================== PropertyPanel Section Styles ==================== */
+
+.prop-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b9286;
+}
+.prop-section-title button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+.prop-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+.prop-field-row label { flex: 1; margin-bottom: 0; }
+.prop-field-actions {
+  display: flex;
+  gap: 4px;
+}
+.prop-field-actions button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: #8b9286;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+}
+.prop-field-actions button:hover { background: #282c24; color: #c5c9be; }
+
+/* ==================== Field Editor Dialog ==================== */
+.field-dialog-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.field-dialog {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  width: min(480px, calc(100% - 40px));
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 20px 55px rgba(5,7,5,.5);
+}
+.field-dialog h3 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #e3e6dd;
+}
+.field-dialog label {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+  color: #9ca397;
+  font-size: 10px;
+}
+.field-dialog input[type="text"],
+.field-dialog input[type="number"],
+.field-dialog textarea,
+.field-dialog select {
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid #3b4038;
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: #e3e6dd;
+  background: #171916;
+}
+.field-dialog textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+.field-dialog select {
+  appearance: auto;
+}
+.field-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.field-dialog-actions button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.field-dialog-save { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) !important; font-weight: 700; }
+.field-dialog-delete { background: #3a211d; color: #ffd7cf; border-color: #6b3a32 !important; }
+.field-dialog-cancel { background: #20231f; color: #c5c9be; }
+.option-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.option-row input { flex: 1; }
+.option-row button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: #d47868; cursor: pointer; font-size: 14px; display: grid; place-items: center; }
 

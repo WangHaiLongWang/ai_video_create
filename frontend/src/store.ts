@@ -17,7 +17,7 @@ import { createPromptToVideoWorkflow } from './workflow'
 import { validateConnection as validateConnectionNew, validateGraph } from './schemas/graph-validation'
 import { NODE_CATALOG } from './schemas/node-manifest'
 import { upgradeWorkflowSpec } from './schemas/workflow-spec'
-import type { NodeKind, RunStatus, StudioNode, WorkflowSpec } from './types'
+import type { FieldDefinition, NodeKind, RunStatus, StudioNode, WorkflowSpec } from './types'
 
 const STORAGE_KEY = 'ai-video-create.workflow.v1'
 const MAX_HISTORY = 30
@@ -67,6 +67,16 @@ interface WorkflowState {
   loadFromServer: (id?: string) => Promise<void>
   serverSync: () => void
 
+  // Connection error feedback
+  connectionError: string | null
+  setConnectionError: (msg: string | null) => void
+
+  // Field management
+  addField: (nodeId: string, field: FieldDefinition) => void
+  updateField: (nodeId: string, fieldId: string, field: FieldDefinition) => void
+  removeField: (nodeId: string, fieldId: string) => void
+  updateFieldConfig: (key: string, value: string | number | boolean) => void
+
   // 节点状态更新 (供 executionStore 调用)
   updateNodeStatus: (nodeId: string, status: RunStatus) => void
   updateNodeStatuses: (statuses: Map<string, RunStatus>) => void
@@ -97,6 +107,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
   selectedNodeId: null,
   serverVersion: null,
   isDirty: false,
+  connectionError: null,
   past: [],
   future: [],
 
@@ -141,9 +152,8 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
       nodeKinds, NODE_CATALOG, state.workflow.edges,
     )
     if (error) {
-      // TODO: show error in UI (toast/snackbar)
       console.warn('Connection rejected:', error.message)
-      return state
+      return { ...state, connectionError: error.message }
     }
 
     const newEdge = {
@@ -154,12 +164,70 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const workflow = { ...state.workflow, edges: addEdge(newEdge, state.workflow.edges) }
     const history = pushHistory(state, workflow)
     persistLocal(workflow)
-    return { workflow, isDirty: true, ...history }
+    return { workflow, isDirty: true, connectionError: null, ...history }
   }),
 
   selectNode: (selectedNodeId) => set({ selectedNodeId }),
 
+  setConnectionError: (msg) => set({ connectionError: msg }),
+
   updateConfig: (key, value) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => node.id === state.selectedNodeId
+      ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value } } }
+      : node)
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  // --- Field management ---
+  addField: (nodeId, field) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const schema = node.data.fieldSchema ?? []
+      const newSchema = [...schema, field]
+      const newConfig = { ...node.data.config }
+      if (field.default !== undefined) {
+        newConfig[field.id] = field.default
+      }
+      return { ...node, data: { ...node.data, fieldSchema: newSchema, config: newConfig } }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  updateField: (nodeId, fieldId, field) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const schema = node.data.fieldSchema ?? []
+      const newSchema = schema.map((f) => f.id === fieldId ? field : f)
+      return { ...node, data: { ...node.data, fieldSchema: newSchema } }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  removeField: (nodeId, fieldId) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const schema = node.data.fieldSchema ?? []
+      const newSchema = schema.filter((f) => f.id !== fieldId)
+      const newConfig = { ...node.data.config }
+      delete newConfig[fieldId]
+      return { ...node, data: { ...node.data, fieldSchema: newSchema, config: newConfig } }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  updateFieldConfig: (key, value) => set((state) => {
     const nodes = state.workflow.nodes.map((node) => node.id === state.selectedNodeId
       ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value } } }
       : node)
