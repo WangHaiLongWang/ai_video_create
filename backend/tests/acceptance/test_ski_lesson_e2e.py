@@ -433,6 +433,48 @@ class TestTemplateLoading:
         )
         assert text_node.data.config["prompt"] == "冬季单板滑雪教学"
 
+    def test_storyboard_node_has_preset_scenes(self):
+        """模板 storyboard 节点应包含 scenes_data（预设场景）。"""
+        from backend.app.services.templates import get_template_service
+
+        svc = get_template_service()
+        detail = svc.get_template("realistic-ski-lesson")
+
+        sb_node = next(
+            n for n in detail.spec.nodes if n.data.kind == "storyboard"
+        )
+        scenes_data = sb_node.data.config.get("scenes_data", [])
+        assert len(scenes_data) == 1
+        assert scenes_data[0]["scene_id"] == "scene-001"
+        assert len(scenes_data[0]["image_prompt"]) > 100
+        assert len(scenes_data[0]["video_prompt"]) > 100
+        assert "negative_prompt" in scenes_data[0]
+
+    def test_storyboard_node_has_global_style(self):
+        """模板 storyboard 节点应包含 globalStyle 和 globalNegativePrompt。"""
+        from backend.app.services.templates import get_template_service
+
+        svc = get_template_service()
+        detail = svc.get_template("realistic-ski-lesson")
+
+        sb_node = next(
+            n for n in detail.spec.nodes if n.data.kind == "storyboard"
+        )
+        assert len(sb_node.data.config.get("globalStyle", "")) > 10
+        assert len(sb_node.data.config.get("globalNegativePrompt", "")) > 10
+
+    def test_text_to_image_has_size(self):
+        """模板 textToImage 节点应包含 size 配置。"""
+        from backend.app.services.templates import get_template_service
+
+        svc = get_template_service()
+        detail = svc.get_template("realistic-ski-lesson")
+
+        img_node = next(
+            n for n in detail.spec.nodes if n.data.kind == "textToImage"
+        )
+        assert img_node.data.config.get("size") == "1280x720"
+
 
 class TestSceneBundleFixture:
     """验证 Scene Bundle fixture 的结构。"""

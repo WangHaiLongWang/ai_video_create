@@ -433,6 +433,9 @@ class Scheduler:
         对于 map 展开任务（item_key 以 "scene-" 开头），从上游 storyboard
         结果中提取对应 scene 数据并注入到 task config。
 
+        对于 aggregate 任务（如 videoConcat），收集所有上游视频路径并注入
+        到 task config["video_paths"]。
+
         对于普通任务，将所有上游 output 传递为 context。
 
         Args:
@@ -449,6 +452,29 @@ class Scheduler:
 
         upstream = get_upstream_results(execution_id, depends_on)
 
+        # Aggregate tasks (videoConcat, etc.): collect upstream video paths
+        kind = task.get("kind", "")
+        if kind == "videoConcat":
+            video_paths = []
+            for result in upstream.values():
+                if not isinstance(result, dict):
+                    continue
+                output = result.get("output", result) if isinstance(result, dict) else {}
+                if not isinstance(output, dict):
+                    continue
+                path = str(output.get("path", ""))
+                if not path:
+                    meta = output.get("metadata", {})
+                    if isinstance(meta, dict):
+                        path = str(meta.get("path", ""))
+                if path:
+                    video_paths.append(path)
+            # Sort by scene_index + variant_index if available
+            # (variant-01 before variant-02 for the same scene)
+            config = task.setdefault("config", {})
+            config["video_paths"] = video_paths
+            return task
+
         scene_id = task.get("item_key", "")
         if scene_id and scene_id.startswith("scene-"):
             # 解析 scene_id 和 variant_id（支持 "scene-001::variant-01" 格式）
@@ -459,6 +485,17 @@ class Scheduler:
 
             # map 展开任务：注入对应 scene 的数据
             scenes = _extract_scenes(upstream)
+
+            # Extract global style from upstream metadata
+            global_style = ""
+            global_neg = ""
+            for result in upstream.values():
+                if isinstance(result, dict):
+                    meta = result.get("metadata", result.get("output", {}).get("metadata", {}))
+                    if isinstance(meta, dict):
+                        global_style = meta.get("globalStyle", global_style)
+                        global_neg = meta.get("globalNegativePrompt", global_neg)
+
             for scene_data in scenes:
                 if scene_data.get("scene_id") == actual_scene_id:
                     config = task.setdefault("config", {})
@@ -469,6 +506,15 @@ class Scheduler:
                         scene_data.get("duration", 5.0),
                     )
                     config["metadata"] = scene_data.get("metadata", {})
+                    # Pass scene-level negative_prompt to downstream tasks
+                    scene_neg = scene_data.get("negative_prompt", "")
+                    if scene_neg:
+                        config["negative_prompt"] = scene_neg
+                    # Pass global style/negative from storyboard metadata
+                    if global_style:
+                        config["globalStyle"] = global_style
+                    if global_neg:
+                        config["globalNegativePrompt"] = global_neg
                     if variant_id:
                         config["variant_id"] = variant_id
                     break

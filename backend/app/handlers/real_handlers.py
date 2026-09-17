@@ -55,13 +55,50 @@ class RealStoryboardHandler:
     """Storyboard handler — uses LLM to generate structured scenes."""
 
     async def execute(self, task: dict, context: dict) -> NodeResult:
-        """Execute storyboard node."""
+        """Execute storyboard node.
+
+        If ``config["scenes_data"]`` is provided (a list of pre-built scene
+        dicts), pass them through directly instead of calling the LLM.  This
+        allows templates to supply hand-crafted, domain-specific prompts that
+        produce much higher quality results than a generic LLM call.
+        """
         config = task.get("config", {})
         prompt = config.get("prompt", "Generate a storyboard")
         scene_count = int(config.get("scenes", 5))
         style = config.get("style", "cinematic")
 
-        # Build storyboard generation prompt
+        # --- Fast path: use pre-configured scene data if available ---
+        preset_scenes = config.get("scenes_data", [])
+        if preset_scenes and len(preset_scenes) > 0:
+            logger.info(
+                f"Storyboard: using {len(preset_scenes)} preset scenes "
+                f"(skipping LLM call)"
+            )
+            scenes_data = []
+            for i, ps in enumerate(preset_scenes[:scene_count]):
+                scenes_data.append({
+                    "scene_id": ps.get("scene_id", f"scene-{i + 1:03d}"),
+                    "index": i,
+                    "narration": ps.get("narration", ""),
+                    "image_prompt": ps.get("image_prompt", ""),
+                    "video_prompt": ps.get("video_prompt", ""),
+                    "duration_seconds": ps.get("duration_seconds", 3),
+                    "negative_prompt": ps.get("negative_prompt", ""),
+                    "metadata": ps.get("metadata", {}),
+                })
+            return NodeResult.ok(
+                output=ArtifactRef(
+                    type="text",
+                    metadata={
+                        "scenes": scenes_data,
+                        "count": len(scenes_data),
+                        "globalStyle": config.get("globalStyle", ""),
+                        "globalNegativePrompt": config.get("globalNegativePrompt", ""),
+                    },
+                ),
+            )
+
+        # --- LLM path ---
         storyboard_prompt = f"""Generate a storyboard with {scene_count} scenes.
 Style: {style}
 
@@ -215,8 +252,26 @@ class RealTextToImageHandler:
             )
 
         try:
+            # Build provider config with negative_prompt and size
+            provider_config = dict(config)
+
+            # Merge scene-level and global negative prompts
+            neg_parts = []
+            scene_neg = config.get("negative_prompt", "")
+            global_neg = config.get("globalNegativePrompt", "")
+            if scene_neg:
+                neg_parts.append(scene_neg)
+            if global_neg:
+                neg_parts.append(global_neg)
+            if neg_parts:
+                provider_config["negative_prompt"] = "，".join(neg_parts)
+
+            # Pass size to provider (from scene or template config)
+            if "size" in config and "size" not in provider_config:
+                provider_config["size"] = config["size"]
+
             # Generate image
-            image_data = await provider.generate_image(prompt, config)
+            image_data = await provider.generate_image(prompt, provider_config)
 
             # Save to asset manager
             asset_manager = get_asset_manager()

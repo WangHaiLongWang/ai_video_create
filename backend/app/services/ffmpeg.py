@@ -209,13 +209,15 @@ class FFmpegService:
         # Create concat list file
         concat_list_path = None
         try:
-            # Write concat list
+            # Write concat list — resolve relative paths to absolute so ffmpeg
+            # can find the files regardless of its working directory.
             with tempfile.NamedTemporaryFile(
                 mode='w', suffix='.txt', delete=False
             ) as f:
                 for video_path in video_paths:
+                    abs_path = os.path.abspath(video_path)
                     # Escape single quotes in path
-                    safe_path = video_path.replace("'", "'\\''")
+                    safe_path = abs_path.replace("'", "'\\''")
                     f.write(f"file '{safe_path}'\n")
                 concat_list_path = f.name
 
@@ -503,13 +505,35 @@ class FFmpegService:
 _ffmpeg_service: FFmpegService | None = None
 
 
+def _detect_ffmpeg_path(configured_path: str) -> str:
+    """Return the best available ffmpeg path.
+
+    Resolution order:
+    1. Explicitly configured path (settings.FFMPEG_PATH) if it exists on disk.
+    2. ``imageio_ffmpeg`` bundled binary (common in pip-installed environments).
+    3. Fallback to the configured string (may fail at runtime if not on PATH).
+    """
+    import os
+    if configured_path and os.path.isfile(configured_path):
+        return configured_path
+    try:
+        import imageio_ffmpeg
+        path = imageio_ffmpeg.get_ffmpeg_exe()
+        if path and os.path.isfile(path):
+            return path
+    except Exception:
+        pass
+    return configured_path
+
+
 def get_ffmpeg_service() -> FFmpegService:
     """Get or create global FFmpeg service instance."""
     global _ffmpeg_service
     if _ffmpeg_service is None:
         from backend.app.config import get_settings
         settings = get_settings()
-        _ffmpeg_service = FFmpegService(settings.FFMPEG_PATH)
+        resolved = _detect_ffmpeg_path(settings.FFMPEG_PATH)
+        _ffmpeg_service = FFmpegService(resolved)
     return _ffmpeg_service
 
 
