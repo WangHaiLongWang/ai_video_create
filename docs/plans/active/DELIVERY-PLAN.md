@@ -414,6 +414,12 @@ Demo：全新 Node/Python 环境安装后，一条命令得到全绿门禁。
 
 里程碑：画布可平移、节点可拖拽、可从侧栏拖入节点。
 
+### 当前最高前端优先级：连线恢复与 Workflow Agent 2.0
+
+计划：[`REACT-FLOW-AGENT-PLAN.md`](REACT-FLOW-AGENT-PLAN.md)
+
+先用 2-3 天修复 Handle 命中区、布局、Canvas 连接预校验和错误反馈；再实现节点自定义配置字段/高级端口；最后让 Agent 基于 Node Manifest 生成 WorkflowIntent，并由后端编译成合法 WorkflowSpec 2.0。
+
 ### 下一阶段：React Flow 与 Scene Prompt 产品化（4-6 周）
 
 专项计划：[`FRONTEND-FLOW-SCENE-PLAN.md`](FRONTEND-FLOW-SCENE-PLAN.md)

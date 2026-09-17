@@ -56,6 +56,8 @@ ai_video_create 是一个本地优先、可视化编排 AI 内容生成流程的
 | 多端口 | 节点可声明多个命名输入/输出 | Handle ID、类型和基数保存后不丢失 |
 | 连线校验 | 类型、方向、基数、自环、重复边和环检测 | 前端即时提示，后端权威拒绝 |
 | Edge 语义 | direct/map/aggregate | 映射模式、顺序和标签可保存、迁移 |
+| 自定义字段 | 添加、重命名、排序和删除配置字段 | 类型校验、Undo、导入导出一致 |
+| 自定义端口 | 高级模式添加/删除命名端口 | 删除端口前显示关联边并确认 |
 
 ### 4.2 节点类型（P0）
 
@@ -112,6 +114,7 @@ ai_video_create 是一个本地优先、可视化编排 AI 内容生成流程的
 - 任何输出必须经过后端 Schema、端口、DAG 和安全校验。
 - 应用 patch 使用 expected_version。
 - 无可用 LLM 时降级为确定性模板，不伪装为智能生成。
+- Agent 基于 Node Manifest 和模板工具生成 WorkflowIntent，由后端编译为 WorkflowSpec 2.0；不让 LLM直接猜测 UUID、Handle 或布局坐标。
 
 ### 4.6 模板（P1）
 

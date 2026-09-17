@@ -10,6 +10,7 @@
 | [Active 交付计划](plans/active/DELIVERY-PLAN.md) | Sprint、工单、门禁和发布计划 | Planning/Review 后 |
 | [Flow/Scene 专项计划](plans/active/FRONTEND-FLOW-SCENE-PLAN.md) | React Flow 连线、Scene 编辑与 Prompt 导出 | 专项 Review 后 |
 | [滑雪教学验收工作流](plans/active/SKI-LESSON-WORKFLOW-PLAN.md) | 2 张照片 → 2 段 3 秒视频 → 合成 | 作为真实端到端目标 |
+| [React Flow / Agent 计划](plans/active/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 当前最高前端优先级 |
 
 阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。
 
