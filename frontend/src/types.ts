@@ -64,8 +64,10 @@ export interface CatalogNodeData {
 
 export type StudioNode = Node<StudioNodeData>
 
+export type EdgeMode = 'direct' | 'map' | 'aggregate' | 'direct-by-key'
+
 export interface EdgeData {
-  mode?: 'direct' | 'map' | 'aggregate'
+  mode?: EdgeMode
   sourcePath?: string
   targetPath?: string
   itemKey?: string

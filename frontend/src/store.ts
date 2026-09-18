@@ -17,10 +17,10 @@ import { createPromptToVideoWorkflow } from './workflow'
 import { validateConnection as validateConnectionNew, validateGraph } from './schemas/graph-validation'
 import { NODE_CATALOG } from './schemas/node-manifest'
 import { upgradeWorkflowSpec } from './schemas/workflow-spec'
-import type { FieldDefinition, NodeKind, PortInfo, RunStatus, StudioNode, WorkflowSpec } from './types'
+import type { EdgeData, EdgeMode, FieldDefinition, NodeKind, PortInfo, RunStatus, StudioNode, WorkflowSpec } from './types'
 
 const STORAGE_KEY = 'ai-video-create.workflow.v1'
-const MAX_HISTORY = 30
+const MAX_HISTORY = 50
 const SAVE_DEBOUNCE_MS = 1000
 
 function initialWorkflow(): WorkflowSpec {
@@ -58,6 +58,7 @@ export interface ErrorTarget {
 interface WorkflowState {
   workflow: WorkflowSpec
   selectedNodeId: string | null
+  selectedEdgeId: string | null
   serverVersion: number | null
   isDirty: boolean
 
@@ -71,6 +72,10 @@ interface WorkflowState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   selectNode: (id: string | null) => void
+  selectEdge: (id: string | null) => void
+  updateEdgeData: (edgeId: string, data: Partial<EdgeData>) => void
+  reconnectEdge: (edgeId: string, newSource: string, newTarget: string, newSourceHandle: string, newTargetHandle: string) => void
+  deleteSelectedEdge: () => void
   updateConfig: (key: string, value: string | number | boolean) => void
   undo: () => void
   redo: () => void
@@ -79,6 +84,12 @@ interface WorkflowState {
   saveToServer: () => Promise<void>
   loadFromServer: (id?: string) => Promise<void>
   serverSync: () => void
+
+  // Viewport persistence
+  saveViewport: (viewport: { x: number; y: number; zoom: number }) => void
+
+  // Auto layout
+  applyAutoLayout: (positions: Map<string, { x: number; y: number }>) => void
 
   // Connection error feedback
   connectionError: string | null
@@ -111,6 +122,10 @@ interface WorkflowState {
   updateNodeStatuses: (statuses: Map<string, RunStatus>) => void
   resetNodeStatuses: () => void
   ensureSavedToServer: () => Promise<boolean>
+
+  // --- Semantic history batching ---
+  beginBatchHistory: (preDragWorkflow: WorkflowSpec) => void
+  endBatchHistory: () => void
 }
 
 // ==================== 内部工具 ====================
@@ -120,6 +135,54 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null
 function pushHistory(state: WorkflowState, workflow: WorkflowSpec): Pick<WorkflowState, 'past' | 'future'> {
   const past = [...state.past, state.workflow].slice(-MAX_HISTORY)
   return { past, future: [] }
+}
+
+// ==================== Semantic history batching ====================
+// Groups rapid successive changes (e.g. continuous node drag) into one undo step.
+
+interface BatchState {
+  /** Workflow snapshot captured before the batch began (pre-drag state). */
+  preDragWorkflow: WorkflowSpec
+  /** Whether a batch session is currently active. */
+  active: boolean
+}
+
+let _batchState: BatchState | null = null
+
+/**
+ * Begin a history batch session. Must be called with the workflow state
+ * *before* the first in-progress change arrives (i.e. on drag start).
+ */
+function beginBatchHistory(preDragWorkflow: WorkflowSpec) {
+  _batchState = { preDragWorkflow, active: true }
+}
+
+/**
+ * End the current batch session and push a single history entry
+ * representing the pre-batch state.
+ */
+function endBatchHistory() {
+  if (!_batchState?.active) {
+    _batchState = null
+    return
+  }
+  const snapshot = _batchState.preDragWorkflow
+  _batchState = null
+  // We push to past/future directly here so the next set() call
+  // from the caller can include it in the state update.
+  _pendingBatchPush = snapshot
+}
+
+/**
+ * After endBatchHistory(), the caller should read and clear this value
+ * to include the batch push in its state update.
+ */
+let _pendingBatchPush: WorkflowSpec | null = null
+
+function consumePendingBatchPush(): WorkflowSpec | null {
+  const v = _pendingBatchPush
+  _pendingBatchPush = null
+  return v
 }
 
 function scheduleSave(get: () => WorkflowState) {
@@ -134,6 +197,7 @@ function scheduleSave(get: () => WorkflowState) {
 export const useStudioStore = create<WorkflowState>((set, get) => ({
   workflow: initialWorkflow(),
   selectedNodeId: null,
+  selectedEdgeId: null,
   serverVersion: null,
   isDirty: false,
   connectionError: null,
@@ -141,6 +205,24 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
   errorTarget: null,
   past: [],
   future: [],
+
+  saveViewport: (viewport) => set((state) => {
+    const workflow = { ...state.workflow, viewport }
+    persistLocal(workflow)
+    return { workflow }
+  }),
+
+  applyAutoLayout: (positions) => set((state) => {
+    const nodes = state.workflow.nodes.map((node) => {
+      const pos = positions.get(node.id)
+      if (!pos) return node
+      return { ...node, position: pos }
+    })
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
 
   setWorkflow: (workflow) => {
     // Run graph validation on the incoming workflow
@@ -150,13 +232,19 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     }
     const history = pushHistory(get(), workflow)
     persistLocal(workflow)
-    set({ workflow, selectedNodeId: null, isDirty: true, ...history })
+    set({ workflow, selectedNodeId: null, selectedEdgeId: null, isDirty: true, ...history })
     scheduleSave(get)
   },
 
   onNodesChange: (changes) => set((state) => {
     const workflow = { ...state.workflow, nodes: applyNodeChanges(changes, state.workflow.nodes) }
-    const history = pushHistory(state, workflow)
+
+    // During a batch session, position changes update state but do NOT push history.
+    // Non-position changes (selection, removal, etc.) still push history normally.
+    const isBatchPositionChange = _batchState?.active
+      && changes.every(c => c.type === 'position')
+
+    const history = isBatchPositionChange ? { past: state.past, future: state.future } : pushHistory(state, workflow)
     persistLocal(workflow)
     return { workflow, isDirty: true, ...history }
   }),
@@ -202,7 +290,60 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     return { workflow, isDirty: true, connectionError: null, connectingFrom: null, errorTarget: null, ...history }
   }),
 
-  selectNode: (selectedNodeId) => set({ selectedNodeId }),
+  selectNode: (selectedNodeId) => set({ selectedNodeId, selectedEdgeId: null }),
+
+  selectEdge: (selectedEdgeId) => set({ selectedEdgeId, selectedNodeId: null }),
+
+  updateEdgeData: (edgeId, data) => set((state) => {
+    const edges = state.workflow.edges.map((edge) =>
+      edge.id === edgeId
+        ? { ...edge, data: { ...edge.data, ...data } }
+        : edge,
+    )
+    const workflow = { ...state.workflow, edges }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  reconnectEdge: (edgeId, newSource, newTarget, newSourceHandle, newTargetHandle) => set((state) => {
+    const edge = state.workflow.edges.find((e) => e.id === edgeId)
+    if (!edge) return state
+
+    // Validate the new connection
+    const nodeKinds: Record<string, NodeKind> = {}
+    state.workflow.nodes.forEach(n => { nodeKinds[n.id] = n.data.kind })
+
+    // Check for duplicates (excluding the current edge being reconnected)
+    const otherEdges = state.workflow.edges.filter((e) => e.id !== edgeId)
+    const error = validateConnectionNew(
+      newSource, newSourceHandle, newTarget, newTargetHandle,
+      nodeKinds, NODE_CATALOG, otherEdges,
+    )
+    if (error) {
+      console.warn('Reconnect rejected:', error.message)
+      return { ...state, connectionError: error.message }
+    }
+
+    const edges = state.workflow.edges.map((e) =>
+      e.id === edgeId
+        ? { ...e, source: newSource, target: newTarget, sourceHandle: newSourceHandle, targetHandle: newTargetHandle }
+        : e,
+    )
+    const workflow = { ...state.workflow, edges }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, connectionError: null, ...history }
+  }),
+
+  deleteSelectedEdge: () => set((state) => {
+    if (!state.selectedEdgeId) return state
+    const edges = state.workflow.edges.filter((e) => e.id !== state.selectedEdgeId)
+    const workflow = { ...state.workflow, edges }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, selectedEdgeId: null, isDirty: true, ...history }
+  }),
 
   setConnectionError: (msg) => set((state) => ({
     connectionError: msg,
@@ -465,7 +606,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const previous = state.past[state.past.length - 1]
     const past = state.past.slice(0, -1)
     persistLocal(previous)
-    return { workflow: previous, past, future: [state.workflow, ...state.future], selectedNodeId: null }
+    return { workflow: previous, past, future: [state.workflow, ...state.future], selectedNodeId: null, selectedEdgeId: null }
   }),
 
   redo: () => set((state) => {
@@ -473,11 +614,28 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const next = state.future[0]
     const future = state.future.slice(1)
     persistLocal(next)
-    return { workflow: next, past: [...state.past, state.workflow], future, selectedNodeId: null }
+    return { workflow: next, past: [...state.past, state.workflow], future, selectedNodeId: null, selectedEdgeId: null }
   }),
 
   canUndo: () => get().past.length > 0,
   canRedo: () => get().future.length > 0,
+
+  // --- Semantic history batching ---
+  beginBatchHistory: (preDragWorkflow) => {
+    beginBatchHistory(preDragWorkflow)
+  },
+
+  endBatchHistory: () => {
+    endBatchHistory()
+    const snapshot = consumePendingBatchPush()
+    if (snapshot) {
+      set((state) => {
+        const past = [...state.past, snapshot].slice(-MAX_HISTORY)
+        persistLocal(state.workflow)
+        return { past, future: [] }
+      })
+    }
+  },
 
   saveToServer: async () => {
     const { workflow, serverVersion, isDirty } = get()

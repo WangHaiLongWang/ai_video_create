@@ -279,6 +279,116 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 /* Edge labels */
 .edge-label-container { overflow: visible; }
 .edge-label { font-size: 11px; fill: #94a3b8; pointer-events: none; color: #94a3b8; text-align: center; line-height: 24px; }
+
+/* Edge Inspector */
+.edge-inspector { display: flex; flex-direction: column; height: 100%; }
+.edge-inspector-body { padding: 14px; overflow: auto; flex: 1; }
+.edge-connection-info {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: #20231f;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.edge-node-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd0c5;
+  font-weight: 600;
+}
+.edge-direction-badge {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.edge-direction-badge.source { background: #2d4a2d; color: #7dce7d; }
+.edge-direction-badge.target { background: #3a2a1d; color: #e8b87d; }
+.edge-port-label {
+  font-size: 10px;
+  color: #747b70;
+  font-family: "Cascadia Code", monospace;
+}
+.edge-arrow {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #52584f;
+  font-size: 14px;
+  line-height: 1;
+}
+.edge-fields label {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+  color: #9ca397;
+  font-size: 10px;
+}
+.edge-fields input[type="text"],
+.edge-fields input[type="number"],
+.edge-fields select {
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid #3b4038;
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: #e3e6dd;
+  background: #171916;
+}
+.edge-fields select { cursor: pointer; }
+.edge-fields select option { background: #171916; color: #e3e6dd; }
+.edge-warning {
+  font-size: 10px;
+  color: #b8a44e;
+  background: #2a2618;
+  border: 1px solid #4a4230;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.edge-delete-section { margin-top: auto; padding-top: 12px; }
+.edge-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  padding: 8px;
+  border: 1px solid #5a2a25;
+  border-radius: 7px;
+  background: #2a1a18;
+  color: #d47868;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.edge-delete-btn:hover { background: #3a211d; }
+.edge-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #c5c9be;
+}
+.edge-delete-confirm span { flex: 1; }
+.edge-delete-cancel,
+.edge-delete-ok {
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+}
+.edge-delete-cancel { background: #20231f; color: #c5c9be; }
+.edge-delete-ok { background: #5a2a25; color: #ffd7cf; border-color: #8a3a30; }
 .node-progress { height: 2px; background: var(--accent); transform-origin: left; animation: progress 1.1s ease-in-out infinite; }
 @keyframes progress { 0% { transform: scaleX(.08); opacity: .5; } 75% { transform: scaleX(.82); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
 
@@ -1778,5 +1888,54 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .delete-confirm-actions .btn-cancel {
   background: #20231f;
   color: #c5c9be;
+}
+
+/* ==================== Canvas Toolbar (Fit/Center/AutoLayout) ==================== */
+
+.canvas-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #3a3f37;
+  border-radius: 8px;
+  background: rgba(33, 36, 31, .92);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(5, 7, 5, .35);
+}
+
+.canvas-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #8b9286;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.canvas-toolbar-btn:hover {
+  background: #282c24;
+  color: #c5c9be;
+  border-color: var(--line);
+}
+
+.canvas-toolbar-btn:active {
+  transform: translateY(1px);
+}
+
+.canvas-toolbar-btn svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
 }
 

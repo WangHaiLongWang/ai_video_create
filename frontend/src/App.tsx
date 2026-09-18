@@ -11,6 +11,8 @@ import { useStudioStore } from './store'
 function KeyboardShortcuts() {
   const undo = useStudioStore((s) => s.undo)
   const redo = useStudioStore((s) => s.redo)
+  const deleteSelectedEdge = useStudioStore((s) => s.deleteSelectedEdge)
+  const selectedEdgeId = useStudioStore((s) => s.selectedEdgeId)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -24,11 +26,17 @@ function KeyboardShortcuts() {
       } else if (mod && e.key === 'y') {
         e.preventDefault()
         redo()
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEdgeId) {
+        // Don't intercept if user is typing in an input
+        const tag = (e.target as HTMLElement)?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        e.preventDefault()
+        deleteSelectedEdge()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [undo, redo])
+  }, [undo, redo, deleteSelectedEdge, selectedEdgeId])
 
   return null
 }

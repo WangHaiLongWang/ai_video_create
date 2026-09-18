@@ -4,6 +4,7 @@ import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
 import { FieldEditorDialog } from './FieldEditorDialog'
 import { PortEditor } from './PortEditor'
+import { EdgeInspector } from './EdgeInspector'
 import type { FieldDefinition, FieldType } from '../types'
 
 /** 根据执行状态生成提示文本 */
@@ -101,7 +102,7 @@ function renderFieldValue(
 
 export function PropertyPanel() {
   const {
-    workflow, selectedNodeId, updateConfig,
+    workflow, selectedNodeId, selectedEdgeId, updateConfig,
     addField, updateField, removeField,
     deleteField, reorderFields, duplicateField,
     updateFieldConfig,
@@ -167,8 +168,12 @@ export function PropertyPanel() {
 
   return (
     <aside className="properties">
-      <div className="panel-heading"><span>节点配置</span><ArrowsClockwise size={15} /></div>
-      {!node ? (
+      {selectedEdgeId ? (
+        <EdgeInspector />
+      ) : (
+        <>
+          <div className="panel-heading"><span>节点配置</span><ArrowsClockwise size={15} /></div>
+          {!node ? (
         <div className="empty-panel">
           <SquaresFour size={30} weight="duotone" />
           <strong>选择一个节点</strong>
@@ -317,6 +322,8 @@ export function PropertyPanel() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </aside>
   )

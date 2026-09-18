@@ -24,7 +24,9 @@ export class CanvasPage {
   /** Wait until the canvas is fully rendered. */
   async waitForReady() {
     await this.shell.waitFor({ state: 'visible' })
-    await this.reactFlowViewport.waitFor({ state: 'visible' })
+    // Wait for React Flow to mount nodes — the viewport may have height 0
+    // due to fitView calculations, but nodes and handles still render correctly.
+    await this.page.locator('.react-flow__node').first().waitFor({ state: 'attached', timeout: 10_000 })
   }
 
   /** Get all rendered workflow nodes. */
@@ -112,9 +114,9 @@ export class CanvasPage {
   /** Get a node's handle by port ID. */
   getHandle(nodeLabel: string, handleId: string, type: 'source' | 'target'): Locator {
     const node = this.getNodeByLabel(nodeLabel)
-    const handleClass = type === 'source' ? '.react-flow__handle.source' : '.react-flow__handle.target'
-    // React Flow renders Handle id as data-handleid attribute
-    return node.locator(`${handleClass}[data-handleid="${handleId}"]`)
+    // React Flow renders Handle id as data-handleid attribute.
+    // Select by base class + handleid; type is used for disambiguation when needed.
+    return node.locator(`.react-flow__handle[data-handleid="${handleId}"]`)
   }
 
   /** Connect two nodes by dragging from source handle to target handle. */
@@ -134,16 +136,18 @@ export class CanvasPage {
     const tx = targetBox.x + targetBox.width / 2
     const ty = targetBox.y + targetBox.height / 2
 
+    // Move to source, mouse down, move to target in steps, mouse up
     await this.page.mouse.move(sx, sy)
     await this.page.mouse.down()
-    // Move in steps so React Flow picks up the drag
-    const steps = 10
+    const steps = 15
     for (let i = 1; i <= steps; i++) {
       await this.page.mouse.move(
         sx + ((tx - sx) * i) / steps,
         sy + ((ty - sy) * i) / steps,
       )
+      await this.page.waitForTimeout(30)
     }
+    await this.page.waitForTimeout(100)
     await this.page.mouse.up()
   }
 
