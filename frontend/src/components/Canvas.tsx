@@ -3,16 +3,21 @@ import {
   BaseEdge,
   Background,
   BackgroundVariant,
+  ConnectionMode,
   Controls,
   MiniMap,
   ReactFlow,
+  getBezierPath,
   getSmoothStepPath,
   useReactFlow,
   type Connection,
   type EdgeProps,
   type IsValidConnection,
+  type OnConnectStart,
+  type OnConnectEnd,
   type ReactFlowInstance,
 } from '@xyflow/react'
+import type { ConnectionLineComponentProps } from '@xyflow/react/dist/esm/types/edges'
 import { StudioNodeView } from '../StudioNode'
 import { useStudioStore } from '../store'
 import { createNode } from '../workflow'
@@ -36,8 +41,40 @@ function LabelEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
   )
 }
 
+/**
+ * Custom connection line that shows green for valid and red for invalid
+ * connections while the user is dragging between ports.
+ */
+function CustomConnectionLine({
+  fromX, fromY, toX, toY,
+  fromPosition, toPosition,
+  connectionStatus,
+}: ConnectionLineComponentProps) {
+  const [edgePath] = getBezierPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+  })
+
+  const isValid = connectionStatus !== 'invalid'
+
+  return (
+    <path
+      d={edgePath}
+      fill="none"
+      stroke={isValid ? '#d6f06d' : '#d9534f'}
+      strokeWidth={2}
+      strokeDasharray={isValid ? undefined : '6 3'}
+      className="connection-line-custom"
+    />
+  )
+}
+
 function CanvasInner() {
-  const { workflow, onNodesChange, onEdgesChange, onConnect, selectNode, setWorkflow } = useStudioStore()
+  const { workflow, onNodesChange, onEdgesChange, onConnect, selectNode, setWorkflow, setConnectingFrom } = useStudioStore()
   const reactFlowInstance: ReactFlowInstance = useReactFlow()
   const nodeTypes = useMemo(() => ({ studio: StudioNodeView }), [])
   const edgeTypes = useMemo(() => ({ default: LabelEdge }), [])
@@ -52,6 +89,26 @@ function CanvasInner() {
     )
     return !error
   }, [workflow.nodes, workflow.edges])
+
+  // --- Connection session tracking ---
+  const onConnectStart: OnConnectStart = useCallback((_, { nodeId, handleId, handleType }) => {
+    if (handleType !== 'source' || !nodeId || !handleId) return
+
+    const node = workflow.nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    const manifest = NODE_CATALOG[node.data.kind]
+    if (!manifest) return
+
+    const outputPort = manifest.ports.outputs.find(p => p.id === handleId)
+    if (!outputPort) return
+
+    setConnectingFrom({ nodeId, handleId, portType: outputPort.type })
+  }, [workflow.nodes, setConnectingFrom])
+
+  const onConnectEnd: OnConnectEnd = useCallback(() => {
+    setConnectingFrom(null)
+  }, [setConnectingFrom])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -82,11 +139,15 @@ function CanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onNodeClick={(_, node) => selectNode(node.id)}
         onPaneClick={() => selectNode(null)}
         onDragOver={onDragOver}
         onDrop={onDrop}
         isValidConnection={isValidConnection}
+        connectionLineComponent={CustomConnectionLine}
+        connectionMode={ConnectionMode.Strict}
         connectionLineStyle={{ stroke: '#d6f06d', strokeWidth: 2 }}
         connectionRadius={20}
         fitView

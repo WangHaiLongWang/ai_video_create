@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from backend.app.domain.graph_validation import (
+    extract_nodes_edges_from_spec,
+    raise_if_invalid,
+)
 from backend.app.models import (
     AgentRequest, WorkflowSpec,
     ModifyRequest, ExplainRequest, ApplyPatchRequest,
@@ -37,6 +41,29 @@ def _generate_diff(spec: WorkflowSpec, patch: GraphPatch) -> str:
     return "\n".join(lines)
 
 
+def _validate_patched_spec(spec: WorkflowSpec, patch: GraphPatch) -> None:
+    """Validate the result of applying a patch to a workflow spec.
+
+    Simulates the patch application and runs graph validation on the result.
+    Raises HTTPException422 if the patched graph is invalid.
+    """
+    # Simulate patch application: remove, then add
+    remaining_nodes = [n for n in spec.nodes if n.id not in patch.remove_nodes]
+    remaining_edges = [
+        e for e in spec.edges
+        if e.id not in patch.remove_edges
+        and e.source not in patch.remove_nodes
+        and e.target not in patch.remove_nodes
+    ]
+    new_nodes = remaining_nodes + patch.add_nodes
+    new_edges = remaining_edges + patch.add_edges
+
+    # Convert to dicts for the validator
+    nodes_dicts = [n.model_dump() for n in new_nodes]
+    edges_dicts = [e.model_dump() for e in new_edges]
+    raise_if_invalid(nodes_dicts, edges_dicts)
+
+
 def _check_destructive(patch: GraphPatch) -> list[str]:
     """Return warnings for destructive operations in a patch."""
     warnings: list[str] = []
@@ -53,9 +80,14 @@ async def generate_workflow(request: AgentRequest) -> WorkflowSpec:
     service = get_agent_service()
     spec = await service.generate_from_prompt(request.prompt)
 
+    # Validate before saving
+    spec_dict = spec.model_dump()
+    nodes, edges = extract_nodes_edges_from_spec(spec_dict)
+    raise_if_invalid(nodes, edges)
+
     # 保存到数据库
     from backend.app.repositories.workflows import create_workflow
-    create_workflow(spec.model_dump(), name=spec.name)
+    create_workflow(spec_dict, name=spec.name)
 
     return spec
 
@@ -65,9 +97,12 @@ async def generate_preview(request: AgentRequest) -> dict:
     """生成工作流预览（不写库）。"""
     service = get_agent_service()
     spec = await service.generate_from_prompt(request.prompt)
+    spec_dict = spec.model_dump()
+    nodes, edges = extract_nodes_edges_from_spec(spec_dict)
+    raise_if_invalid(nodes, edges)
     return {
         "status": "ok",
-        "spec": spec.model_dump(),
+        "spec": spec_dict,
         "warnings": [],
         "destructive": False,
     }
@@ -115,6 +150,9 @@ async def modify_preview(request: ModifyRequest) -> dict:
 
     service = get_agent_service()
     patch = await service.modify_workflow(spec, request.instruction)
+
+    # Validate the patched result before returning
+    _validate_patched_spec(spec, patch)
 
     return {
         "status": "ok",
@@ -209,6 +247,11 @@ async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
         nodes=new_nodes,
         edges=new_edges,
     )
+
+    # Validate the patched graph before saving
+    new_spec_dict = new_spec.model_dump()
+    nodes, edges = extract_nodes_edges_from_spec(new_spec_dict)
+    raise_if_invalid(nodes, edges)
 
     # 保存到数据库
     try:

@@ -17,6 +17,13 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from backend.app.domain.graph_validation import (
+    extract_nodes_edges_from_spec,
+    raise_if_invalid,
+    validate_graph,
+    build_422_response,
+    get_node_catalog,
+)
 from backend.app.schemas.agent_preview import (
     AgentApplyRequest,
     AgentApplyResponse,
@@ -455,6 +462,13 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
                 success=False,
                 error=f"Failed to compile intent: {compile_error or exc}",
             )
+
+    # Graph-level validation on the compiled workflow
+    nodes, edges = extract_nodes_edges_from_spec(compiled)
+    graph_errors = validate_graph(nodes, edges)
+    if graph_errors:
+        detail = build_422_response(graph_errors)
+        raise HTTPException(status_code=422, detail=detail)
 
     try:
         if request.workflow_id:

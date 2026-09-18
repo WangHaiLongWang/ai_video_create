@@ -3,6 +3,7 @@
  */
 
 import type { WorkflowSpec } from './types'
+export type { WorkflowSpec } from './types'
 
 const API_BASE = '/api'
 
@@ -167,6 +168,8 @@ export interface GraphPatch {
   remove_edges: string[]
 }
 
+// --- v1 preview response (legacy) ---
+
 export interface AgentPreviewResponse {
   status: string
   spec?: WorkflowSpec
@@ -175,25 +178,90 @@ export interface AgentPreviewResponse {
   warnings: string[]
   destructive: boolean
   // v2 fields (AGENT-206)
-  intent?: {
-    name: string
-    nodes: { alias: string; kind: string; config?: Record<string, unknown> }[]
-    connections: { source: { node: string; port: string }; target: { node: string; port: string }; mode: string }[]
-    scene_count?: number
-    variant_count?: number
-    warnings: string[]
-  }
-  validation_errors?: { code: string; message: string }[]
-  repair_steps?: { attempt: number; repairs_applied: string[] }[]
-  cost_estimate?: {
-    scene_count: number
-    variant_count: number
-    image_calls: number
-    video_calls: number
-    total_calls: number
-    estimated_duration_seconds: number
-  }
+  intent?: WorkflowIntent
+  validation_errors?: ValidationError[]
+  repair_steps?: RepairStep[]
+  cost_estimate?: CostEstimate
   can_apply?: boolean
+}
+
+// --- v2 structured types ---
+
+export interface PortRef {
+  node: string
+  port: string
+}
+
+export interface ConnectionIntent {
+  source: PortRef
+  target: PortRef
+  mode: 'direct' | 'map' | 'aggregate'
+}
+
+export interface NodeIntent {
+  alias: string
+  kind: string
+  config?: Record<string, unknown>
+  label?: string
+  description?: string
+}
+
+export interface WorkflowIntent {
+  name: string
+  description?: string
+  template_id?: string
+  nodes: NodeIntent[]
+  connections: ConnectionIntent[]
+  tags?: string[]
+  scene_count?: number
+  variant_count?: number
+  duration?: number
+  resolution?: string
+  warnings?: string[]
+}
+
+export interface ValidationError {
+  code: string
+  message: string
+  node?: string
+  port?: string
+  edge_index?: number
+}
+
+export interface RepairStep {
+  attempt: number
+  errors_before: ValidationError[]
+  repairs_applied: string[]
+  errors_after: ValidationError[]
+}
+
+export interface CostEstimate {
+  scene_count: number
+  variant_count: number
+  image_calls: number
+  video_calls: number
+  storyboard_calls: number
+  concat_calls: number
+  total_calls: number
+  estimated_duration_seconds: number
+  warnings?: string[]
+}
+
+export interface AgentPreviewResponse_v2 {
+  intent: WorkflowIntent
+  compiled_workflow: WorkflowSpec | null
+  validation_errors: ValidationError[]
+  repair_steps: RepairStep[]
+  cost_estimate: CostEstimate | null
+  warnings: string[]
+  can_apply: boolean
+}
+
+export interface AgentApplyResponse {
+  success: boolean
+  workflow_id?: string
+  version?: number
+  error?: string
 }
 
 export function agentGenerate(prompt: string, options?: { scenes?: number; style?: string }): Promise<WorkflowSpec> {
@@ -242,6 +310,39 @@ export function agentApplyPatch(
   return apiRequest('/agent/apply-patch', {
     method: 'POST',
     body: JSON.stringify({ workflow_id: workflowId, patch, expected_version: expectedVersion }),
+  })
+}
+
+// --- v2 API (AGENT-211) ---
+
+export function agentGeneratePreview_v2(prompt: string): Promise<AgentPreviewResponse_v2> {
+  return apiRequest('/agent/generate-preview-v2', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  })
+}
+
+export function agentModifyPreview_v2(
+  workflowId: string,
+  instruction: string,
+): Promise<AgentPreviewResponse_v2> {
+  return apiRequest('/agent/modify-preview-v2', {
+    method: 'POST',
+    body: JSON.stringify({ workflow_id: workflowId, instruction }),
+  })
+}
+
+export function agentApply_v2(
+  intent: WorkflowIntent,
+  options?: { workflowId?: string; expectedVersion?: number },
+): Promise<AgentApplyResponse> {
+  return apiRequest('/agent/apply-v2', {
+    method: 'POST',
+    body: JSON.stringify({
+      intent,
+      workflow_id: options?.workflowId ?? null,
+      expected_version: options?.expectedVersion ?? null,
+    }),
   })
 }
 

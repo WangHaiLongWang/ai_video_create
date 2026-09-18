@@ -154,7 +154,7 @@ class FFmpegService:
             await proc.wait()
             self._ffmpeg_available = proc.returncode == 0
             return self._ffmpeg_available
-        except FileNotFoundError:
+        except (FileNotFoundError, PermissionError, OSError):
             self._ffmpeg_available = False
             return False
 
@@ -505,17 +505,43 @@ class FFmpegService:
 _ffmpeg_service: FFmpegService | None = None
 
 
+_COMMON_FFMPEG_LOCATIONS: list[str] = []
+
+if os.name == "nt":  # Windows
+    _COMMON_FFMPEG_LOCATIONS = [
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
+        os.path.expanduser(r"~\scoop\shims\ffmpeg.exe"),
+        os.path.expanduser(r"~\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe"),
+    ]
+
+
 def _detect_ffmpeg_path(configured_path: str) -> str:
     """Return the best available ffmpeg path.
 
     Resolution order:
     1. Explicitly configured path (settings.FFMPEG_PATH) if it exists on disk.
-    2. ``imageio_ffmpeg`` bundled binary (common in pip-installed environments).
-    3. Fallback to the configured string (may fail at runtime if not on PATH).
+    2. ``shutil.which("ffmpeg")`` — any ffmpeg on the system PATH.
+    3. Common OS-specific install locations (Windows ``C:\\ffmpeg\\bin``, etc.).
+    4. ``imageio_ffmpeg`` bundled binary (common in pip-installed environments).
+    5. Fallback to the configured string (may fail at runtime if not on PATH).
     """
-    import os
+    # 1. Explicit configured path
     if configured_path and os.path.isfile(configured_path):
         return configured_path
+
+    # 2. System PATH via shutil.which
+    system_ffmpeg = shutil.which(configured_path or "ffmpeg")
+    if system_ffmpeg and os.path.isfile(system_ffmpeg):
+        return system_ffmpeg
+
+    # 3. Common install locations
+    for candidate in _COMMON_FFMPEG_LOCATIONS:
+        if os.path.isfile(candidate):
+            return candidate
+
+    # 4. imageio_ffmpeg bundled binary
     try:
         import imageio_ffmpeg
         path = imageio_ffmpeg.get_ffmpeg_exe()
@@ -523,7 +549,9 @@ def _detect_ffmpeg_path(configured_path: str) -> str:
             return path
     except Exception:
         pass
-    return configured_path
+
+    # 5. Fallback — may fail at runtime if not on PATH
+    return configured_path or "ffmpeg"
 
 
 def get_ffmpeg_service() -> FFmpegService:
@@ -541,3 +569,82 @@ def reset_ffmpeg_service() -> None:
     """Reset FFmpeg service (for testing)."""
     global _ffmpeg_service
     _ffmpeg_service = None
+
+
+# ------------------------------------------------------------------
+# Module-level convenience helpers (sync, no event loop needed)
+# ------------------------------------------------------------------
+
+_ffmpeg_discovered_path: str | None = None
+_ffprobe_discovered_path: str | None = None
+
+
+def _discover_executable(name: str) -> str | None:
+    """Locate an executable by name using the same strategy as _detect_ffmpeg_path.
+
+    Returns the resolved path or ``None`` if not found.
+    """
+    # 1. System PATH
+    on_path = shutil.which(name)
+    if on_path and os.path.isfile(on_path):
+        return on_path
+
+    # 2. Common OS-specific locations (ffmpeg/ffprobe live side-by-side)
+    if name in ("ffmpeg", "ffprobe"):
+        for candidate in _COMMON_FFMPEG_LOCATIONS:
+            alt = candidate.replace("ffmpeg", name)
+            if alt != candidate and os.path.isfile(alt):
+                return alt
+
+    # 3. imageio_ffmpeg (only provides ffmpeg, not ffprobe)
+    if name == "ffmpeg":
+        try:
+            import imageio_ffmpeg
+            path = imageio_ffmpeg.get_ffmpeg_exe()
+            if path and os.path.isfile(path):
+                return path
+        except Exception:
+            pass
+
+    return None
+
+
+def get_ffmpeg_path() -> str | None:
+    """Return the path to the ffmpeg binary, or ``None`` if unavailable.
+
+    The result is cached after the first call.
+    """
+    global _ffmpeg_discovered_path
+    if _ffmpeg_discovered_path is not None:
+        return _ffmpeg_discovered_path
+
+    # Check configured path first
+    try:
+        from backend.app.config import get_settings
+        settings = get_settings()
+        if settings.FFMPEG_PATH and os.path.isfile(settings.FFMPEG_PATH):
+            _ffmpeg_discovered_path = settings.FFMPEG_PATH
+            return _ffmpeg_discovered_path
+    except Exception:
+        pass
+
+    _ffmpeg_discovered_path = _discover_executable("ffmpeg")
+    return _ffmpeg_discovered_path
+
+
+def get_ffprobe_path() -> str | None:
+    """Return the path to the ffprobe binary, or ``None`` if unavailable.
+
+    The result is cached after the first call.
+    """
+    global _ffprobe_discovered_path
+    if _ffprobe_discovered_path is not None:
+        return _ffprobe_discovered_path
+
+    _ffprobe_discovered_path = _discover_executable("ffprobe")
+    return _ffprobe_discovered_path
+
+
+def is_ffmpeg_available() -> bool:
+    """Return ``True`` if a usable ffmpeg binary can be found."""
+    return get_ffmpeg_path() is not None

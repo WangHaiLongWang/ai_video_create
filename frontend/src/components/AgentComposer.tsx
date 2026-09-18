@@ -1,7 +1,10 @@
-import { useState } from 'react'
-import { Robot, Sparkle, Warning, CheckCircle, Plus, Minus, Pencil, ArrowRight } from '@phosphor-icons/react'
+import { useCallback, useState } from 'react'
+import { Robot, Sparkle, Warning, CheckCircle, Pencil, ArrowRight, TreeStructure, Play, ArrowsClockwise, Plus, Minus } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
+import { useExecutionStore } from '../stores/executionStore'
 import * as api from '../api'
+import type { AgentPreviewResponse_v2, WorkflowIntent, WorkflowSpec, GraphPatch, ValidationError, RepairStep, CostEstimate } from '../api'
+import type { StudioNode, EnhancedEdge } from '../types'
 
 const NODE_KIND_LABELS: Record<string, string> = {
   textInput: '主题输入', storyboard: '分镜生成', textToImage: '文生图',
@@ -15,12 +18,13 @@ function formatDuration(seconds: number): string {
   return `${m}m ${s}s`
 }
 
-function IntentPreview({ intent }: { intent: api.AgentPreviewResponse['intent'] }) {
-  if (!intent) return null
+/* ==================== Sub-components ==================== */
+
+function IntentPreview({ intent }: { intent: WorkflowIntent }) {
   return (
     <div className="agent-preview-section">
       <div className="agent-preview-title">
-        <span className="agent-preview-icon"><Plus size={12} weight="bold" /></span>
+        <span className="agent-preview-icon"><TreeStructure size={12} weight="bold" /></span>
         工作流结构
       </div>
       <div className="agent-intent-nodes">
@@ -48,8 +52,38 @@ function IntentPreview({ intent }: { intent: api.AgentPreviewResponse['intent'] 
   )
 }
 
-function CostPreview({ cost }: { cost: api.AgentPreviewResponse['cost_estimate'] }) {
-  if (!cost) return null
+function CompiledWorkflowPreview({ spec }: { spec: WorkflowSpec }) {
+  return (
+    <div className="agent-preview-section">
+      <div className="agent-preview-title">
+        <span className="agent-preview-icon"><TreeStructure size={12} weight="bold" /></span>
+        编译后工作流 ({spec.schemaVersion})
+      </div>
+      <div className="agent-compiled-nodes">
+        {spec.nodes.map((node: StudioNode) => (
+          <div key={node.id} className="agent-compiled-node">
+            <span className="agent-compiled-node-kind">{NODE_KIND_LABELS[node.data.kind] ?? node.data.kind}</span>
+            <span className="agent-compiled-node-label">{node.data.label}</span>
+            <code className="agent-compiled-node-id">{node.id}</code>
+          </div>
+        ))}
+      </div>
+      <div className="agent-compiled-edges">
+        {spec.edges.map((edge: EnhancedEdge) => (
+          <div key={edge.id} className="agent-compiled-edge">
+            <code>{edge.source}</code>
+            {edge.sourceHandle && <span className="agent-compiled-handle">.{edge.sourceHandle}</span>}
+            <ArrowRight size={10} />
+            <code>{edge.target}</code>
+            {edge.targetHandle && <span className="agent-compiled-handle">.{edge.targetHandle}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CostPreview({ cost }: { cost: CostEstimate }) {
   return (
     <div className="agent-preview-section">
       <div className="agent-preview-title">
@@ -82,7 +116,7 @@ function CostPreview({ cost }: { cost: api.AgentPreviewResponse['cost_estimate']
   )
 }
 
-function RepairPreview({ steps }: { steps: api.AgentPreviewResponse['repair_steps'] }) {
+function RepairPreview({ steps }: { steps: RepairStep[] }) {
   if (!steps || steps.length === 0) return null
   return (
     <div className="agent-preview-section">
@@ -102,7 +136,33 @@ function RepairPreview({ steps }: { steps: api.AgentPreviewResponse['repair_step
   )
 }
 
-function PatchPreview({ patch }: { patch: api.GraphPatch }) {
+function ValidationErrors({ errors }: { errors: ValidationError[] }) {
+  if (!errors || errors.length === 0) return null
+  return (
+    <div className="agent-preview-errors">
+      {errors.map((e, i) => (
+        <div key={i} className="agent-preview-error">
+          <Warning size={12} /> <code>{e.code}</code> {e.message}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Warnings({ warnings }: { warnings: string[] }) {
+  if (!warnings || warnings.length === 0) return null
+  return (
+    <div className="agent-preview-warnings">
+      {warnings.map((w, i) => (
+        <div key={i} className="agent-preview-warning">
+          <Warning size={12} /> {w}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PatchPreview({ patch }: { patch: GraphPatch }) {
   return (
     <div className="agent-preview-section">
       <div className="agent-preview-title">
@@ -140,55 +200,147 @@ function PatchPreview({ patch }: { patch: api.GraphPatch }) {
   )
 }
 
+/* ==================== Main Component ==================== */
+
 export function AgentComposer() {
   const [prompt, setPrompt] = useState('创建一个 5 镜头的未来城市短视频流程')
   const [loading, setLoading] = useState(false)
-  const [preview, setPreview] = useState<api.AgentPreviewResponse | null>(null)
+  const [preview, setPreview] = useState<AgentPreviewResponse_v2 | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(true)
+  const [applying, setApplying] = useState(false)
+
+  // v2 flow: undo, run, success
+  const [undoSnapshot, setUndoSnapshot] = useState<WorkflowSpec | null>(null)
+  const [applied, setApplied] = useState(false)
+  const [canRun, setCanRun] = useState(false)
+
+  // Modify mode
+  const [modifyMode, setModifyMode] = useState(false)
+  const [modifyInstruction, setModifyInstruction] = useState('')
 
   const { setWorkflow, workflow, serverVersion } = useStudioStore()
+  const { startExecution, status: execStatus } = useExecutionStore()
 
-  const handleGenerate = async () => {
+  const isRunning = execStatus === 'running'
+
+  /** Generate preview (v2) */
+  const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return
     setLoading(true)
     setError(null)
+    setApplied(false)
+    setCanRun(false)
 
     try {
-      const result = await api.agentGeneratePreview(prompt)
+      const result = await api.agentGeneratePreview_v2(prompt)
       setPreview(result)
     } catch (e) {
       setError(e instanceof Error ? e.message : '生成失败')
     } finally {
       setLoading(false)
     }
-  }
+  }, [prompt])
 
-  const handleApply = async () => {
-    if (!preview?.spec) return
+  /** Modify existing workflow via natural language (v2) */
+  const handleModify = useCallback(async () => {
+    if (!modifyInstruction.trim()) return
+    if (!workflow.id) return
+    setLoading(true)
+    setError(null)
+    setApplied(false)
+    setCanRun(false)
 
     try {
-      if (preview.patch) {
-        const result = await api.agentApplyPatch(
-          workflow.id,
-          preview.patch,
-          serverVersion ?? undefined,
-        )
-        setWorkflow(result)
-      } else {
-        setWorkflow(preview.spec)
+      const result = await api.agentModifyPreview_v2(workflow.id, modifyInstruction)
+      setPreview(result)
+      setModifyMode(false)
+      setModifyInstruction('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '修改失败')
+    } finally {
+      setLoading(false)
+    }
+  }, [modifyInstruction, workflow.id])
+
+  /** Apply v2 preview with undo snapshot and version conflict handling */
+  const handleApply = useCallback(async () => {
+    if (!preview?.intent) return
+    setApplying(true)
+    setError(null)
+
+    // Save undo snapshot before applying
+    setUndoSnapshot(structuredClone(workflow))
+
+    try {
+      const result = await api.agentApply_v2(preview.intent, {
+        workflowId: workflow.id,
+        expectedVersion: serverVersion ?? undefined,
+      })
+
+      if (!result.success) {
+        const msg = result.error ?? '应用失败'
+        if (msg.includes('409') || msg.includes('冲突') || msg.includes('conflict') || msg.includes('stale') || msg.includes('version')) {
+          setError('工作流已被更新，请刷新后重试')
+        } else {
+          setError(msg)
+        }
+        setUndoSnapshot(null)
+        return
       }
+
+      // If we have a compiled_workflow from the preview, use it directly
+      if (preview.compiled_workflow) {
+        setWorkflow(preview.compiled_workflow)
+      } else {
+        // Reload from server to get the latest version
+        await useStudioStore.getState().loadFromServer(result.workflow_id)
+      }
+
       setPreview(null)
       setPrompt('')
+      setApplied(true)
+      setCanRun(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '应用失败')
+      const msg = e instanceof Error ? e.message : '应用失败'
+      if (msg.includes('409') || msg.includes('冲突') || msg.includes('conflict') || msg.includes('stale') || msg.includes('version')) {
+        setError('工作流已被更新，请刷新后重试')
+      } else {
+        setError(msg)
+      }
+      setUndoSnapshot(null)
+    } finally {
+      setApplying(false)
     }
-  }
+  }, [preview, workflow, serverVersion, setWorkflow])
 
-  const handleCancel = () => {
+  /** Undo agent changes by restoring the pre-apply snapshot */
+  const handleUndo = useCallback(() => {
+    if (undoSnapshot) {
+      setWorkflow(undoSnapshot)
+      setUndoSnapshot(null)
+      setApplied(false)
+      setCanRun(false)
+      setPreview(null)
+      setError(null)
+    }
+  }, [undoSnapshot, setWorkflow])
+
+  /** Run workflow after successful apply */
+  const handleRun = useCallback(() => {
+    startExecution(workflow.id)
+  }, [startExecution, workflow.id])
+
+  const handleCancel = useCallback(() => {
     setPreview(null)
     setError(null)
-  }
+  }, [])
+
+  const toggleModifyMode = useCallback(() => {
+    setModifyMode(prev => !prev)
+    setModifyInstruction('')
+    setError(null)
+  }, [])
 
   if (!open) {
     return (
@@ -198,12 +350,11 @@ export function AgentComposer() {
     )
   }
 
-  const hasV2 = preview?.intent || preview?.cost_estimate
   const hasErrors = (preview?.validation_errors?.length ?? 0) > 0
-  const canApply = preview?.can_apply ?? (preview?.spec != null)
+  const canApply = preview?.can_apply ?? false
 
   return (
-    <section className="agent-composer">
+    <section className="agent-composer" role="region" aria-label="Workflow Agent">
       <div className="agent-title">
         <Robot size={18} weight="duotone" />
         <strong>Workflow Agent</strong>
@@ -219,77 +370,109 @@ export function AgentComposer() {
         />
         <button onClick={handleGenerate} disabled={loading}>
           <Sparkle size={17} weight="fill" />
-          {loading ? '生成中...' : '生成预览'}
+          {loading ? '生成中...' : '生成'}
         </button>
       </div>
 
       {error && (
-        <div className="agent-error">
+        <div className="agent-error" role="alert">
           <Warning size={13} /> {error}
+        </div>
+      )}
+
+      {/* Success banner with undo + run */}
+      {applied && !preview && (
+        <div className="agent-success-banner">
+          <CheckCircle size={14} weight="fill" />
+          <span>已应用</span>
+          <div className="agent-success-actions">
+            {undoSnapshot && (
+              <button className="agent-undo-btn" onClick={handleUndo} aria-label="撤销 Agent 更改">
+                <ArrowsClockwise size={12} /> 撤销
+              </button>
+            )}
+            {canRun && !isRunning && (
+              <button className="agent-run-btn" onClick={handleRun} aria-label="运行工作流">
+                <Play size={12} weight="fill" /> 运行
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {preview && (
         <div className="agent-preview">
           {/* Warnings */}
-          {preview.warnings.length > 0 && (
-            <div className="agent-preview-warnings">
-              {preview.warnings.map((w, i) => (
-                <div key={i} className="agent-preview-warning">
-                  <Warning size={12} /> {w}
-                </div>
-              ))}
-            </div>
-          )}
+          <Warnings warnings={preview.warnings} />
 
           {/* Validation errors */}
-          {hasErrors && (
-            <div className="agent-preview-errors">
-              {preview.validation_errors!.map((e, i) => (
-                <div key={i} className="agent-preview-error">
-                  <Warning size={12} /> <code>{e.code}</code> {e.message}
-                </div>
-              ))}
-            </div>
-          )}
+          <ValidationErrors errors={preview.validation_errors} />
 
           {/* Intent structure (v2) */}
-          <IntentPreview intent={preview.intent} />
+          {preview.intent && <IntentPreview intent={preview.intent} />}
 
-          {/* Patch (modify mode) */}
-          {preview.patch && <PatchPreview patch={preview.patch} />}
+          {/* Compiled workflow (v2) */}
+          {preview.compiled_workflow && <CompiledWorkflowPreview spec={preview.compiled_workflow} />}
 
           {/* Repair steps */}
           <RepairPreview steps={preview.repair_steps} />
 
           {/* Cost estimate (v2) */}
-          <CostPreview cost={preview.cost_estimate} />
-
-          {/* Diff text (legacy) */}
-          {preview.diff && !hasV2 && (
-            <div className="agent-preview-diff">
-              <pre>{preview.diff}</pre>
-            </div>
-          )}
+          {preview.cost_estimate && <CostPreview cost={preview.cost_estimate} />}
 
           {/* Destructive warning */}
-          {preview.destructive && (
+          {!preview.can_apply && (
             <div className="agent-destructive-warning">
-              <Warning size={13} weight="fill" /> 此操作将删除节点或连线
+              <Warning size={13} weight="fill" /> 此操作存在验证问题，无法安全应用
             </div>
           )}
 
           {/* Actions */}
           <div className="agent-preview-actions">
             <button
-              className={`agent-apply-btn ${!canApply ? 'disabled' : ''}`}
+              className={`agent-apply-btn ${!canApply || applying ? 'disabled' : ''}`}
               onClick={handleApply}
-              disabled={!canApply}
+              disabled={!canApply || applying}
             >
-              <CheckCircle size={14} /> {canApply ? '应用' : '无法应用'}
+              <CheckCircle size={14} /> {applying ? '应用中...' : canApply ? '确认应用' : '无法应用'}
             </button>
-            <button className="agent-cancel-btn" onClick={handleCancel}>取消</button>
+            <button className="agent-cancel-btn" onClick={handleCancel} disabled={applying}>取消</button>
           </div>
+        </div>
+      )}
+
+      {/* Modify mode toggle */}
+      {!preview && !applied && (
+        <div className="agent-modify-toggle">
+          <button className="agent-cancel-btn" onClick={toggleModifyMode}>
+            {modifyMode ? '取消修改' : '修改现有工作流'}
+          </button>
+        </div>
+      )}
+
+      {/* Modify instruction input */}
+      {modifyMode && !preview && (
+        <div className="agent-input agent-modify-input">
+          <textarea
+            value={modifyInstruction}
+            onChange={(e) => setModifyInstruction(e.target.value)}
+            placeholder="描述想要修改的内容..."
+            rows={2}
+            aria-label="修改指令"
+          />
+          <button onClick={handleModify} disabled={loading || !modifyInstruction.trim()}>
+            <Sparkle size={17} weight="fill" />
+            {loading ? '分析中...' : '修改'}
+          </button>
+        </div>
+      )}
+
+      {/* Undo bar (when snapshot exists but no active preview) */}
+      {!preview && undoSnapshot && !applied && (
+        <div className="agent-undo-bar">
+          <button className="agent-undo-btn" onClick={handleUndo} aria-label="撤销 Agent 更改">
+            <ArrowsClockwise size={12} /> 撤销 Agent 更改
+          </button>
         </div>
       )}
     </section>

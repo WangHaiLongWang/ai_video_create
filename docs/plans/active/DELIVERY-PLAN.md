@@ -1,14 +1,14 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.2
-> 制定日期：2026-09-16
+> 计划版本：1.3
+> 制定日期：2026-09-18
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-09-16 执行检查点
+## 0. 2026-09-18 执行检查点
 
 项目主要功能模块已完成，当前重点从“扩充能力”切换为“恢复可复现绿色门禁与产品闭环”。
 
@@ -36,10 +36,29 @@
 
 ### 当前质量基线
 
-- 前端：105 passed；typecheck 和 production build 通过。
-- 后端核心：504 passed、7 skipped；完整测试因 Pillow 缺失失败。
+- 前端：15 files / 228 passed；typecheck 和 production build 通过。
+- 生产构建：JS 535.29 kB / gzip 154.14 kB，有 chunk > 500 kB 警告。
+- 后端可收集核心集：741 passed、1 skipped、7 failed；失败均来自当前受限 Windows 环境的 FFmpeg subprocess `WinError 5`。
+- 完整 pytest 另被 Pillow 缺失和重复 `test_agent_api.py` basename 阻断。
 - 当前 Node 20.19.0；Playwright 本次基线未运行。
-- 当前综合产品完成度约 78%，但 React Flow/Scene 产品能力和完整发布门禁未完成。
+- 当前综合产品完成度约 80%；React Flow 浏览器闭环、Agent v2 前端接入、权威校验和发布门禁未完成。
+
+### 前端驱动的当前关键路径
+
+```text
+TEST/ENV 门禁修复
+  → React Flow 拖入/移动/连线 Playwright 闭环
+  → 所有保存与运行入口执行权威图校验
+  → 自定义 Port CRUD + Edge inspector/reconnect
+  → Agent v2 frontend preview/apply/save/run
+  → 滑雪场景 Mock/真实 Provider 纵向验收
+```
+
+当前已实现但不得误标为产品完成：
+
+- Handle 命中区、overflow、基础 `isValidConnection` 和 Toast 已有；兼容端口高亮、连接结束失败原因、Edge 编辑和 E2E 仍缺。
+- 自定义配置字段已基本实现；PortEditor 仍只读。
+- Agent v2 后端已注册；AgentComposer 仍调用 v1 API，v2 `compiled_workflow` 尚未适配。
 
 ### 剩余工作量重估
 
@@ -593,22 +612,22 @@ v1.0 发布目标：
 
 ## 14. 下一 Sprint 可直接领取的任务
 
-优先关闭发布环境阻断，然后按专项计划冻结图与 Scene Schema：
+本 Sprint 以“浏览器内成功搭建并运行 workflow”为唯一主目标，先关闭测试门禁，再完成拖拽/连线与 Agent v2 接入：
 
 | 顺序 | 工单 | 交付 | 验收 |
 |---:|---|---|---|
-| 1 | TEST-001 | Vitest include/exclude | `npm test` 不收集 `e2e/` |
-| 2 | TEST-002 | Location mock 类型修复 | typecheck/build 通过 |
-| 3 | ENV-001 | Node 20 和 engines/README | Playwright 可启动 |
-| 4 | ENV-002 | Pillow/imageio-ffmpeg 或系统 FFmpeg 依赖 | 完整 pytest 可收集 |
-| 5 | MEDIA-001 | FFmpeg 路径统一 | 当前 venv integration 19/19 |
-| 6 | CI-001 | CI UTF-8、health 路径、移除吞错 | 任一关键失败阻断 PR |
-| 7 | E2E-001 | Chromium 核心集 | 编辑/执行/Agent 主路径通过 |
-| 8 | DOC-001 | 报告日期、commit、环境和原始输出 | 证据可复现 |
-| 9 | FLOW-001 | Node Manifest/Port Schema | 前后端 fixture 一致 |
-| 10 | SCENE-001 | Scene Prompt Bundle Schema | JSON roundtrip 通过 |
+| 1 | TEST-003 | 添加 Pillow 声明并消除重复测试 basename | 完整 pytest 能收集全部用例 |
+| 2 | MEDIA-001 | FFmpeg discover/subprocess 环境处理 | 标准 Windows 与 CI 通过；不可用环境正确 skip |
+| 3 | RF-004 | connect session、兼容端口高亮、非法原因反馈 | 合法/非法拖线均有明确视觉结果 |
+| 4 | RF-005 | React Flow Playwright 连线与拖拽矩阵 | 拖入、移动、6 类连线场景和刷新 roundtrip 全绿 |
+| 5 | FLOW-011 | 后端权威 graph validation middleware/service | create/update/import/Agent/start 返回一致 422 |
+| 6 | FLOW-005 | Edge inspector 与 reconnect | label/mode/order 可编辑，重连不丢 EdgeData |
+| 7 | FIELD-005 | PortEditor 受约束 CRUD | 删除端口与关联 Edge 为一个可撤销事务 |
+| 8 | AGENT-211 | 前端 v2 API adapter | 正确消费 `compiled_workflow` 并提交 intent apply |
+| 9 | AGENT-210 | Agent v2 浏览器主链 | Prompt → preview → apply → save → Mock run |
+| 10 | UAT-SKI-001 | 滑雪场景 Mock 验收 | 1 Scene × 2 variants × 3 秒视频并成功 aggregate |
 
-以上环境工单和 FLOW-001/SCENE-001 评审完成前，不标记 RC，不继续扩展模型接入。
+Sprint 出口：前端 228+ 单测、typecheck、build、后端完整 pytest 和 Chromium 核心 E2E 全绿；在这些证据完成前不标记 RC，也不继续扩展新的模型 Provider。
 
 ## 15. 计划维护
 

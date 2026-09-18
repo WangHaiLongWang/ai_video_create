@@ -5,6 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
+from backend.app.domain.graph_validation import (
+    extract_nodes_edges_from_spec,
+    raise_if_invalid,
+)
 from backend.app.models import WorkflowSpec
 from backend.app.repositories.workflows import (
     OptimisticLockError,
@@ -58,6 +62,8 @@ def api_list_workflows() -> list[dict]:
 
 @router.post("", response_model=WorkflowSummary, status_code=201)
 def api_create_workflow(spec: WorkflowSpec) -> dict:
+    nodes, edges = extract_nodes_edges_from_spec(spec.model_dump())
+    raise_if_invalid(nodes, edges)
     return create_workflow(spec.model_dump())
 
 
@@ -71,6 +77,8 @@ def api_get_workflow(workflow_id: str) -> dict:
 
 @router.put("/{workflow_id}", response_model=WorkflowSummary)
 def api_update_workflow(workflow_id: str, body: UpdateRequest) -> dict:
+    nodes, edges = extract_nodes_edges_from_spec(body.spec)
+    raise_if_invalid(nodes, edges)
     try:
         return update_workflow(workflow_id, body.spec, body.expected_version)
     except WorkflowNotFoundError as e:
@@ -108,4 +116,6 @@ def api_export_workflow(workflow_id: str) -> dict:
 
 @router.post("/import", response_model=WorkflowSummary, status_code=201)
 def api_import_workflow(spec: WorkflowSpec) -> dict:
+    nodes, edges = extract_nodes_edges_from_spec(spec.model_dump())
+    raise_if_invalid(nodes, edges)
     return create_workflow(spec.model_dump())

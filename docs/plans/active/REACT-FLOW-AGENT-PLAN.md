@@ -1,9 +1,38 @@
 # React Flow 节点自定义与 Workflow Agent 前瞻计划
 
 > 状态：Active 子计划  
-> 日期：2026-09-17  
+> 日期：2026-09-18
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
 > 关联：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)
+
+## 0. 2026-09-18 代码检查点
+
+| 工单 | 状态 | 当前代码证据 | 剩余出口 |
+|---|---|---|---|
+| RF-001 | Done | Handle 14px、`overflow: visible`、30%-70% 布局 | Playwright 实测命中区 |
+| RF-002 | Partial | `isValidConnection`、`connectionRadius=20` 已有 | 增加 Strict mode 与连接会话状态 |
+| RF-003 | Partial | Store 会校验并写 `connectionError` | 改为结构化 `ConnectResult`，覆盖前置拒绝 |
+| RF-004 | Partial | Toast 已挂载 | 兼容端口高亮、inline/ARIA 原因反馈 |
+| RF-005 | Todo | 尚无 `flow-connection.spec.ts` | 浏览器连线/拖拽矩阵全绿 |
+| FIELD-001 | Done/需统一 | TS FieldDefinition/validator 已有 | 与后端/共享 Schema 对齐 |
+| FIELD-002 | Done 基础版 | FieldEditorDialog、动态字段 UI | 完整类型与可访问性验收 |
+| FIELD-003 | Done 基础版 | add/update/remove/duplicate/reorder actions | rename 同步迁移 config key |
+| FIELD-004 | Partial | 字段删除/Undo 基础存在 | 影响分析和单事务验收 |
+| FIELD-005 | Todo | PortEditor 只读，添加按钮禁用 | 受约束端口 CRUD 与 Edge 联动 |
+| FIELD-006 | Done 基础版 | WorkflowSpec 2.0 + v1 migration | API/DB/viewport roundtrip |
+| FIELD-007 | Partial | Schema/store/component 单测存在 | Playwright 字段/端口 E2E |
+| AGENT-201 | Done | WorkflowIntent Pydantic 模型 | Schema 版本冻结 |
+| AGENT-202 | Done 基础版 | manifests/templates/validate/layout tools | 工具与共享契约一致性 |
+| AGENT-203 | Done 基础版 | alias compiler 和 Handle edges | MiMo 结构化输出主链 |
+| AGENT-204 | Done 基础版 | bounded repair + repair steps | golden case 失败率验收 |
+| AGENT-205 | Done 基础版 | 调用量/时长估算 | 真实价格/预算策略后置 |
+| AGENT-206 | Backend Done | v2 preview/modify/apply API 已注册 | 前端 API contract 接入 |
+| AGENT-207 | Partial | 前端有 intent/cost/repair 展示代码 | 当前仍调用 v1，适配 `compiled_workflow` |
+| AGENT-208 | Todo | 未形成可核验审计闭环 | 脱敏、限额、审计持久化 |
+| AGENT-209 | Partial | compiler/preview/repair tests 已有 | 30+ 中文 golden cases |
+| AGENT-210 | Todo | 无 Agent v2 浏览器闭环 | Prompt → apply → save → run |
+
+当前关键路径已经从“修 DOM 才能连线”转为：`RF-002..005 → 后端权威校验 → FIELD-005/007 → AGENT-206/207/210`。
 
 ## 1. 目标
 
@@ -406,4 +435,3 @@ RF-001..005（先让人工连线真正可用）
 | C：Agent 2.0 | 2-3 周 | Prompt 生成完整可验证图，30+ golden cases |
 
 2 人并行预计 3-4 周；单人预计 5-7 周。里程碑 A 完成后重新评估交互工作量。
-

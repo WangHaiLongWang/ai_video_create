@@ -8,6 +8,12 @@ import {
   VideoCamera,
 } from '@phosphor-icons/react'
 import type { StudioNode, PortInfo } from './types'
+import { useStudioStore } from './store'
+
+/** Two port types are compatible when identical or either is 'any'. */
+function typesCompatible(a: string, b: string): boolean {
+  return a === b || a === 'any' || b === 'any'
+}
 
 const icons = {
   textInput: TextT,
@@ -18,8 +24,11 @@ const icons = {
   output: MagicWand,
 }
 
-export function StudioNodeView({ data, selected }: NodeProps<StudioNode>) {
+export function StudioNodeView({ id, data, selected }: NodeProps<StudioNode>) {
   const Icon = icons[data.kind]
+  const connectingFrom = useStudioStore(s => s.connectingFrom)
+  const errorTarget = useStudioStore(s => s.errorTarget)
+
   const inputs: PortInfo[] = data.ports?.inputs ?? (
     data.inputType
       ? [{ id: 'in', type: data.inputType, required: true, cardinality: 'one' }]
@@ -30,6 +39,13 @@ export function StudioNodeView({ data, selected }: NodeProps<StudioNode>) {
       ? [{ id: 'out', type: data.outputType, required: false, cardinality: 'one' }]
       : []
   )
+
+  // Determine if a target (input) handle is compatible with the active source port
+  const isCompatible = (port: PortInfo): boolean => {
+    if (!connectingFrom) return true // no active drag, all normal
+    if (connectingFrom.nodeId === id) return false // self-loop
+    return typesCompatible(connectingFrom.portType, port.type)
+  }
 
   // Distribute handles evenly along left/right edges using percentage-based top.
   // React Flow positions Handle DOM elements at these percentages of the node height.
@@ -43,19 +59,45 @@ export function StudioNodeView({ data, selected }: NodeProps<StudioNode>) {
     return `${start + index * step}%`
   }
 
+  // Determine active source handle for highlighting
+  const isSourceNode = connectingFrom?.nodeId === id
+  const isConnecting = connectingFrom !== null
+
+  // Error indicator for this node
+  const isErrorNode = errorTarget?.nodeId === id
+
   return (
-    <article className={`studio-node status-${data.status} ${selected ? 'is-selected' : ''}`}>
+    <article
+      className={[
+        'studio-node',
+        `status-${data.status}`,
+        selected ? 'is-selected' : '',
+        isConnecting ? 'is-connecting' : '',
+      ].filter(Boolean).join(' ')}
+    >
       {/* Input handles — left side */}
-      {inputs.map((port, i) => (
-        <Handle
-          key={port.id}
-          id={port.id}
-          type="target"
-          position={Position.Left}
-          className={`node-handle handle-${port.type} ${port.required ? 'handle-required' : ''}`}
-          style={{ top: handleTop(i, inputs.length) }}
-        />
-      ))}
+      {inputs.map((port, i) => {
+        const compatible = isCompatible(port)
+        const isErrorHandle = isErrorNode && errorTarget?.handleId === port.id
+        return (
+          <Handle
+            key={port.id}
+            id={port.id}
+            type="target"
+            position={Position.Left}
+            className={[
+              'node-handle',
+              `handle-${port.type}`,
+              port.required ? 'handle-required' : '',
+              isConnecting && compatible ? 'handle-compatible' : '',
+              isConnecting && !compatible ? 'handle-incompatible' : '',
+              isErrorHandle ? 'handle-error' : '',
+            ].filter(Boolean).join(' ')}
+            style={{ top: handleTop(i, inputs.length) }}
+            aria-label={`Input: ${port.label ?? port.id} (${port.type})${!compatible ? ' - incompatible' : ''}`}
+          />
+        )
+      })}
 
       {/* Port labels — left side, positioned absolutely outside overflow */}
       {inputs.map((port, i) => (
@@ -94,16 +136,24 @@ export function StudioNodeView({ data, selected }: NodeProps<StudioNode>) {
       ))}
 
       {/* Output handles — right side */}
-      {outputs.map((port, i) => (
-        <Handle
-          key={port.id}
-          id={port.id}
-          type="source"
-          position={Position.Right}
-          className={`node-handle handle-${port.type}`}
-          style={{ top: handleTop(i, outputs.length) }}
-        />
-      ))}
+      {outputs.map((port, i) => {
+        const isActiveSource = isSourceNode && connectingFrom?.handleId === port.id
+        return (
+          <Handle
+            key={port.id}
+            id={port.id}
+            type="source"
+            position={Position.Right}
+            className={[
+              'node-handle',
+              `handle-${port.type}`,
+              isActiveSource ? 'handle-active-source' : '',
+            ].filter(Boolean).join(' ')}
+            style={{ top: handleTop(i, outputs.length) }}
+            aria-label={`Output: ${port.label ?? port.id} (${port.type})`}
+          />
+        )
+      })}
     </article>
   )
 }

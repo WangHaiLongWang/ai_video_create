@@ -3,6 +3,10 @@
 These tests require a working FFmpeg installation on the system.
 They exercise version detection, video normalisation, concatenation,
 media probing, and error handling paths.
+
+Tests that invoke the real FFmpeg binary are marked with
+``@pytest.mark.external`` so they are automatically skipped on systems
+where FFmpeg is not available (see ``backend/tests/conftest.py``).
 """
 
 from __future__ import annotations
@@ -25,27 +29,26 @@ from backend.app.services.ffmpeg import (
     FFmpegError,
     FFmpegService,
     FFmpegVersionInfo,
+    get_ffmpeg_path,
+    is_ffmpeg_available,
     parse_ffmpeg_version,
 )
 
 # ---------------------------------------------------------------------------
-# Locate FFmpeg binary: prefer system PATH, fall back to imageio-ffmpeg
+# Locate FFmpeg binary using the shared discovery logic
 # ---------------------------------------------------------------------------
 
-def _find_ffmpeg_path() -> str:
-    """Return the path to a usable ffmpeg binary."""
-    system_ffmpeg = shutil.which("ffmpeg")
-    if system_ffmpeg:
-        return system_ffmpeg
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        pass
-    return "ffmpeg"  # last resort — tests will skip gracefully
+_FFMPEG_PATH = get_ffmpeg_path() or "ffmpeg"
 
+# Determine whether the live FFmpeg tests can run at all
+_FFMPEG_IS_AVAILABLE = is_ffmpeg_available()
 
-_FFMPEG_PATH = _find_ffmpeg_path()
+# Skips the entire module when FFmpeg is missing (for classes that are
+# entirely FFmpeg-dependent).  Individual tests can also use the marker.
+requires_ffmpeg = pytest.mark.skipif(
+    not _FFMPEG_IS_AVAILABLE,
+    reason="FFmpeg not available on this system",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +84,7 @@ def _run(coro):
 # 1. FFmpeg version detection
 # ---------------------------------------------------------------------------
 
+@requires_ffmpeg
 class TestFFmpegVersionDetection:
     """Tests for parsing and querying the FFmpeg version."""
 
@@ -111,6 +115,7 @@ class TestFFmpegVersionDetection:
         assert info.version == ""
         assert info.version_tuple == (0, 0, 0)
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_get_version_info_live(self, ffmpeg_service: FFmpegService):
         """get_version_info returns real data from the installed FFmpeg."""
@@ -119,6 +124,7 @@ class TestFFmpegVersionDetection:
         assert info.version != "", "version string should be populated"
         assert info.full_output != "", "full output should be captured"
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_check_version_compatible(self, ffmpeg_service: FFmpegService):
         """check_version_compatible returns a tuple with a boolean and message."""
@@ -127,6 +133,7 @@ class TestFFmpegVersionDetection:
         assert isinstance(msg, str)
         assert len(msg) > 0
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_ffmpeg_available(self, ffmpeg_service: FFmpegService):
         """check_ffmpeg_available should return True when FFmpeg is installed."""
@@ -138,9 +145,11 @@ class TestFFmpegVersionDetection:
 # 2. Video normalisation
 # ---------------------------------------------------------------------------
 
+@requires_ffmpeg
 class TestVideoNormalization:
     """Tests for normalising videos to a standard format."""
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_normalize_produces_valid_output(
         self, ffmpeg_service: FFmpegService, tmp_path: Path
@@ -159,6 +168,7 @@ class TestVideoNormalization:
         assert os.path.exists(dst)
         assert os.path.getsize(dst) > 0
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_normalize_info_has_correct_resolution(
         self, ffmpeg_service: FFmpegService, tmp_path: Path
@@ -174,6 +184,7 @@ class TestVideoNormalization:
         assert "path" in info
         assert info["size"] > 0
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_normalize_missing_input_raises(
         self, ffmpeg_service: FFmpegService, tmp_path: Path
@@ -189,9 +200,11 @@ class TestVideoNormalization:
 # 3. Video concatenation
 # ---------------------------------------------------------------------------
 
+@requires_ffmpeg
 class TestVideoConcatenation:
     """Tests for joining multiple video clips."""
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_concatenate_two_clips(
         self, ffmpeg_service: FFmpegService, tmp_path: Path
@@ -223,9 +236,11 @@ class TestVideoConcatenation:
 # 4. Media info probing
 # ---------------------------------------------------------------------------
 
+@requires_ffmpeg
 class TestMediaInfoProbe:
     """Tests for get_video_info."""
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_probe_returns_metadata(
         self, ffmpeg_service: FFmpegService, tmp_path: Path
@@ -241,6 +256,7 @@ class TestMediaInfoProbe:
         assert "duration" in info
         assert 0.5 < info["duration"] < 3.0
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_probe_missing_file_raises(self, ffmpeg_service: FFmpegService):
         """Probing a non-existent file raises FFmpegError."""
@@ -275,6 +291,7 @@ class TestErrorHandling:
         available = await bad.check_ffmpeg_available()
         assert available is False
 
+    @pytest.mark.external
     @pytest.mark.asyncio
     async def test_create_test_video_bad_path_raises(self, ffmpeg_service: FFmpegService):
         """Creating a test video into an invalid directory raises FFmpegError."""

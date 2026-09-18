@@ -273,11 +273,12 @@ export function PropertyPanel() {
             </>
           )}
 
-          {/* 端口 */}
+          {/* 端口（高级） */}
           <div className="prop-section-title">
-            <span>端口</span>
+            <span>端口（高级）</span>
           </div>
           <PortEditor
+            nodeId={node.id}
             inputs={node.data.ports?.inputs ?? []}
             outputs={node.data.ports?.outputs ?? []}
           />

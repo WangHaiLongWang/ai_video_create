@@ -1,7 +1,7 @@
 # React Flow 与 Scene Prompt 产品化计划
 
 > 状态：Active 子计划  
-> 日期：2026-09-16  
+> 日期：2026-09-18
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
 > 目标：把现有线性六节点画布升级为端口明确、可验证、可编辑、可导出的工作流与 Scene Prompt 系统。
 
@@ -12,7 +12,7 @@
 | FLOW-001 | 基础完成 | TS/Pydantic Node Manifest | 建立共享 JSON Schema/fixture 生成链 |
 | FLOW-002 | 完成基础版 | StudioNode 多 Handle + 稳定 ID | 端口 hover/连接状态视觉 |
 | FLOW-003 | 完成基础版 | 前后端 self/type/cardinality/cycle 校验 | create/update/start 强制调用与错误信封 |
-| FLOW-004 | 未完成 | 非法连接仅 console.warn | 高亮、toast、可访问提示 |
+| FLOW-004 | 部分 | Store connectionError + Toast 已挂载 | 兼容端口高亮、前置拒绝原因、可访问提示 |
 | FLOW-005 | 部分 | EdgeData 已定义 | Edge 组件、label/mode/order/重连 UI |
 | FLOW-006 | 完成基础版 | WorkflowSpec 2.0 + v1 migration | DB/API/viewport roundtrip 验收 |
 | FLOW-007 | 未完成 | V2 有 viewport 字段 | 实际 onMoveEnd 保存与工具栏 |
@@ -53,7 +53,7 @@
 #### React Flow 图契约
 
 - Node Manifest 在前后端分别维护，尚无共享 JSON Schema/代码生成。
-- 连接失败只写 console，没有端口高亮、toast 或可访问提示。
+- 连接失败已有 Store/Toast 基础，但 `isValidConnection` 的前置拒绝未必进入 Store；仍缺端口高亮、inline 和可访问提示。
 - EdgeData 已定义 mode/path/order/label，但没有 Edge 编辑器或执行语义完整验收。
 - WorkflowSpec 2.0 migration 已有，viewport 实际保存和后端 roundtrip 待验收。
 - Undo/Redo 记录 React Flow 临时变化，缺少语义事务。

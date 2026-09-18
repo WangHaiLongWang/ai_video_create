@@ -10,6 +10,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from backend.app.domain.graph_validation import (
+    extract_nodes_edges_from_spec,
+    raise_if_invalid,
+)
 from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
 from backend.app.engine.queue import (
@@ -78,6 +82,10 @@ def start_execution(workflow_id: str) -> dict:
         raise HTTPException(status_code=404, detail=f"工作流 {workflow_id} 不存在")
 
     spec = json.loads(wf_row["spec_json"])
+
+    # Graph validation before compilation
+    nodes, edges = extract_nodes_edges_from_spec(spec)
+    raise_if_invalid(nodes, edges)
 
     # 编译
     try:

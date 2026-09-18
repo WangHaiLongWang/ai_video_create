@@ -1,246 +1,222 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-09-16
-> 状态版本：9.0
-> Active 计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
-> 评估原则：只采用当前环境可重复结果；历史报告单独列为证据，不替代当前门禁。
+> 基线日期：2026-09-18
+> 状态版本：10.0
+> 代码基线：`254d6a9`（工作区文档更新前）
+> Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
+> 评估原则：代码入口、调用链和当前环境可重复测试优先；“已存在代码”不等同于“产品链路已闭环”。
 
-## 1. 结论
+## 1. 执行结论
 
-项目已完成主要产品模块和执行器骨架，处于“内部验收前的集成收敛期”，不是可发布 RC。
+项目已具备工作流编辑、DAG 执行、多模态 Provider、资产管理、Scene Bundle 和 Agent v2 的主要骨架，当前处于“前端主链收敛与发布门禁修复期”，尚未达到 Release Candidate。
 
-已经具备：
+本轮最重要的判断：
 
-- React Flow 工作流编辑与持久化；
-- NodeResult/ArtifactRef、scene map、Scheduler、RetryPolicy、WorkerPool；
-- REST + WebSocket 执行监控；
-- MiMo、Qwen Image、Wan3、ComfyUI、OpenAI、Ollama、Mock Provider；
-- Agent preview/diff 和模板装载；
-- Asset/Template 数据表与 API；
-- Wan3 与 FFmpeg 的独立验收报告；
-- GitHub Actions、Playwright 和 release-check 基础设施。
-
-当前发布门禁状态：
-
-1. ✅ Vitest 已隔离 `e2e/`，前端 105 项通过。
-2. ✅ TypeScript 和生产构建通过。
-3. ✅ Node 20.19.0 满足 Playwright 版本要求。
-4. ❌ Pillow 未安装到当前 venv，完整后端测试收集失败。
-5. ⚠️ FFmpeg 报告在另一 Python 环境通过，当前 venv 仍需复现。
-6. ⚠️ CI/Playwright 文件存在，但本次未取得同一 commit 的三平台绿色证据。
-7. ⚠️ React Flow 已有多端口/Handle ID/图校验基础，仍缺连线错误 UI、Edge 编辑和主入口强制校验。
-8. ⚠️ Scene Bundle/导出 API 已有基础，仍缺 SQLite Draft、Scene Editor 和下载式产品交互。
+- React Flow 的节点拖入、节点移动、命名 Handle、基础连线验证和错误 Toast 已实现，早期“完全无法连线”的主要 DOM 问题已修复。
+- 连线体验仍未闭环：缺连接开始/结束状态、兼容端口高亮、非法目标原因反馈、Edge 编辑/重连和浏览器连线矩阵。
+- 自定义配置字段已具有 Schema、Dialog 和 Store actions；高级 PortEditor 仍是只读视图，添加端口按钮禁用。
+- Agent v2 后端已具有 WorkflowIntent、compiler、repair、cost estimate 和 v2 API；前端仍调用旧 `/api/agent/generate-preview`，且前端类型使用 `spec`，v2 返回 `compiled_workflow`，因此 Agent v2 尚未形成产品闭环。
+- 前后端都有图校验器，但工作流 update、import、execution start 等入口没有统一调用同一个权威 `validate_graph`；当前 Pydantic 模型对带 Handle 的 v2 Edge 直接跳过端口校验。
+- 冬季滑雪验收流程的通用建模已明确：1 个逻辑 Scene、2 个图片 variant、每张图生成 3 秒视频、aggregate 后拼接约 6 秒成片。
 
 ### 当前评分
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
-| 架构骨架 | 90% | 分层完整，共享图/Scene Schema 待补 |
-| React Flow 编辑器 | 72% | 多端口和校验基础已实现，交互反馈/Edge 编辑待完成 |
-| Mock 用户链路 | 90% | 执行器成熟，完整后端门禁仍被依赖阻断 |
-| 真实多模态 | 78% | MiMo/Qwen/Wan3 有真实证据，FFmpeg 当前环境待复现 |
-| Agent 与模板 | 82% | preview/diff/装载、Scene Schema/导出器已接入，编辑器缺失 |
-| 发布工程 | 65% | 前端绿色，完整后端/媒体/三平台证据不足 |
-| 综合产品完成度 | **约 81%** | 内部验收阶段，不是 RC |
+| 架构骨架 | 91% | API/Engine/Provider/Repository/Scene/Agent 分层完整，共享契约仍分散 |
+| React Flow 编辑器 | 80% | 拖拽和基础连线可用，端口/Edge 高级交互与 E2E 未完成 |
+| Mock 工作流闭环 | 90% | 执行器能力成熟，浏览器纵向验收和完整门禁不足 |
+| 自定义字段/端口 | 68% | 配置字段基本实现，动态端口尚未实现 |
+| Workflow Agent | 78% | v2 后端基本实现，前端仍走 v1，golden/E2E 不足 |
+| Scene/Prompt 产品层 | 67% | Schema/API/exporter 已有，持久化和编辑 UI 未闭环 |
+| 真实多模态 | 78% | MiMo/Qwen/Wan3 有历史证据，当前环境 FFmpeg/UAT 待复现 |
+| 发布工程 | 62% | 前端绿色；后端全量收集、媒体环境和三平台证据未绿 |
+| 综合产品完成度 | **约 80%** | 可继续内部开发和演示，不是 RC |
 
 ## 2. 当前可重复测试基线
 
-当前本机：Windows、Node 20.19.0、npm 10.8.2、Python 3.12.3。
+当前环境：Windows、Node 20.19.0、npm 10.8.2、Python 3.12.3。
 
-| 验证项 | 结果 | 状态 |
+| 验证项 | 本轮结果 | 状态 |
 |---|---:|---|
-| 前端 Vitest (8 files) | 105 passed | ✅ 通过 |
-| TypeScript typecheck | 0 errors | ✅ 通过 |
-| Vite production build | 493.02KB JS / gzip 144.22KB | ✅ 通过 |
-| 后端核心（排除 integration） | 504 passed、7 skipped | ✅ 通过 |
-| 后端完整 pytest | Pillow 缺失，Wan3 UAT 收集失败 | ❌ 失败 |
-| 根 `npm test` | 前端通过，后端收集失败 | ❌ 失败 |
-| Playwright | Node 已满足；本次未运行浏览器套件 | ⚠️ 未验证 |
+| Frontend Vitest | 15 files / 228 passed | 通过 |
+| TypeScript | 0 errors | 通过 |
+| Vite production build | JS 535.29 kB / gzip 154.14 kB | 通过，有 chunk > 500 kB 警告 |
+| Backend core（排除 integration 和重复模块） | 741 passed / 1 skipped / 7 failed | 未绿；7 项均为 FFmpeg subprocess 命名管道 `WinError 5` |
+| Backend full collection | 800 items 后中止 | 失败；缺 Pillow，并存在两个 `test_agent_api.py` 的 import mismatch |
+| Playwright | 本轮未执行浏览器套件 | 未验证 |
+| 三平台 CI | 无同一 commit 的 Windows/macOS/Linux 绿色证据 | 未验证 |
 
-### 报告可追溯性说明
+测试结论应区分三类问题：
 
-- [`reports/wan3-uat.md`](reports/wan3-uat.md) 记录了真实 Wan3 任务和 MP4 下载。
-- [`reports/ffmpeg-integration.md`](reports/ffmpeg-integration.md) 使用系统外另一个 Python 环境中的 imageio-ffmpeg。
-- 两份报告日期为 2026-09-17，晚于当前基线日期 2026-09-16；应由报告作者确认日期并补充 commit、环境锁文件和原始测试输出。
+1. 产品回归：前端单元、类型和构建当前绿色。
+2. 环境阻断：FFmpeg subprocess 在当前受限 Windows 环境无法创建命名管道；需要在标准开发终端/CI 复现。
+3. 仓库门禁缺陷：Pillow 未声明或未安装、重复测试 basename 会阻止完整 pytest 收集，必须修复。
 
-## 3. 默认运行配置
+## 3. 前端与 React Flow 实现评估
+
+### 3.1 已实现
+
+| 能力 | 代码位置 | 评估 |
+|---|---|---|
+| 节点库点击添加和 HTML DnD 拖入 | `NodePalette.tsx`, `Canvas.tsx` | 已实现 |
+| 节点画布拖动、平移、缩放、小地图、删除 | `Canvas.tsx` | 已实现 |
+| 多命名 Handle 与端口标签 | `StudioNode.tsx`, `node-manifest.ts` | 已实现基础版 |
+| Handle 14px、overflow visible、30%-70% 布局 | `styles.css`, `StudioNode.tsx` | 已修复 |
+| 拖线时快速合法性检查 | `Canvas.tsx` `isValidConnection` | 已实现 |
+| 类型、方向、基数、自环、重复边、环验证 | `schemas/graph-validation.ts` | 已实现 |
+| 非法连接消息状态与 Toast | `store.ts`, `Toast.tsx`, `App.tsx` | 已挂载，但前置拒绝场景覆盖不足 |
+| 配置字段添加/更新/删除/复制/排序 | `PropertyPanel`, `FieldEditorDialog`, `store.ts` | 已实现基础版 |
+| WorkflowSpec 2.0 与 v1 migration | `schemas/workflow-spec.ts` | 已实现基础版 |
+
+### 3.2 未闭环问题
+
+| 优先级 | 缺口 | 用户影响 | 关闭标准 |
+|---:|---|---|---|
+| P0 | `isValidConnection` 拒绝后不保证触发 `onConnect`，Toast 可能没有具体原因 | 用户仍感知为“放开后没反应” | `onConnectStart/onConnectEnd` 捕获上下文并显示结构化原因 |
+| P0 | 无兼容 target 高亮/不兼容端口降暗 | 多端口图难连接 | 拖线期间视觉状态 + ARIA 文案 |
+| P0 | 缺 Playwright 连线矩阵 | 无法证明浏览器真实可用 | 覆盖合法、类型错误、基数、自环、重复、成环、刷新 roundtrip |
+| P0 | 后端校验未覆盖所有写入/运行入口 | 非法图可能进入 DB 或执行器 | create/update/import/Agent apply/start 统一权威校验并返回结构化 422 |
+| P1 | PortEditor 只读，添加按钮禁用 | 不能自定义添加/删除端口 | 受约束 CRUD、删除影响确认、同步删除 Edge、Undo |
+| P1 | Edge 无选择编辑、mode/order/label/reconnect | map/aggregate 语义不可见 | Edge inspector + reconnect 保留 EdgeData |
+| P1 | viewport 未在 `onMoveEnd` 持久化 | 刷新后视图不稳定 | local/API/export roundtrip |
+| P1 | 拖动历史缺语义事务 | Undo 体验不稳定 | 一次拖动只产生一个历史项 |
+| P2 | 生产 JS 超过 500 kB | 首屏和维护成本上升 | route/panel lazy load 或 manualChunks |
+
+### 3.3 拖拽验收定义
+
+“拖拽功能完成”必须同时满足：
+
+1. 从节点库拖入后，节点出现在指针对应的 flow 坐标；缩放和平移后坐标仍正确。
+2. 节点可以移动；移动结束产生一个 Undo 事务并触发可靠保存。
+3. 从 source Handle 拖到合法 target Handle 后边立即出现。
+4. 非法目标不能落边，并显示稳定错误码与中文原因。
+5. 保存、刷新、导出、导入后 node position、viewport、sourceHandle、targetHandle 和 EdgeData 不丢失。
+6. 鼠标主路径通过 Playwright；键盘至少可以选择、删除和读取端口错误状态。
+
+## 4. Workflow Agent 评估
+
+### 4.1 已实现的后端能力
+
+- `WorkflowIntent`、alias/port connection 模型。
+- Intent compiler 输出带 `sourceHandle/targetHandle` 的 WorkflowSpec。
+- Validator-driven repair、repair steps 和调用量估算。
+- `/api/agent/generate-preview-v2`、`modify-preview-v2`、`apply-v2`。
+- 滑雪场景 variant fan-out 与 aggregate 的通用意图基础。
+
+### 4.2 产品接入缺口
+
+- `AgentComposer` 仍调用旧 `agentGeneratePreview()` / `/agent/generate-preview`。
+- 前端 `AgentPreviewResponse` 期待 `spec`，v2 响应实际为 `compiled_workflow`。
+- v2 apply 使用 intent，而现有前端 apply 仍使用旧 GraphPatch 或直接 `setWorkflow(spec)`。
+- Agent v2 的 prompt 解析当前仍以规则/模板逻辑为主，未证明 MiMo 结构化输出主链。
+- 缺前端 API contract tests、30+ 中文 golden cases、Prompt → Preview → Apply → Save → Run 的 Playwright。
+- Agent apply 后仍需再次调用权威图校验，不能只依赖 intent validator。
+
+目标链路：
 
 ```text
-LLM       openai_compat / Xiaomi MiMo / mimo-v2.5-pro
-Image     dashscope / qwen-image-3.0 / 1280x720
-Video     wan3 / wan3.0-video / 480P / adaptive / 5s
-Local     ComfyUI 可选（img2vid workflow 仍需真实节点模板）
-Storage   data/assets
-Database  data/ai_video_create.db
-Host      127.0.0.1
+用户 Prompt
+  → WorkflowIntent（结构化输出）
+  → Node Manifest/Template 工具
+  → Compiler 生成 WorkflowSpec 2.0
+  → 权威 graph validator
+  → 最多 2 次有限修复
+  → 布局 + 调用量/成本预估 + diff
+  → 用户确认
+  → expected_version apply
+  → 保存并可直接运行
 ```
 
-配置与 Provider 说明：
+## 5. 后端与数据架构评估
 
-- [`integrations/mimo-v2.5-pro.md`](integrations/mimo-v2.5-pro.md)
-- [`integrations/qwen-image-3.0.md`](integrations/qwen-image-3.0.md)
-- [`integrations/wan3-video.md`](integrations/wan3-video.md)
+优势：
 
-## 4. 功能完成矩阵
+- API、Engine、Handler、Provider、Repository、Service 边界已经形成。
+- NodeResult/ArtifactRef、scene map、retry、external job id、WorkerPool 和资产血缘具备基础。
+- MiMo、Qwen Image、Wan3、ComfyUI 和 Mock 按能力分离。
+- Scene Bundle、materializer、JSON/Markdown/CSV/Text/Qwen/Wan exporter 已有实现。
 
-### 4.1 编辑器与工作流
+主要债务：
 
-| 能力 | 状态 | 缺口 |
-|---|---|---|
-| 画布移动/缩放/连线/删除 | 已实现 | 浏览器连线矩阵仍需专项 E2E |
-| 节点添加 | 已实现 | 支持点击和侧栏拖入 |
-| 属性配置 | 已实现 | 手写 key/value，非 Node Manifest/Schema 表单 |
-| Undo/Redo | 已实现 | 拖动过程可能产生过多历史项 |
-| localStorage | 已实现 | 只维护当前工作流 |
-| SQLite CRUD/乐观锁 | 已实现 | Update body 仍需强类型收紧 |
-| 工作流导入/导出 | 已实现 | 仅 WorkflowSpec 1.0，无 Scene Prompt 导出 |
-| 自动保存 | 部分 | 失败只进 console，保存文案可能误导 |
-| Handle/端口 | 基础实现 | Node Manifest、多命名 Handle、port label/type 已有 |
-| 连线验证 | 基础实现 | 前后端覆盖类型/方向/基数/自环/重复边/环；UI 仅 console 提示 |
-| Edge 语义 | 部分 | EdgeData 有 direct/map/aggregate 字段，缺编辑器与执行语义统一验收 |
-| 图版本迁移 | 基础实现 | WorkflowSpec 2.0 和 1.0 migration 已有，viewport 保存主路径待验收 |
-| Scene Bundle | 基础实现 | TS/Pydantic、materializer、导出器和安全扫描已有 |
-| Scene Draft | 部分 | API/Service 已有但仅内存存储，重启丢失 |
-| Scene 编辑器 | 未实现 | 无可视化逐镜/批量编辑 UI |
-| Scene/Prompt 导入导出 | 后端基础实现 | JSON/Markdown/CSV/Text/Qwen/Wan3 已有，缺下载 UI/E2E |
-
-### 4.2 执行引擎
-
-| 能力 | 状态 | 证据/缺口 |
-|---|---|---|
-| NodeResult/ArtifactRef | 已实现 | contracts tests |
-| Storyboard scene map | 已实现 | scene mapping integration tests |
-| 上游结果注入 | 已实现 | Scheduler/Worker |
-| 深层失败传播 | 已实现 | failure propagation tests |
-| 取消竞态防护 | 已实现 | 状态条件更新 |
-| RetryPolicy | 已实现 | retry tests + Migration 007 |
-| external_job_id | 已实现 | Migration 006 + persistence tests |
-| WorkerPool | 已实现 | worker pool tests |
-| 执行收敛 | 已实现 | Scheduler/queue tests |
-| 节点级手动重试 | 已实现 | executionStore 调用 retry API并更新节点状态 |
-| 长任务重启续轮询 | 部分 | ID 持久化已完成，恢复编排仍需端到端验证 |
-| 正式 schema migration 表 | 未实现 | 当前按 SQL 文件执行并忽略重复列 |
-
-### 4.3 前端执行、Agent 和模板
-
-| 能力 | 状态 | 缺口 |
-|---|---|---|
-| REST 启动/取消/轮询 | 已实现 | 错误态仍需统一 |
-| WebSocket 重连/补拉 | 已实现 | 单元测试通过，浏览器断线 E2E 待补 |
-| ExecutionPanel | 已实现 | retry API/UI 已接通，仍需浏览器 E2E |
-| Agent generate preview | 已实现 | 严格工具调用/Schema constrained output 待加强 |
-| GraphPatch diff/warning | 已实现 | 有损操作和 expected_version 需完整 UAT |
-| TemplateSelector 装载 | 已实现 | API 返回 spec 已装入画布，缺浏览器 E2E 证据 |
-| Provider 设置 | 已实现 | API 只改内存，重启以 `.env` 为准 |
-| 自定义 LLM | 已实现 | 单配置槽，尚非多 Provider CRUD |
-| 资产预览/下载页 | 已实现基础版 | AssetPanel 有列表/筛选/预览/下载/删除 |
-| 工作流列表 | 已实现基础版 | WorkflowListPage 有搜索/加载/删除/导入导出 |
-
-### 4.4 Provider 与媒体
-
-| Provider/服务 | 状态 | 缺口 |
-|---|---|---|
-| Xiaomi MiMo | 真实调用通过 | 无自动外部 smoke 门禁 |
-| Qwen Image 3.0 | 真实生图通过 | 多镜头成本/UAT 待完善 |
-| Wan3.0 Video | 报告记录真实 UAT | 当前 venv 缺 Pillow，无法复现完整套件 |
-| OpenAI | 适配器与 Contract | 未配置真实 Key UAT |
-| Ollama | 适配器 | 本机服务未验证 |
-| ComfyUI T2I | 基础 workflow | 本机服务未验证 |
-| ComfyUI I2V | 占位 | 不可用于生产 |
-| FFmpeg | 实现已增强 | 当前路径不可用，依赖未声明 |
-
-## 5. 架构实现评估
-
-### 5.1 优点
-
-- API、Engine、Handler、Provider、Repository 和 Service 边界已经形成。
-- 图像、视频、文本 Provider 按 capability 分离，Wan3 未混入 ComfyUI。
-- 执行结果、外部 Job ID、重试字段和资产血缘均进入 SQLite。
-- 前端工作流状态和 executionStore 开始拆分。
-- 真实 Provider 与离线 Contract Test 并存，方向正确。
-- 安全默认监听 127.0.0.1，Settings API 不返回 Key。
-
-### 5.2 架构债务
-
-1. **共享契约仍分散**：Node 类型/配置仍在前端、模型、Agent 各自维护。
-2. **迁移器不够正式**：无 `schema_migrations`，靠 duplicate column 容错。
-3. **配置持久化不足**：设置页只改内存，未落 ProviderConfig/secret reference。
-4. **队列事务需压力验证**：claim 的 SELECT/BEGIN 时序仍需多连接并发证明。
-5. **资产安全需收紧**：路径 root、原子写、MIME/大小和引用删除策略需统一验收。
-6. **图契约仍有双实现**：前后端 Manifest/validator 各自维护，需要共用 fixtures 或代码生成。
-7. **Scene 数据产品层未完成**：Schema 与导出器已存在，但 Draft 仅内存、无 Scene Editor 和下载交互。
-8. **外部任务恢复证据不足**：Wan3 ID 可保存，但重启恢复的完整状态机和 UI 仍需端到端验证。
+1. Node Manifest/validator 前后端双实现，缺共享 fixtures 或代码生成。
+2. `WorkflowSpec` 后端 `NodeData` 尚未完整建模 ports/fieldSchema；v2 Handle 边在模型 validator 中被跳过。
+3. workflow update body 是裸 `dict`，绕过强类型 WorkflowSpec 校验。
+4. execution start 只依赖 compiler，没有显式调用权威 graph validator。
+5. Scene Draft 仍为内存实现，重启丢失。
+6. migration 缺正式 `schema_migrations` 账本。
+7. Provider 设置仍主要以内存和 `.env` 为准，不是多 Provider CRUD。
 
 ## 6. 发布阻断清单
 
 | ID | 阻断项 | 优先级 | 关闭标准 |
 |---|---|---:|---|
-| R0-1 | 完整后端测试缺 Pillow | P0 | requirements 安装后完整 pytest 可收集 |
-| R0-2 | FFmpeg 路径不可复现 | P0 | venv 声明依赖或系统安装；integration 19/19 当前环境通过 |
-| R0-3 | 三平台 CI 未提供本次 run 证据 | P0 | 同一 commit Windows/macOS/Linux 全绿 |
-| R0-4 | Playwright 未执行本次基线 | P0 | Chromium 核心 E2E 通过并归档 |
-| R0-5 | React Flow 产品交互未闭环 | P0 | 连线错误 UI、Edge 编辑、viewport、E2E 完成 |
-| R0-6 | Scene Prompt 产品层未闭环 | P0 | SQLite Draft、Editor、下载导出和 E2E 完成 |
-| R0-7 | 报告元数据不一致 | P1 | 校正日期，记录 commit、环境、命令和原始输出 |
+| R0-1 | Pillow 缺失导致完整 pytest 无法收集 | P0 | requirements/lock 声明并在新 venv 完整收集 |
+| R0-2 | 两个 `test_agent_api.py` 导致 import mismatch | P0 | 重命名为唯一 basename，完整 pytest 可收集 |
+| R0-3 | 后端核心 FFmpeg 7 项未绿 | P0 | 标准终端和 CI 通过；环境不可用时正确 skip 而非异常 |
+| R0-4 | React Flow 浏览器连线/拖拽无专项证据 | P0 | Playwright 核心矩阵全绿并归档 trace/screenshot on failure |
+| R0-5 | 图校验未覆盖所有入口 | P0 | create/update/import/Agent/start 一致拒绝非法图 |
+| R0-6 | Agent v2 前端未接入 | P0 | v2 preview/apply/save/run 浏览器闭环 |
+| R0-7 | Scene 产品层未闭环 | P1 | SQLite Draft、Scene Editor、下载导出和 roundtrip E2E |
+| R0-8 | 无同一 commit 三平台证据 | P0 | Windows/macOS/Linux CI、Playwright、release-check 全绿 |
 
-## 7. 里程碑
+## 7. 后续开发路线
 
-| 里程碑 | 当前状态 | 下一出口 |
-|---|---|---|
-| M0 工程基线 | 部分绿色 | 完整后端 pytest + Playwright + 三平台证据 |
-| M1 编辑闭环 | 基础完成 | WorkflowSpec 2.0、多端口/边语义、Scene 导出 |
-| M2 Mock 执行闭环 | 基本完成 | 浏览器 E2E 和重启恢复证据 |
-| M3 真实多模态 | 有历史 UAT | 待锁定环境复现 Qwen/Wan3/FFmpeg |
-| M4 Agent/模板 | 功能已接入 | E2E + 结构化工具 + 设置持久化 |
-| M5 Release Candidate | 未达到 | 所有发布阻断关闭后重新运行 Release Check |
+### Sprint F0：恢复可信门禁（2-3 天）
 
-## 8. 下一阶段计划
+- 声明 Pillow/imageio-ffmpeg 或明确系统 FFmpeg 依赖。
+- 消除重复测试模块 basename。
+- 标准环境运行完整 pytest；归档失败环境、命令和 commit。
+- 保持 frontend 228 tests、typecheck、build 绿色。
 
-### 专项 F1：React Flow 端口图契约（2 周）
+出口：仓库测试可完整收集，环境失败不会被误报为业务成功。
 
-1. Node Manifest 与稳定 Port ID。
-2. 多输入/多输出 Handle 渲染。
-3. 类型、方向、cardinality、required、自环、重复边和环检测。
-4. Edge mode：direct/map/aggregate，保存 sourceHandle/targetHandle。
-5. WorkflowSpec 2.0、viewport 和 1.0 migration。
-6. 连线兼容端口高亮、失败原因、重连与键盘可访问性。
+### Sprint F1：React Flow 人工编辑闭环（5-7 天）
 
-出口：复杂节点能够可靠连线，旧工作流无损迁移，前后端验证结果一致。
+- 实现 connect session、端口高亮、非法原因 Toast/inline feedback。
+- Edge inspector、mode/label/order、删除与 reconnect。
+- viewport 保存和拖动 Undo 事务化。
+- 权威后端图校验覆盖所有入口。
+- Playwright 覆盖节点拖入、移动、连线、保存和 roundtrip。
 
-### 专项 F2：Scene Prompt Bundle（2 周）
+出口：用户可以稳定地从空画布搭建、保存、重开并运行合法工作流。
 
-1. 冻结 Scene Prompt Bundle JSON Schema。
-2. 将 execution Storyboard 结果 materialize 为 Bundle。
-3. Scene draft/override/lock 持久化。
-4. Scene Editor 支持逐镜和批量编辑。
-5. JSON、Markdown、CSV 和纯文本导入导出。
-6. 导出内容扫描 Key、签名 URL 和绝对路径。
+### Sprint F2：字段与端口产品化（5-8 天）
 
-出口：用户可编辑、锁定、导出、导入 Scene，并保持 scene_id 与顺序稳定。
+- 完成字段 rename 时 config key 迁移、保留字段约束和删除确认。
+- 实现 PortEditor 的受约束添加/编辑/删除。
+- 删除端口时列出关联 Edge，并在一个 Undo 事务中更新图。
+- 前后端 Schema roundtrip 和浏览器 E2E。
 
-### 专项 F3：Provider Prompt 与发布门禁（1-2 周）
+出口：用户自定义字段和端口不会破坏图契约，可撤销、保存和迁移。
 
-1. Qwen Image JSONL 请求预览。
-2. Wan3 JSONL 请求预览，first frame 使用 Asset ID。
-3. 画布 viewport、语义 Undo/Redo、复制粘贴和自动布局。
-4. React Flow 连线和 Scene 导入导出 Playwright E2E。
-5. 补齐 Pillow/FFmpeg 当前环境依赖并运行完整 pytest。
-6. 同一 commit 三平台 CI、Playwright、Release Check 全绿。
+### Sprint F3：Workflow Agent v2 前端闭环（7-10 天）
 
-出口：专项计划验收通过后，重新评估 `v1.0.0-rc.1`。
+- 新增 v2 API client/type adapter，统一 `compiled_workflow` 命名。
+- AgentComposer 展示 intent、repair、validator errors、cost 和 diff。
+- apply 使用 intent + expected_version；成功后从服务端重新加载。
+- 接入 MiMo 结构化输出与模板 fallback 标识。
+- 30+ 中文 golden cases 和 Playwright Prompt → Run。
 
-详细工单、Schema 和验收场景见：
+出口：自然语言能生成合法、可解释、可确认、可保存并可运行的 WorkflowSpec 2.0。
 
-- [`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
-- [`plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](plans/active/SKI-LESSON-WORKFLOW-PLAN.md)
-- [`plans/active/REACT-FLOW-AGENT-PLAN.md`](plans/active/REACT-FLOW-AGENT-PLAN.md)
+### Sprint F4：滑雪场景纵向验收与 RC 收敛（5-8 天）
 
-## 9. 文档治理
+- 1 Scene → 2 Qwen Image variants → 2 个 Wan3 3 秒视频 → FFmpeg aggregate。
+- 校验 scene_id + variant_id 血缘、顺序、失败重试、成本提示和最终下载。
+- 完成 Scene Draft 持久化与必要的 Prompt 导出 UI。
+- 同一 commit 执行完整 CI、三平台 smoke 和 release-check。
 
-- 文档入口：[`README.md`](README.md)。
-- 产品需求：[`product/PRD.md`](product/PRD.md)。
-- 架构：[`architecture/SYSTEM-DESIGN.md`](architecture/SYSTEM-DESIGN.md)。
-- Active 计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)。
-- 历史计划只放 `plans/archive/`，不用于完成度判断。
-- Provider 配置放 `integrations/`；测试证据放 `reports/`。
-- 状态数字必须来自同一环境、同一 commit、同一次命令。
+出口：滑雪场景在 Mock 必须 100% 通过，真实 Provider 在已配置环境完成受控 UAT。
+
+## 8. 文档导航
+
+- 主交付计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
+- React Flow 与 Agent 细化：[`plans/active/REACT-FLOW-AGENT-PLAN.md`](plans/active/REACT-FLOW-AGENT-PLAN.md)
+- Flow 与 Scene 专项：[`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
+- 滑雪验收工作流：[`plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](plans/active/SKI-LESSON-WORKFLOW-PLAN.md)
+- 系统架构：[`architecture/SYSTEM-DESIGN.md`](architecture/SYSTEM-DESIGN.md)
+- Provider 集成：[`integrations/`](integrations/)
+- 测试证据：[`reports/`](reports/)
+
+状态文档只记录已验证事实；工单状态以代码、自动测试和可复现验收证据为准。
