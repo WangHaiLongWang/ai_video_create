@@ -24,6 +24,7 @@ def create_asset(
     provider: str = "",
     model: str = "",
     scene_id: str | None = None,
+    variant_id: str | None = None,
     source_asset_ids: list[str] | None = None,
     metadata: dict | None = None,
 ) -> dict:
@@ -34,12 +35,13 @@ def create_asset(
 
     conn.execute(
         "INSERT INTO assets (id, execution_id, node_id, task_id, scene_id, "
-        "asset_type, file_path, file_size, mime_type, provider, model, "
+        "variant_id, asset_type, file_path, file_size, mime_type, provider, model, "
         "source_asset_ids, metadata, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             asset_id, execution_id, node_id, task_id,
             scene_id,
+            variant_id,
             asset_type, file_path, file_size, mime_type,
             provider, model,
             json.dumps(source_asset_ids or [], ensure_ascii=False),
@@ -65,9 +67,11 @@ def list_assets(
     execution_id: str | None = None,
     node_id: str | None = None,
     asset_type: str | None = None,
+    scene_id: str | None = None,
+    variant_id: str | None = None,
     limit: int = 100,
 ) -> list[dict]:
-    """列出资产，支持按 execution/node/type 过滤。"""
+    """列出资产，支持按 execution/node/type/scene/variant 过滤。"""
     conn = get_connection()
     conditions = []
     params: list[Any] = []
@@ -81,6 +85,12 @@ def list_assets(
     if asset_type:
         conditions.append("asset_type = ?")
         params.append(asset_type)
+    if scene_id:
+        conditions.append("scene_id = ?")
+        params.append(scene_id)
+    if variant_id:
+        conditions.append("variant_id = ?")
+        params.append(variant_id)
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     params.append(limit)
@@ -112,7 +122,8 @@ def _trace_lineage(asset_id: str, visited: set, result: list) -> None:
         return
 
     result.append(asset)
-    source_ids = json.loads(asset.get("source_asset_ids", "[]"))
+    raw_source = asset.get("source_asset_ids", [])
+    source_ids = raw_source if isinstance(raw_source, list) else json.loads(raw_source)
     for src_id in source_ids:
         _trace_lineage(src_id, visited, result)
 

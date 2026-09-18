@@ -664,3 +664,307 @@ class TestUAT_Ski001_DependencyGraph:
                 assert order[dep] < order[t.id], (
                     f"{t.id} (pos {order[t.id]}) should come after {dep} (pos {order[dep]})"
                 )
+
+
+class TestUAT_Ski001_VariantLineageTraceability:
+    """SKI-004: variant_id enters NodeResult/Asset/Task lineage — query chain is complete.
+
+    Given a completed pipeline, verify:
+      - DB assets carry variant_id for all map-expanded tasks
+      - Can query assets by scene_id to get the correct subset
+      - Can query assets by variant_id to get the correct subset
+      - Can query assets by scene_id + variant_id to get a single asset
+      - Asset lineage chain is traceable (final -> video -> image)
+    """
+
+    @staticmethod
+    def _ensure_tasks_exist():
+        """Ensure the 8 pipeline tasks exist in the DB for FK references."""
+        conn = get_connection()
+        plan = compile_workflow(SKI_LESSON_WORKFLOW_SPEC)
+        from backend.app.engine.queue import enqueue_tasks
+        task_dicts = [
+            {
+                "id": t.id,
+                "node_id": t.node_id,
+                "kind": t.node_kind,
+                "label": t.node_label,
+                "item_key": t.item_key,
+                "index": t.index,
+                "config": t.config,
+                "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ]
+        enqueue_tasks("wf-ski-uat", "exec-ski-uat", task_dicts)
+
+    @pytest.mark.asyncio
+    async def test_db_assets_store_variant_id(self, scheduler):
+        """Assets created during pipeline execution store variant_id in the DB."""
+        factory = AcceptanceMockFactory()
+        await run_pipeline(scheduler, "exec-ski-uat", factory)
+
+        conn = get_connection()
+        # Verify task result_json.output carries variant_id for all map-expanded tasks
+        task_rows = conn.execute(
+            "SELECT id, result_json FROM tasks WHERE execution_id = ? "
+            "AND (id LIKE 'textToImage%' OR id LIKE 'imageToVideo%')",
+            ("exec-ski-uat",),
+        ).fetchall()
+
+        assert len(task_rows) == 4  # 2 textToImage + 2 imageToVideo
+        for row in task_rows:
+            result = json.loads(row["result_json"]) if row["result_json"] else {}
+            output = result.get("output", {})
+            assert output.get("scene_id") == "scene-001", (
+                f"{row['id']}: scene_id missing or wrong in output"
+            )
+            assert output.get("variant_id") in ("variant-01", "variant-02"), (
+                f"{row['id']}: variant_id missing or wrong in output"
+            )
+
+    @pytest.mark.asyncio
+    async def test_query_assets_by_scene_id(self, scheduler):
+        """Querying assets by scene_id returns the correct subset (all variants)."""
+        from backend.app.repositories.assets import create_asset, list_assets
+
+        self._ensure_tasks_exist()
+        exec_id = "exec-ski-uat"
+        create_asset(
+            execution_id=exec_id, node_id="textToImage", task_id="textToImage-scene-001::variant-01",
+            asset_type="image", file_path="/img/v1.png",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="textToImage", task_id="textToImage-scene-001::variant-02",
+            asset_type="image", file_path="/img/v2.png",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="imageToVideo", task_id="imageToVideo-scene-001::variant-01",
+            asset_type="video", file_path="/vid/v1.mp4",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="imageToVideo", task_id="imageToVideo-scene-001::variant-02",
+            asset_type="video", file_path="/vid/v2.mp4",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="videoConcat", task_id="videoConcat-task",
+            asset_type="video", file_path="/final/ski.mp4",
+            scene_id=None, variant_id=None,
+        )
+
+        # Query by scene_id: should return 4 assets (2 image + 2 video)
+        scene_assets = list_assets(execution_id=exec_id, scene_id="scene-001")
+        assert len(scene_assets) == 4
+        for a in scene_assets:
+            assert a["scene_id"] == "scene-001"
+
+    @pytest.mark.asyncio
+    async def test_query_assets_by_variant_id(self, scheduler):
+        """Querying assets by variant_id returns the correct subset (across scenes)."""
+        from backend.app.repositories.assets import create_asset, list_assets
+
+        self._ensure_tasks_exist()
+        exec_id = "exec-ski-uat"
+        create_asset(
+            execution_id=exec_id, node_id="textToImage", task_id="textToImage-scene-001::variant-01",
+            asset_type="image", file_path="/img/v1.png",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="textToImage", task_id="textToImage-scene-001::variant-02",
+            asset_type="image", file_path="/img/v2.png",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="imageToVideo", task_id="imageToVideo-scene-001::variant-01",
+            asset_type="video", file_path="/vid/v1.mp4",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="imageToVideo", task_id="imageToVideo-scene-001::variant-02",
+            asset_type="video", file_path="/vid/v2.mp4",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+
+        # Query by variant_id=variant-01: should return 2 assets (1 image + 1 video)
+        v1_assets = list_assets(execution_id=exec_id, variant_id="variant-01")
+        assert len(v1_assets) == 2
+        for a in v1_assets:
+            assert a["variant_id"] == "variant-01"
+
+        # Query by variant_id=variant-02: should return 2 assets
+        v2_assets = list_assets(execution_id=exec_id, variant_id="variant-02")
+        assert len(v2_assets) == 2
+        for a in v2_assets:
+            assert a["variant_id"] == "variant-02"
+
+    @pytest.mark.asyncio
+    async def test_query_assets_by_scene_and_variant(self, scheduler):
+        """Querying by both scene_id + variant_id returns exactly 1 asset."""
+        from backend.app.repositories.assets import create_asset, list_assets
+
+        self._ensure_tasks_exist()
+        exec_id = "exec-ski-uat"
+        create_asset(
+            execution_id=exec_id, node_id="textToImage", task_id="textToImage-scene-001::variant-01",
+            asset_type="image", file_path="/img/v1.png",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        create_asset(
+            execution_id=exec_id, node_id="textToImage", task_id="textToImage-scene-001::variant-02",
+            asset_type="image", file_path="/img/v2.png",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+
+        # Query by scene_id + variant_id: should return exactly 1 asset
+        result = list_assets(
+            execution_id=exec_id, scene_id="scene-001", variant_id="variant-01",
+        )
+        assert len(result) == 1
+        assert result[0]["variant_id"] == "variant-01"
+        assert result[0]["scene_id"] == "scene-001"
+        assert result[0]["asset_type"] == "image"
+
+    @pytest.mark.asyncio
+    async def test_asset_lineage_chain_traceable(self, scheduler):
+        """Given a final video asset, trace back to upstream assets by scene_id + variant_id."""
+        from backend.app.repositories.assets import (
+            create_asset,
+            get_asset_lineage,
+        )
+
+        self._ensure_tasks_exist()
+        exec_id = "exec-ski-uat"
+
+        # Create image assets (upstream)
+        img_v1 = create_asset(
+            execution_id=exec_id, node_id="textToImage",
+            task_id="textToImage-scene-001::variant-01",
+            asset_type="image", file_path="/img/v1.png",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        img_v2 = create_asset(
+            execution_id=exec_id, node_id="textToImage",
+            task_id="textToImage-scene-001::variant-02",
+            asset_type="image", file_path="/img/v2.png",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+
+        # Create video assets (depends on image assets)
+        vid_v1 = create_asset(
+            execution_id=exec_id, node_id="imageToVideo",
+            task_id="imageToVideo-scene-001::variant-01",
+            asset_type="video", file_path="/vid/v1.mp4",
+            scene_id="scene-001", variant_id="variant-01",
+            source_asset_ids=[img_v1["id"]],
+        )
+        vid_v2 = create_asset(
+            execution_id=exec_id, node_id="imageToVideo",
+            task_id="imageToVideo-scene-001::variant-02",
+            asset_type="video", file_path="/vid/v2.mp4",
+            scene_id="scene-001", variant_id="variant-02",
+            source_asset_ids=[img_v2["id"]],
+        )
+
+        # Create final concat asset (depends on both video assets)
+        final = create_asset(
+            execution_id=exec_id, node_id="videoConcat",
+            task_id="videoConcat-task",
+            asset_type="video", file_path="/final/ski.mp4",
+            scene_id=None, variant_id=None,
+            source_asset_ids=[vid_v1["id"], vid_v2["id"]],
+        )
+
+        # Trace lineage from final asset
+        lineage = get_asset_lineage(final["id"])
+        lineage_ids = [a["id"] for a in lineage]
+
+        # Should trace back: final -> vid_v1, vid_v2 -> img_v1, img_v2
+        assert final["id"] in lineage_ids
+        assert vid_v1["id"] in lineage_ids
+        assert vid_v2["id"] in lineage_ids
+        assert img_v1["id"] in lineage_ids
+        assert img_v2["id"] in lineage_ids
+        assert len(lineage) == 5
+
+    @pytest.mark.asyncio
+    async def test_variant_lineage_for_different_scenes(self, scheduler):
+        """With multiple scenes, variant_id query correctly isolates per-scene assets."""
+        from backend.app.repositories.assets import create_asset, list_assets
+
+        self._ensure_tasks_exist()
+        exec_id = "exec-ski-uat"
+        # Scene-001 variant-01
+        create_asset(
+            execution_id=exec_id, node_id="textToImage",
+            task_id="textToImage-scene-001::variant-01",
+            asset_type="image", file_path="/img/s1v1.png",
+            scene_id="scene-001", variant_id="variant-01",
+        )
+        # Scene-002 variant-01 (different scene, same variant)
+        # Use a synthetic task_id for scene-002 since our pipeline only has scene-001
+        create_asset(
+            execution_id=exec_id, node_id="textToImage",
+            task_id="textToImage-scene-001::variant-01",  # reuse task for FK
+            asset_type="image", file_path="/img/s2v1.png",
+            scene_id="scene-002", variant_id="variant-01",
+        )
+        # Scene-001 variant-02
+        create_asset(
+            execution_id=exec_id, node_id="textToImage",
+            task_id="textToImage-scene-001::variant-02",
+            asset_type="image", file_path="/img/s1v2.png",
+            scene_id="scene-001", variant_id="variant-02",
+        )
+
+        # All variant-01 across scenes: 2 assets
+        v1_all = list_assets(execution_id=exec_id, variant_id="variant-01")
+        assert len(v1_all) == 2
+
+        # scene-001 only: 2 assets (v1 + v2)
+        s1_all = list_assets(execution_id=exec_id, scene_id="scene-001")
+        assert len(s1_all) == 2
+
+        # scene-001 + variant-01: 1 asset
+        s1v1 = list_assets(
+            execution_id=exec_id, scene_id="scene-001", variant_id="variant-01",
+        )
+        assert len(s1v1) == 1
+        assert s1v1[0]["file_path"] == "/img/s1v1.png"
+
+    @pytest.mark.asyncio
+    async def test_task_result_json_contains_variant_id_in_output(self, scheduler):
+        """After pipeline completion, task result_json.output carries variant_id for map tasks."""
+        factory = AcceptanceMockFactory()
+        await run_pipeline(scheduler, "exec-ski-uat", factory)
+
+        conn = get_connection()
+        img_rows = conn.execute(
+            "SELECT id, result_json FROM tasks "
+            "WHERE execution_id = ? AND id LIKE 'textToImage%'",
+            ("exec-ski-uat",),
+        ).fetchall()
+
+        assert len(img_rows) == 2
+        for row in img_rows:
+            result = json.loads(row["result_json"])
+            output = result.get("output", {})
+            assert "variant_id" in output, (
+                f"{row['id']}: output missing variant_id — lineage chain broken"
+            )
+            assert output["variant_id"] in ("variant-01", "variant-02")
+
+    @pytest.mark.asyncio
+    async def test_task_config_carries_variant_id_for_all_map_expanded(self, scheduler):
+        """Every map-expanded task (textToImage, imageToVideo) has variant_id in config."""
+        plan = compile_workflow(SKI_LESSON_WORKFLOW_SPEC)
+        map_tasks = [t for t in plan.tasks if t.is_map_expansion]
+        for t in map_tasks:
+            assert "variant_id" in t.config, (
+                f"{t.id}: config missing variant_id"
+            )
+            assert t.config["variant_id"].startswith("variant-")

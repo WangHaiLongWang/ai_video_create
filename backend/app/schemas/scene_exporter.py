@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import re
 from typing import Any
 
 from pydantic import BaseModel
 
-from .scene_bundle import ScenePromptBundle, SceneEntry
+from .scene_bundle import SceneImagePrompt, ScenePromptBundle, SceneEntry, SceneVideoPrompt
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +124,157 @@ def export_to_jsonl(bundle: ScenePromptBundle) -> str:
         obj = scene.model_dump(by_alias=True)
         lines.append(json.dumps(obj, ensure_ascii=False))
     return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Import helpers
+# ---------------------------------------------------------------------------
+
+
+class SceneImportError(Exception):
+    """Raised when an import operation fails due to invalid data."""
+
+
+def import_from_json(json_str: str) -> ScenePromptBundle:
+    """Parse a JSON string into a ScenePromptBundle.
+
+    Accepts both camelCase (by_alias) and snake_case key formats.
+    Raises SceneImportError on invalid or missing required fields.
+    """
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError as exc:
+        raise SceneImportError(f"Invalid JSON: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise SceneImportError("JSON root must be an object, not an array or primitive")
+
+    try:
+        return ScenePromptBundle.model_validate(data)
+    except Exception as exc:
+        raise SceneImportError(f"Validation failed: {exc}") from exc
+
+
+def _parse_csv_field(value: str) -> str:
+    """Unescape a CSV field value (handles double-quote escaping)."""
+    stripped = value.strip()
+    if stripped.startswith('"') and stripped.endswith('"'):
+        inner = stripped[1:-1]
+        return inner.replace('""', '"')
+    return stripped
+
+
+def import_from_csv(csv_str: str) -> ScenePromptBundle:
+    """Parse a CSV string (with optional BOM) into a ScenePromptBundle.
+
+    The CSV must have the header row produced by export_to_csv:
+      sceneId,index,title,narration,durationSeconds,image_prompt,video_prompt,locked
+
+    Raises SceneImportError on invalid or incomplete data.
+    """
+    # Strip BOM if present
+    text = csv_str.lstrip("﻿")
+    reader = csv.reader(io.StringIO(text))
+    all_rows = [row for row in reader]
+
+    if len(all_rows) < 2:
+        raise SceneImportError("CSV must have a header row and at least one data row")
+
+    header = all_rows[0]
+    expected = ["sceneId", "index", "title", "narration", "durationSeconds", "image_prompt", "video_prompt", "locked"]
+    if header != expected:
+        raise SceneImportError(
+            f"Unexpected CSV header. Expected: {','.join(expected)}\nGot: {','.join(header)}"
+        )
+
+    scenes: list[SceneEntry] = []
+    for row_num, fields in enumerate(all_rows[1:], start=2):
+        if len(fields) < 8:
+            raise SceneImportError(f"Row {row_num}: expected 8 columns, got {len(fields)}")
+
+        try:
+            scene = SceneEntry(
+                scene_id=fields[0],
+                index=int(fields[1]),
+                title=fields[2],
+                narration=fields[3],
+                duration_seconds=float(fields[4]),
+                image=SceneImagePrompt(prompt=fields[5]),
+                video=SceneVideoPrompt(prompt=fields[6]),
+                locked=fields[7].lower() == "true",
+            )
+        except (ValueError, IndexError) as exc:
+            raise SceneImportError(f"Row {row_num}: parse error: {exc}") from exc
+
+        scenes.append(scene)
+
+    return ScenePromptBundle(
+        storyboard_id="imported-csv",
+        workflow_id="imported-csv",
+        execution_id="imported-csv",
+        title="Imported from CSV",
+        scenes=scenes,
+    )
+
+
+def import_from_text(text_str: str) -> ScenePromptBundle:
+    """Parse a plain-text prompt list (produced by export_to_text) into a ScenePromptBundle.
+
+    Extracts image and video prompts from [Scene N] blocks.
+    Narration is not available in text format; defaults to the image prompt.
+
+    Raises SceneImportError when no valid scene blocks are found.
+    """
+    scenes: list[SceneEntry] = []
+    current_index: int | None = None
+    image_prompt = ""
+    video_prompt = ""
+
+    def _flush() -> None:
+        nonlocal current_index, image_prompt, video_prompt
+        if current_index is not None:
+            scenes.append(
+                SceneEntry(
+                    scene_id=f"imported-{current_index}",
+                    index=current_index,
+                    title=f"Scene {current_index}",
+                    narration=image_prompt or f"Scene {current_index}",
+                    image=SceneImagePrompt(prompt=image_prompt),
+                    video=SceneVideoPrompt(prompt=video_prompt),
+                )
+            )
+        current_index = None
+        image_prompt = ""
+        video_prompt = ""
+
+    for line in text_str.split("\n"):
+        stripped = line.strip()
+
+        # Match [Scene N]
+        m = re.match(r"^\[Scene\s+(\d+)\]$", stripped)
+        if m:
+            _flush()
+            current_index = int(m.group(1))
+            continue
+
+        if stripped.startswith("Image: "):
+            image_prompt = stripped[len("Image: "):]
+        elif stripped.startswith("Video: "):
+            video_prompt = stripped[len("Video: "):]
+
+    # Flush the last scene
+    _flush()
+
+    if not scenes:
+        raise SceneImportError("No [Scene N] blocks found in text input")
+
+    return ScenePromptBundle(
+        storyboard_id="imported-text",
+        workflow_id="imported-text",
+        execution_id="imported-text",
+        title="Imported from Text",
+        scenes=scenes,
+    )
 
 
 # ---------------------------------------------------------------------------

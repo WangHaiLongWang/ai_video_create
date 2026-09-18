@@ -5,10 +5,16 @@
 2. 填充 ScenePromptBundle 结构
 3. 生成稳定 scene_id
 4. 应用全局样式和负面提示
+
+scene_id 稳定性保证：
+- 如果输入场景自带 scene_id 字段，原样保留（同一输入 → 同一 scene_id）
+- 如果输入场景没有 scene_id，按其在输入列表中的位置生成确定性 ID（scene-001, scene-002, ...）
+- 多次调用 materialize_storyboard 对相同输入会产生相同的 scene_id
 """
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from ..schemas.scene_bundle import (
@@ -48,6 +54,35 @@ def _extract_scenes(storyboard_result: dict[str, Any]) -> list[dict[str, Any]]:
         return storyboard_result["scenes"]
 
     return []
+
+
+def compute_deterministic_scene_id(scene_data: dict[str, Any], position: int) -> str:
+    """为没有 scene_id 的场景生成确定性 ID。
+
+    基于场景核心内容（narration + image_prompt + video_prompt）和位置
+    生成稳定的 scene_id，确保相同输入总是产生相同的 ID。
+
+    Args:
+        scene_data: 场景原始数据字典
+        position: 场景在输入列表中的位置（0-based）
+
+    Returns:
+        格式为 "scene-XXXXXXXX" 的确定性 scene_id
+    """
+    # 如果场景自带 scene_id，直接返回（不应调用此函数，但安全回退）
+    if scene_data.get("scene_id"):
+        return scene_data["scene_id"]
+
+    # 构建决定性 key：核心内容 + 位置
+    key_parts = [
+        str(scene_data.get("narration", "")),
+        str(scene_data.get("image_prompt", "")),
+        str(scene_data.get("video_prompt", "")),
+        str(position),
+    ]
+    raw_key = "|".join(key_parts)
+    hash_val = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:8]
+    return f"scene-{hash_val}"
 
 
 def _build_image_prompt(
@@ -103,6 +138,7 @@ def materialize_storyboard(
     title: str = "",
     global_style: str = "",
     negative_prompt: str = "",
+    allow_empty: bool = True,
 ) -> ScenePromptBundle:
     """从 Storyboard 节点的执行结果生成 ScenePromptBundle。
 
@@ -126,12 +162,38 @@ def materialize_storyboard(
             }
         }
 
+    Args:
+        storyboard_result: Storyboard 节点的执行结果字典
+        workflow_id: 工作流 ID
+        execution_id: 执行 ID
+        storyboard_id: 故事板 ID
+        title: 故事板标题
+        global_style: 全局样式前缀，将追加到每个场景的 image_prompt
+        negative_prompt: 全局负面提示
+        allow_empty: 如果为 True，空场景列表返回有效空 bundle；
+                     如果为 False，空场景列表抛出 MaterializationError
+
+    Returns:
+        ScenePromptBundle — 包含所有场景的完整 bundle
+
     Raises:
-        MaterializationError: if scenes cannot be extracted
+        MaterializationError: 当 allow_empty=False 且无法提取场景时
     """
     raw_scenes = _extract_scenes(storyboard_result)
 
     if not raw_scenes:
+        if allow_empty:
+            effective_title = title or f"Storyboard {storyboard_id or 'Untitled'}"
+            return ScenePromptBundle(
+                storyboard_id=storyboard_id or "sb-generated",
+                workflow_id=workflow_id or "wf-unknown",
+                execution_id=execution_id or "ex-unknown",
+                title=effective_title,
+                global_style=global_style or None,
+                negative_prompt=negative_prompt or None,
+                scenes=[],
+                source="execution",
+            )
         raise MaterializationError(
             "No scenes found in storyboard result. "
             "Expected scenes in output.metadata.scenes, output.scenes, or scenes."
@@ -142,7 +204,11 @@ def materialize_storyboard(
 
     scenes: list[SceneEntry] = []
     for i, scene_data in enumerate(raw_scenes):
-        scene_id = scene_data.get("scene_id") or f"scene-{i + 1:03d}"
+        # 确定 scene_id：优先使用输入自带的，否则生成确定性 ID
+        scene_id = scene_data.get("scene_id")
+        if not scene_id:
+            scene_id = compute_deterministic_scene_id(scene_data, i)
+
         index = scene_data.get("index", i)
 
         image = _build_image_prompt(scene_data, global_style, negative_prompt)

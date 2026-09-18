@@ -1,4 +1,4 @@
-"""Scene API — Scene Draft CRUD 和导出端点。"""
+"""Scene API — Scene Draft CRUD and export endpoints."""
 
 from __future__ import annotations
 
@@ -30,6 +30,12 @@ class CreateDraftRequest(BaseModel):
     bundle: dict[str, Any]
 
 
+class UpdateDraftRequest(BaseModel):
+    bundle: dict[str, Any] | None = None
+    name: str | None = None
+    source: str | None = None
+
+
 class UpdateSceneRequest(BaseModel):
     updates: dict[str, Any]
 
@@ -40,6 +46,14 @@ class ImportBundleRequest(BaseModel):
 
 class MergeExecutionRequest(BaseModel):
     execution_bundle: dict[str, Any]
+
+
+class LockSceneByIndexRequest(BaseModel):
+    pass  # No body needed, scene_index in URL
+
+
+class LockSceneByIdRequest(BaseModel):
+    scene_id: str
 
 
 # ---------------------------------------------------------------------------
@@ -55,14 +69,14 @@ async def create_scene_draft(workflow_id: str, req: CreateDraftRequest) -> dict[
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid bundle: {e}")
 
-    draft_id = _scene_service.create_draft(bundle)
+    draft_id = _scene_service.create_draft(bundle, workflow_id=workflow_id)
     return {"draft_id": draft_id, "workflow_id": workflow_id, "scene_count": len(bundle.scenes)}
 
 
 @router.get("/workflows/{workflow_id}/scene-drafts")
 async def list_scene_drafts(workflow_id: str) -> list[dict[str, Any]]:
     """List all scene drafts for a workflow."""
-    return _scene_service.list_drafts()
+    return _scene_service.list_drafts(workflow_id=workflow_id)
 
 
 @router.get("/workflows/{workflow_id}/scene-drafts/{draft_id}")
@@ -74,6 +88,45 @@ async def get_scene_draft(workflow_id: str, draft_id: str) -> dict[str, Any]:
     return bundle.model_dump(by_alias=True)
 
 
+@router.put("/workflows/{workflow_id}/scene-drafts/{draft_id}")
+async def update_scene_draft(
+    workflow_id: str,
+    draft_id: str,
+    req: UpdateDraftRequest,
+) -> dict[str, Any]:
+    """Update a scene draft's metadata (name, source) or replace the entire bundle."""
+    from ..repositories import scene_drafts as repo
+
+    try:
+        record = repo.get_draft(draft_id)
+    except repo.SceneDraftNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Draft '{draft_id}' not found")
+
+    kwargs: dict[str, Any] = {"draft_id": draft_id, "expected_version": record["version"]}
+    if req.name is not None:
+        kwargs["name"] = req.name
+    if req.source is not None:
+        kwargs["source"] = req.source
+    if req.bundle is not None:
+        kwargs["bundle_dict"] = req.bundle
+
+    try:
+        updated = repo.update_draft(**kwargs)
+    except repo.OptimisticLockError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+    return {"ok": True, "draft_id": draft_id, "version": updated["version"]}
+
+
+@router.delete("/workflows/{workflow_id}/scene-drafts/{draft_id}")
+async def delete_scene_draft(workflow_id: str, draft_id: str) -> dict[str, Any]:
+    """Delete a scene draft."""
+    success = _scene_service.delete_draft(draft_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Draft '{draft_id}' not found")
+    return {"ok": True, "deleted": draft_id}
+
+
 @router.put("/workflows/{workflow_id}/scene-drafts/{draft_id}/scenes/{scene_index}")
 async def update_scene(
     workflow_id: str,
@@ -81,7 +134,7 @@ async def update_scene(
     scene_index: int,
     req: UpdateSceneRequest,
 ) -> dict[str, Any]:
-    """Update a specific scene's fields."""
+    """Update a specific scene's fields by index."""
     success = _scene_service.update_scene(draft_id, scene_index, req.updates)
     if not success:
         raise HTTPException(
@@ -123,7 +176,7 @@ async def import_scene_bundle(workflow_id: str, req: ImportBundleRequest) -> dic
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid bundle: {e}")
 
-    draft_id = _scene_service.import_bundle(bundle)
+    draft_id = _scene_service.import_bundle(bundle, workflow_id=workflow_id)
     return {"draft_id": draft_id, "workflow_id": workflow_id, "scene_count": len(bundle.scenes)}
 
 

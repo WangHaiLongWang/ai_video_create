@@ -17,7 +17,7 @@ import { createPromptToVideoWorkflow } from './workflow'
 import { validateConnection as validateConnectionNew, validateGraph } from './schemas/graph-validation'
 import { NODE_CATALOG } from './schemas/node-manifest'
 import { upgradeWorkflowSpec } from './schemas/workflow-spec'
-import type { EdgeData, EdgeMode, FieldDefinition, NodeKind, PortInfo, RunStatus, StudioNode, WorkflowSpec } from './types'
+import type { EdgeData, EdgeMode, EnhancedEdge, FieldDefinition, NodeKind, PortInfo, RunStatus, StudioNode, WorkflowSpec } from './types'
 
 const STORAGE_KEY = 'ai-video-create.workflow.v1'
 const MAX_HISTORY = 50
@@ -58,6 +58,8 @@ export interface ErrorTarget {
 interface WorkflowState {
   workflow: WorkflowSpec
   selectedNodeId: string | null
+  selectedNodeIds: string[]
+  focusedNodeId: string | null
   selectedEdgeId: string | null
   serverVersion: number | null
   isDirty: boolean
@@ -66,16 +68,27 @@ interface WorkflowState {
   past: WorkflowSpec[]
   future: WorkflowSpec[]
 
+  // Clipboard (for copy/paste)
+  copiedNodes: StudioNode[]
+  copiedEdges: EnhancedEdge[]
+
   // Actions
   setWorkflow: (workflow: WorkflowSpec) => void
   onNodesChange: (changes: NodeChange<StudioNode>[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   selectNode: (id: string | null) => void
+  selectNodeAdditive: (id: string) => void
+  toggleNodeSelection: (id: string) => void
+  selectAllNodes: () => void
+  clearSelection: () => void
+  focusNode: (id: string | null) => void
+  nudgeSelectedNodes: (dx: number, dy: number) => void
   selectEdge: (id: string | null) => void
   updateEdgeData: (edgeId: string, data: Partial<EdgeData>) => void
   reconnectEdge: (edgeId: string, newSource: string, newTarget: string, newSourceHandle: string, newTargetHandle: string) => void
   deleteSelectedEdge: () => void
+  deleteSelectedNodes: () => void
   updateConfig: (key: string, value: string | number | boolean) => void
   undo: () => void
   redo: () => void
@@ -84,6 +97,10 @@ interface WorkflowState {
   saveToServer: () => Promise<void>
   loadFromServer: (id?: string) => Promise<void>
   serverSync: () => void
+
+  // Copy / Paste
+  copySelectedNodes: () => void
+  pasteNodes: () => void
 
   // Viewport persistence
   saveViewport: (viewport: { x: number; y: number; zoom: number }) => void
@@ -185,6 +202,11 @@ function consumePendingBatchPush(): WorkflowSpec | null {
   return v
 }
 
+/** Generate a short unique ID for pasted nodes/edges */
+function uid(): string {
+  return crypto.randomUUID().slice(0, 8)
+}
+
 function scheduleSave(get: () => WorkflowState) {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
@@ -197,12 +219,16 @@ function scheduleSave(get: () => WorkflowState) {
 export const useStudioStore = create<WorkflowState>((set, get) => ({
   workflow: initialWorkflow(),
   selectedNodeId: null,
+  selectedNodeIds: [],
+  focusedNodeId: null,
   selectedEdgeId: null,
   serverVersion: null,
   isDirty: false,
   connectionError: null,
   connectingFrom: null,
   errorTarget: null,
+  copiedNodes: [],
+  copiedEdges: [],
   past: [],
   future: [],
 
@@ -232,7 +258,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     }
     const history = pushHistory(get(), workflow)
     persistLocal(workflow)
-    set({ workflow, selectedNodeId: null, selectedEdgeId: null, isDirty: true, ...history })
+    set({ workflow, selectedNodeId: null, selectedNodeIds: [], focusedNodeId: null, selectedEdgeId: null, isDirty: true, ...history })
     scheduleSave(get)
   },
 
@@ -290,9 +316,47 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     return { workflow, isDirty: true, connectionError: null, connectingFrom: null, errorTarget: null, ...history }
   }),
 
-  selectNode: (selectedNodeId) => set({ selectedNodeId, selectedEdgeId: null }),
+  selectNode: (selectedNodeId) => set({ selectedNodeId, selectedNodeIds: selectedNodeId ? [selectedNodeId] : [], selectedEdgeId: null }),
 
-  selectEdge: (selectedEdgeId) => set({ selectedEdgeId, selectedNodeId: null }),
+  selectNodeAdditive: (id) => set((state) => {
+    const ids = state.selectedNodeIds.includes(id)
+      ? state.selectedNodeIds
+      : [...state.selectedNodeIds, id]
+    return { selectedNodeIds: ids, selectedNodeId: ids[0] ?? null, selectedEdgeId: null }
+  }),
+
+  toggleNodeSelection: (id) => set((state) => {
+    const idx = state.selectedNodeIds.indexOf(id)
+    const ids = idx >= 0
+      ? state.selectedNodeIds.filter((n) => n !== id)
+      : [...state.selectedNodeIds, id]
+    return { selectedNodeIds: ids, selectedNodeId: ids[0] ?? null, selectedEdgeId: null }
+  }),
+
+  selectAllNodes: () => set((state) => {
+    const ids = state.workflow.nodes.map((n) => n.id)
+    return { selectedNodeIds: ids, selectedNodeId: ids[0] ?? null, selectedEdgeId: null }
+  }),
+
+  clearSelection: () => set({ selectedNodeId: null, selectedNodeIds: [], selectedEdgeId: null }),
+
+  focusNode: (id) => set({ focusedNodeId: id }),
+
+  nudgeSelectedNodes: (dx, dy) => set((state) => {
+    const ids = new Set(state.selectedNodeIds)
+    if (ids.size === 0) return state
+    const nodes = state.workflow.nodes.map((n) =>
+      ids.has(n.id)
+        ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+        : n,
+    )
+    const workflow = { ...state.workflow, nodes }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, isDirty: true, ...history }
+  }),
+
+  selectEdge: (selectedEdgeId) => set({ selectedEdgeId, selectedNodeId: null, selectedNodeIds: [] }),
 
   updateEdgeData: (edgeId, data) => set((state) => {
     const edges = state.workflow.edges.map((edge) =>
@@ -343,6 +407,18 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const history = pushHistory(state, workflow)
     persistLocal(workflow)
     return { workflow, selectedEdgeId: null, isDirty: true, ...history }
+  }),
+
+  deleteSelectedNodes: () => set((state) => {
+    const ids = state.selectedNodeIds
+    if (ids.length === 0) return state
+    const idSet = new Set(ids)
+    const nodes = state.workflow.nodes.filter((n) => !idSet.has(n.id))
+    const edges = state.workflow.edges.filter((e) => !idSet.has(e.source) && !idSet.has(e.target))
+    const workflow = { ...state.workflow, nodes, edges }
+    const history = pushHistory(state, workflow)
+    persistLocal(workflow)
+    return { workflow, selectedNodeId: null, selectedNodeIds: [], selectedEdgeId: null, isDirty: true, ...history }
   }),
 
   setConnectionError: (msg) => set((state) => ({
@@ -544,6 +620,62 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     return { workflow, isDirty: true, ...history }
   }),
 
+  // --- Copy / Paste ---
+  copySelectedNodes: () => set((state) => {
+    const ids = new Set(state.selectedNodeIds)
+    if (ids.size === 0) return state
+    const nodes = state.workflow.nodes.filter((n) => ids.has(n.id))
+    // Only include edges where BOTH source and target are in the selection
+    const edges = state.workflow.edges.filter((e) => ids.has(e.source) && ids.has(e.target))
+    return { copiedNodes: nodes, copiedEdges: edges }
+  }),
+
+  pasteNodes: () => set((state) => {
+    const { copiedNodes, copiedEdges, workflow } = state
+    if (copiedNodes.length === 0) return state
+
+    const PASTE_OFFSET = 40
+    // Build oldId -> newId mapping
+    const idMap = new Map<string, string>()
+    const newNodes: StudioNode[] = copiedNodes.map((node) => {
+      const newId = `${node.data.kind}-${uid()}`
+      idMap.set(node.id, newId)
+      return {
+        ...node,
+        id: newId,
+        position: { x: node.position.x + PASTE_OFFSET, y: node.position.y + PASTE_OFFSET },
+        selected: false,
+      }
+    })
+
+    const newEdges: EnhancedEdge[] = copiedEdges.map((edge) => {
+      const newSource = idMap.get(edge.source) ?? edge.source
+      const newTarget = idMap.get(edge.target) ?? edge.target
+      return {
+        ...edge,
+        id: `edge-${uid()}`,
+        source: newSource,
+        target: newTarget,
+      }
+    })
+
+    const updatedWorkflow = {
+      ...workflow,
+      nodes: [...workflow.nodes, ...newNodes],
+      edges: [...workflow.edges, ...newEdges],
+    }
+    const history = pushHistory(state, updatedWorkflow)
+    persistLocal(updatedWorkflow)
+    const pastedIds = newNodes.map((n) => n.id)
+    return {
+      workflow: updatedWorkflow,
+      selectedNodeId: pastedIds[0] ?? null,
+      selectedNodeIds: pastedIds,
+      isDirty: true,
+      ...history,
+    }
+  }),
+
   // --- 节点状态更新 (供 executionStore 调用) ---
   updateNodeStatus: (nodeId, status) => set((state) => ({
     workflow: {
@@ -606,7 +738,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const previous = state.past[state.past.length - 1]
     const past = state.past.slice(0, -1)
     persistLocal(previous)
-    return { workflow: previous, past, future: [state.workflow, ...state.future], selectedNodeId: null, selectedEdgeId: null }
+    return { workflow: previous, past, future: [state.workflow, ...state.future], selectedNodeId: null, selectedNodeIds: [], focusedNodeId: null, selectedEdgeId: null }
   }),
 
   redo: () => set((state) => {
@@ -614,7 +746,7 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const next = state.future[0]
     const future = state.future.slice(1)
     persistLocal(next)
-    return { workflow: next, past: [...state.past, state.workflow], future, selectedNodeId: null, selectedEdgeId: null }
+    return { workflow: next, past: [...state.past, state.workflow], future, selectedNodeId: null, selectedNodeIds: [], focusedNodeId: null, selectedEdgeId: null }
   }),
 
   canUndo: () => get().past.length > 0,

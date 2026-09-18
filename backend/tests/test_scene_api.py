@@ -64,11 +64,17 @@ from backend.app.main import app
 
 @pytest.fixture(autouse=True)
 def fresh_scene_service():
-    """Reset the scene service singleton before each test."""
+    """Reset the scene service singleton before each test and ensure DB tables exist."""
     from backend.app.api import scenes as scenes_module
+    from backend.app.db.connection import init_db, get_connection
 
+    init_db()
     original = scenes_module._scene_service
     scenes_module._scene_service = SceneService()
+    # Clean up any leftover scene_drafts from previous tests
+    conn = get_connection()
+    conn.execute("DELETE FROM scene_drafts")
+    conn.commit()
     yield
     scenes_module._scene_service = original
 
@@ -112,7 +118,7 @@ class TestListDrafts:
         assert resp.status_code == 200
         drafts = resp.json()
         assert len(drafts) == 1
-        assert drafts[0]["title"] == "Test Bundle"
+        assert drafts[0]["name"] == "Test Bundle"
 
 
 class TestGetDraft:

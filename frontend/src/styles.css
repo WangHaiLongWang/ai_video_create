@@ -105,6 +105,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 }
 .studio-node:hover { border-color: #5b6255; }
 .studio-node.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(214, 240, 109, .16), 0 16px 30px rgba(7, 9, 7, .28); }
+.studio-node.is-focused { box-shadow: 0 0 0 2px rgba(100, 180, 255, 0.5), 0 0 0 4px rgba(100, 180, 255, 0.15); }
 .studio-node.status-running { border-color: var(--accent); }
 .studio-node.status-completed { border-color: #718544; }
 
@@ -1937,5 +1938,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   flex-shrink: 0;
   width: 14px;
   height: 14px;
+}
+
+.canvas-selection-badge {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #d6f06d;
+  background: rgba(214, 240, 109, 0.1);
+  border: 1px solid rgba(214, 240, 109, 0.25);
+  border-radius: 8px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 

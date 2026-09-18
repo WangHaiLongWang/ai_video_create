@@ -28,6 +28,7 @@ export function StudioNodeView({ id, data, selected }: NodeProps<StudioNode>) {
   const Icon = icons[data.kind]
   const connectingFrom = useStudioStore(s => s.connectingFrom)
   const errorTarget = useStudioStore(s => s.errorTarget)
+  const focusedNodeId = useStudioStore(s => s.focusedNodeId)
 
   const inputs: PortInfo[] = data.ports?.inputs ?? (
     data.inputType
@@ -72,6 +73,7 @@ export function StudioNodeView({ id, data, selected }: NodeProps<StudioNode>) {
         'studio-node',
         `status-${data.status}`,
         selected ? 'is-selected' : '',
+        focusedNodeId === id ? 'is-focused' : '',
         isConnecting ? 'is-connecting' : '',
       ].filter(Boolean).join(' ')}
     >

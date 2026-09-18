@@ -168,6 +168,7 @@ function computeAutoLayout(nodes: StudioNode[], edges: EnhancedEdge[]): Map<stri
 function CanvasToolbar({ reactFlowInstance }: { reactFlowInstance: ReactFlowInstance }) {
   const workflow = useStudioStore((s) => s.workflow)
   const applyAutoLayout = useStudioStore((s) => s.applyAutoLayout)
+  const selectedNodeIds = useStudioStore((s) => s.selectedNodeIds)
 
   const handleFitView = useCallback(() => {
     reactFlowInstance.fitView({ padding: 0.2, duration: 400 })
@@ -222,6 +223,11 @@ function CanvasToolbar({ reactFlowInstance }: { reactFlowInstance: ReactFlowInst
         </svg>
         <span>布局</span>
       </button>
+      {selectedNodeIds.length > 1 && (
+        <div className="canvas-selection-badge">
+          {selectedNodeIds.length} 个节点已选
+        </div>
+      )}
     </div>
   )
 }
@@ -229,7 +235,7 @@ function CanvasToolbar({ reactFlowInstance }: { reactFlowInstance: ReactFlowInst
 // ==================== CanvasInner ====================
 
 function CanvasInner() {
-  const { workflow, onNodesChange, onEdgesChange, onConnect, selectNode, selectEdge, reconnectEdge, setWorkflow, setConnectingFrom, saveViewport, beginBatchHistory, endBatchHistory } = useStudioStore()
+  const { workflow, onNodesChange, onEdgesChange, onConnect, selectNode, selectEdge, reconnectEdge, setWorkflow, setConnectingFrom, saveViewport, beginBatchHistory, endBatchHistory, toggleNodeSelection, selectedNodeIds, clearSelection } = useStudioStore()
   const reactFlowInstance: ReactFlowInstance = useReactFlow()
   const nodeTypes = useMemo(() => ({ studio: StudioNodeView }), [])
   const edgeTypes = useMemo(() => ({ default: LabelEdge }), [])
@@ -337,12 +343,18 @@ function CanvasInner() {
         onConnect={onConnect}
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
-        onNodeClick={(_, node) => selectNode(node.id)}
+        onNodeClick={(event, node) => {
+          if (event.shiftKey || event.metaKey || event.ctrlKey) {
+            toggleNodeSelection(node.id)
+          } else {
+            selectNode(node.id)
+          }
+        }}
         onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
         onEdgeClick={onEdgeClick}
         onReconnect={onReconnect}
-        onPaneClick={() => { selectNode(null); selectEdge(null) }}
+        onPaneClick={() => clearSelection()}
         onMoveEnd={onMoveEnd}
         onDragOver={onDragOver}
         onDrop={onDrop}
