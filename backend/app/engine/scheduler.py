@@ -455,7 +455,11 @@ class Scheduler:
         # Aggregate tasks (videoConcat, etc.): collect upstream video paths
         kind = task.get("kind", "")
         if kind == "videoConcat":
-            video_paths = []
+            # Collect (path, sort_key) tuples from upstream results.
+            # Sort key is (scene_index, variant_index) so that variant-01
+            # appears before variant-02 within the same scene, and scenes
+            # follow their storyboard order.
+            path_entries: list[tuple[str, tuple[int, int]]] = []
             for result in upstream.values():
                 if not isinstance(result, dict):
                     continue
@@ -467,19 +471,27 @@ class Scheduler:
                     meta = output.get("metadata", {})
                     if isinstance(meta, dict):
                         path = str(meta.get("path", ""))
-                if path:
-                    video_paths.append(path)
-            # Sort by scene_index + variant_index if available
-            # (variant-01 before variant-02 for the same scene)
+                if not path:
+                    continue
+
+                # Determine sort key from metadata or task_id
+                sort_key = _extract_sort_key(result, task_id="")
+
+                path_entries.append((path, sort_key))
+
+            # Sort by (scene_index, variant_index)
+            path_entries.sort(key=lambda e: e[1])
+            video_paths = [p for p, _ in path_entries]
+
             config = task.setdefault("config", {})
             config["video_paths"] = video_paths
             return task
 
         scene_id = task.get("item_key", "")
+        actual_scene_id = scene_id
+        variant_id = ""
         if scene_id and scene_id.startswith("scene-"):
             # 解析 scene_id 和 variant_id（支持 "scene-001::variant-01" 格式）
-            actual_scene_id = scene_id
-            variant_id = ""
             if "::" in scene_id:
                 actual_scene_id, variant_id = scene_id.split("::", 1)
 
@@ -519,7 +531,53 @@ class Scheduler:
                         config["variant_id"] = variant_id
                     break
 
+        # For imageToVideo tasks, inject the matching upstream image path
+        # (matched by scene_id + variant_id from the textToImage output)
+        if kind == "imageToVideo" and scene_id:
+            self._inject_upstream_image(task, upstream, actual_scene_id, variant_id)
+
         return task
+
+    def _inject_upstream_image(
+        self, task: dict, upstream: dict,
+        actual_scene_id: str, variant_id: str,
+    ) -> None:
+        """Find and inject the upstream image path matching scene_id + variant_id.
+
+        The I2V handler uses ``config["image_path"]`` to locate the image.
+        This method searches upstream textToImage results for an artifact
+        whose ``scene_id`` and ``variant_id`` match the current I2V task.
+        """
+        config = task.get("config", {})
+        if config.get("image_path"):
+            return  # Already set, don't override
+
+        for result in upstream.values():
+            if not isinstance(result, dict):
+                continue
+            output = result.get("output", result) if isinstance(result, dict) else {}
+            if not isinstance(output, dict):
+                continue
+
+            out_scene = output.get("scene_id", "")
+            out_variant = output.get("variant_id", "")
+
+            if out_scene != actual_scene_id:
+                continue
+
+            # If variant is specified, require exact variant match
+            if variant_id and out_variant != variant_id:
+                continue
+
+            # Found a matching upstream image — extract path
+            path = str(output.get("path", ""))
+            if not path:
+                meta = output.get("metadata", {})
+                if isinstance(meta, dict):
+                    path = str(meta.get("path", ""))
+            if path:
+                config["image_path"] = path
+                return
 
     def aggregate_upstream_outputs(
         self,
@@ -545,20 +603,11 @@ class Scheduler:
         outputs = list(upstream.values())
 
         if sort_by_scene_index:
-            # 按 scene_index + variant_index 排序
-            def _get_sort_key(item: dict) -> tuple[int, int]:
-                if not isinstance(item, dict):
-                    return (0, 0)
-                output = item.get("output", {})
-                if isinstance(output, dict):
-                    meta = output.get("metadata", {})
-                    if isinstance(meta, dict):
-                        scene_idx = meta.get("scene_index", meta.get("index", 0))
-                        variant_idx = meta.get("variant_index", 0)
-                        return (int(scene_idx), int(variant_idx))
-                return (0, 0)
-
-            outputs.sort(key=_get_sort_key)
+            outputs.sort(
+                key=lambda item: (
+                    _extract_sort_key(item) if isinstance(item, dict) else (0, 0)
+                )
+            )
 
         return outputs
 
@@ -622,6 +671,70 @@ class Scheduler:
 # ------------------------------------------------------------------
 #  模块级工具函数
 # ------------------------------------------------------------------
+
+
+def _extract_sort_key(
+    result: dict, *, task_id: str = ""
+) -> tuple[int, int]:
+    """Extract a (scene_index, variant_index) sort key from an upstream result.
+
+    The key is used to order video inputs for aggregate/concat nodes so that
+    variant-01 appears before variant-02 within the same scene, and scenes
+    follow their storyboard order.
+
+    Resolution order:
+    1. ``result["output"]["metadata"]["scene_index"]`` / ``variant_index``
+    2. ``result["metadata"]["scene_index"]`` / ``variant_index``
+    3. Parse scene/variant numbers from *task_id* (e.g. ``imageToVideo-scene-001::variant-02``)
+    4. Default ``(0, 0)``
+    """
+    # Try nested output.metadata
+    scene_idx = 0
+    variant_idx = 0
+    output = result.get("output", result) if isinstance(result, dict) else {}
+    if isinstance(output, dict):
+        meta = output.get("metadata", {})
+        if isinstance(meta, dict):
+            scene_idx = int(meta.get("scene_index", meta.get("index", 0)))
+            variant_idx = int(meta.get("variant_index", 0))
+
+    # If both are still zero, try top-level metadata
+    if scene_idx == 0 and variant_idx == 0:
+        top_meta = result.get("metadata", {})
+        if isinstance(top_meta, dict):
+            scene_idx = int(top_meta.get("scene_index", top_meta.get("index", 0)))
+            variant_idx = int(top_meta.get("variant_index", 0))
+
+    # If still zero and task_id is provided, parse it
+    if scene_idx == 0 and variant_idx == 0 and task_id:
+        scene_idx, variant_idx = _parse_task_id_sort_key(task_id)
+
+    return (scene_idx, variant_idx)
+
+
+def _parse_task_id_sort_key(task_id: str) -> tuple[int, int]:
+    """Parse scene and variant numbers from a task_id string.
+
+    Expected formats:
+      ``imageToVideo-scene-001::variant-02``
+      ``imageToVideo-scene-001``
+
+    Returns:
+      ``(scene_number, variant_number)`` — both 1-based integers.
+    """
+    import re
+    scene_idx = 0
+    variant_idx = 0
+
+    scene_match = re.search(r"scene-(\d+)", task_id)
+    if scene_match:
+        scene_idx = int(scene_match.group(1))
+
+    variant_match = re.search(r"variant-(\d+)", task_id)
+    if variant_match:
+        variant_idx = int(variant_match.group(1))
+
+    return (scene_idx, variant_idx)
 
 
 def _now_iso() -> str:

@@ -172,9 +172,15 @@ class Worker:
         Returns:
             更新后的 task 字典（原地修改并返回）。
         """
-        scene_id = task.get("item_key")
-        if not scene_id or not scene_id.startswith("scene-"):
+        item_key = task.get("item_key", "")
+        if not item_key or not item_key.startswith("scene-"):
             return task
+
+        # 解析 scene_id 和 variant_id（支持 "scene-001::variant-01" 格式）
+        actual_scene_id = item_key
+        variant_id = ""
+        if "::" in item_key:
+            actual_scene_id, variant_id = item_key.split("::", 1)
 
         # 从上游结果中提取 scenes 列表
         scenes = _extract_scenes(upstream_results)
@@ -184,7 +190,7 @@ class Worker:
 
         # 查找匹配的 scene
         for scene_data in scenes:
-            if scene_data.get("scene_id") == scene_id:
+            if scene_data.get("scene_id") == actual_scene_id:
                 try:
                     scene = Scene.model_validate(scene_data)
                 except Exception:
@@ -196,6 +202,8 @@ class Worker:
                 task_config["video_prompt"] = scene.video_prompt
                 task_config["duration"] = scene.duration
                 task_config["metadata"] = scene.metadata
+                if variant_id:
+                    task_config["variant_id"] = variant_id
                 return task
 
         return task

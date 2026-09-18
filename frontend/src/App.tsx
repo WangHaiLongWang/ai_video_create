@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Canvas } from './components/Canvas'
 import { ExecutionPanel } from './components/ExecutionPanel'
 import { NodePalette } from './components/NodePalette'
 import { PropertyPanel } from './components/PropertyPanel'
+import { SceneEditor } from './components/SceneEditor'
 import { Toast } from './components/Toast'
 import { TopBar } from './components/TopBar'
 import { useStudioStore } from './store'
@@ -113,17 +114,20 @@ function KeyboardShortcuts() {
 }
 
 export default function App() {
+  const [showSceneEditor, setShowSceneEditor] = useState(false)
+
   return (
     <ReactFlowProvider>
       <KeyboardShortcuts />
       <Toast />
       <div className="app-shell">
-        <TopBar />
+        <TopBar onToggleSceneEditor={() => setShowSceneEditor((v) => !v)} />
         <NodePalette />
         <Canvas />
         <PropertyPanel />
         <ExecutionPanel />
       </div>
+      {showSceneEditor && <SceneEditor onClose={() => setShowSceneEditor(false)} />}
     </ReactFlowProvider>
   )
 }

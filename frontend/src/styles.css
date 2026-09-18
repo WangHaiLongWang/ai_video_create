@@ -1704,6 +1704,124 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .option-row input { flex: 1; }
 .option-row button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: #d47868; cursor: pointer; font-size: 14px; display: grid; place-items: center; }
 
+/* ==================== Export / Import Dialog ==================== */
+.export-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.export-dialog-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.export-dialog-close {
+  background: transparent;
+  border: 0;
+  color: #8b9286;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+}
+.export-dialog-close:hover { color: #e3e6dd; background: rgba(255,255,255,0.06); }
+.export-dialog-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #3a211d;
+  color: #ffd7cf;
+  border: 1px solid #6b3a32;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.export-dialog-loading,
+.export-dialog-empty {
+  text-align: center;
+  padding: 24px 0;
+  color: #8b9286;
+  font-size: 12px;
+}
+.export-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.export-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #c5c9be;
+  background: #1b1e1a;
+  border: 1px solid #3b4038;
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+.export-radio-item:has(input:checked) {
+  border-color: var(--accent);
+  background: #1e261c;
+  color: #e3e6dd;
+}
+.export-radio-item input[type="radio"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.export-filename {
+  font-family: "Cascadia Code", monospace;
+  font-size: 11px;
+}
+.import-file-input {
+  display: block;
+  width: 100%;
+  font-size: 12px;
+  color: #c5c9be;
+}
+.import-file-input::file-selector-button {
+  background: #20231f;
+  color: #c5c9be;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+.import-file-input::file-selector-button:hover {
+  background: #282c24;
+}
+.import-file-info {
+  margin: 8px 0;
+  font-size: 11px;
+  color: #8b9286;
+}
+.import-file-name {
+  font-family: "Cascadia Code", monospace;
+}
+.import-preview {
+  background: #1b1e1a;
+  border: 1px solid #3b4038;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+.import-preview-title {
+  font-size: 13px;
+  color: #e3e6dd;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.import-preview-count {
+  font-size: 11px;
+  color: #8b9286;
+}
+
 /* ==================== PortEditor ==================== */
 .port-editor { margin: 8px 0; }
 .port-section { margin-bottom: 10px; }
@@ -1953,4 +2071,546 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
+
+/* ==================== SceneEditor ==================== */
+
+.scene-editor-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.scene-editor {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  width: min(760px, calc(100% - 40px));
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 55px rgba(5, 7, 5, 0.5);
+}
+
+.se-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.se-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.se-header-left h2 {
+  margin: 0;
+  font-size: 14px;
+  color: #e3e6dd;
+}
+
+.se-header-count {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #2a2d27;
+  color: #8b9286;
+  font-size: 10px;
+  font-family: "Cascadia Code", monospace;
+}
+
+.se-close-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.se-close-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e3e6dd;
+}
+
+/* Toolbar */
+.se-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.se-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  padding: 0 10px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #151714;
+  color: var(--muted);
+}
+
+.se-search input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #e3e6dd;
+  font-size: 12px;
+  outline: none;
+}
+
+.se-search input::placeholder { color: #5a6055; }
+
+.se-search-clear {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #5a6055;
+  cursor: pointer;
+}
+
+.se-search-clear:hover { color: #8b9286; }
+
+.se-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.se-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #20231f;
+  color: #c5c9be;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.se-tool-btn:hover { background: #282c24; }
+.se-tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.se-add-btn { border-color: #3a4036; color: var(--accent); }
+.se-add-btn:hover { background: #1a2e1a; border-color: #5e6943; }
+
+.se-save-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent) !important;
+  font-weight: 700;
+}
+
+.se-save-btn:hover { filter: brightness(1.1); }
+
+/* Stats bar */
+.se-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+  color: #737a6e;
+  font-family: "Cascadia Code", monospace;
+}
+
+.se-stats span { display: flex; align-items: center; gap: 4px; }
+.se-stats-warn { color: #fbbf24; }
+.se-stats-err { color: #d47868; }
+.se-stats-saved { color: #7dce7d; }
+
+/* Body */
+.se-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 120px;
+  padding: 12px 18px;
+}
+
+.se-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.se-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #6b3a32;
+  border-radius: 7px;
+  background: rgba(58, 33, 29, 0.6);
+  color: #ffd7cf;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.se-error button {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid #6b3a32;
+  border-radius: 5px;
+  background: #3a211d;
+  color: #ffd7cf;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.se-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  color: #5a6055;
+}
+
+.se-empty strong {
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #8b9286;
+}
+
+.se-empty p { margin: 0; font-size: 12px; }
+
+/* Scene list */
+.se-scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ==================== SceneCard ==================== */
+
+.scene-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1b1e1a;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.scene-card:hover { border-color: #5b6255; }
+.scene-card--expanded { border-color: #5b6255; }
+.scene-card--selected { border-color: var(--accent); }
+.scene-card--locked { border-left: 3px solid #fbbf24; }
+
+/* Header row */
+.scene-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.scene-card-header:hover { background: rgba(255, 255, 255, 0.015); }
+
+.scene-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.scene-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: #737a6e;
+}
+
+.scene-card-batch-check {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #5a6055;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.scene-card-batch-check:hover { color: var(--accent); }
+
+.scene-card-index {
+  font-size: 10px;
+  font-family: "Cascadia Code", monospace;
+  color: #5a6055;
+  flex-shrink: 0;
+}
+
+.scene-card-title-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c5c9be;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.scene-card-lock-badge {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.scene-card-warn-badge {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(212, 120, 104, 0.12);
+  color: #d47868;
+  flex-shrink: 0;
+}
+
+.scene-card-duration {
+  font-size: 10px;
+  font-family: "Cascadia Code", monospace;
+  color: #737a6e;
+}
+
+/* Hover preview */
+.scene-card-preview {
+  padding: 0 12px 8px;
+  font-size: 10px;
+  color: #5a6055;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Expanded body */
+.scene-card-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid #2a2e27;
+}
+
+.scene-card-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0 6px;
+}
+
+.scene-action-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: #8b9286;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scene-action-btn:hover { background: #282c24; color: #c5c9be; }
+.scene-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.scene-action-btn--active { background: rgba(251, 191, 36, 0.1); border-color: #fbbf24; color: #fbbf24; }
+.scene-action-btn--danger:hover { background: rgba(212, 120, 104, 0.1); border-color: #d47868; color: #d47868; }
+
+/* Fields */
+.scene-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scene-card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.se-field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.se-field-label {
+  font-size: 10px;
+  color: #737a6e;
+  font-weight: 600;
+}
+
+.scene-card-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2a2e27;
+}
+
+.scene-card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: #8b9286;
+  margin-bottom: 6px;
+}
+
+.scene-neg-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: #5a6055;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.scene-neg-toggle:hover { color: #8b9286; }
+
+.scene-readonly-info {
+  font-size: 10px;
+  color: #5a6055;
+  font-family: "Cascadia Code", monospace;
+  padding: 2px 0;
+}
+
+/* Validation */
+.scene-card-validation {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.scene-validation-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+}
+
+.scene-validation-item--warning {
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+}
+
+.scene-validation-item--error {
+  background: rgba(212, 120, 104, 0.1);
+  color: #ffd7cf;
+}
+
+/* ==================== BatchEditPanel ==================== */
+
+.batch-edit-panel {
+  border: 1px solid #3a4036;
+  border-radius: 8px;
+  background: #1a2e1a;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.batch-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2d5a2d;
+}
+
+.batch-edit-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7dce7d;
+}
+
+.batch-edit-close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #7dce7d;
+  cursor: pointer;
+}
+
+.batch-edit-close:hover { background: rgba(255, 255, 255, 0.06); }
+
+.batch-edit-fields {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.batch-edit-actions {
+  padding: 8px 12px;
+  border-top: 1px solid #2d5a2d;
+}
+
+.batch-apply-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.batch-apply-btn:hover { filter: brightness(1.1); }
 

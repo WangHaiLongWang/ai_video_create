@@ -6,15 +6,17 @@
  */
 
 import { useState, useCallback } from 'react'
-import { CaretDown, FloppyDisk, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
+import { CaretDown, Export, FileArrowUp, FloppyDisk, FilmStrip, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
 import { AssetPanel } from './AssetPanel'
+import { ExportDialog } from './ExportDialog'
+import { ImportDialog } from './ImportDialog'
 import SettingsPanel from './SettingsPanel'
 import TemplateSelector from './TemplateSelector'
 import WorkflowListPage from './WorkflowListPage'
 
-export function TopBar() {
+export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => void }) {
   const { workflow, ensureSavedToServer, setWorkflow } = useStudioStore()
   const {
     status: executionStatus,
@@ -29,6 +31,8 @@ export function TopBar() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [showWorkflowList, setShowWorkflowList] = useState(false)
   const [showAssets, setShowAssets] = useState(false)
+  const [showExport, setShowExport] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   const isRunning = executionStatus === 'running'
 
@@ -80,11 +84,20 @@ export function TopBar() {
           <button className="icon-button" onClick={() => setShowAssets(true)} aria-label="资产">
             <Folder size={18} />
           </button>
+          <button className="icon-button" onClick={onToggleSceneEditor} aria-label="场景编辑器">
+            <FilmStrip size={18} />
+          </button>
           <button className="icon-button" onClick={() => setShowTemplates(true)} aria-label="模板">
             <TreeStructure size={18} />
           </button>
           <button className="icon-button" onClick={() => setShowSettings(true)} aria-label="设置">
             <GearSix size={18} />
+          </button>
+          <button className="icon-button" onClick={() => setShowExport(true)} aria-label="导出">
+            <Export size={18} />
+          </button>
+          <button className="icon-button" onClick={() => setShowImport(true)} aria-label="导入">
+            <FileArrowUp size={18} />
           </button>
           <button className="secondary-button"><FloppyDisk size={17} />已自动保存</button>
           {isRunning ? (
@@ -115,6 +128,14 @@ export function TopBar() {
       {showTemplates && <TemplateSelector onSelect={handleTemplateSelect} onClose={() => setShowTemplates(false)} />}
       {showWorkflowList && <WorkflowListPage onClose={() => setShowWorkflowList(false)} />}
       {showAssets && <AssetPanel onClose={() => setShowAssets(false)} />}
+      {showExport && <ExportDialog workflowId={workflow.id} onClose={() => setShowExport(false)} />}
+      {showImport && (
+        <ImportDialog
+          workflowId={workflow.id}
+          onClose={() => setShowImport(false)}
+          onImported={() => { /* parent can refresh if needed */ }}
+        />
+      )}
     </>
   )
 }

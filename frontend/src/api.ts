@@ -466,3 +466,98 @@ export function testProvider(name: string): Promise<{ status: string }> {
     body: JSON.stringify({ provider_name: name }),
   })
 }
+
+// ==================== Scene Drafts ====================
+
+export type ExportFormat = 'json' | 'markdown' | 'csv' | 'text' | 'qwen_jsonl' | 'wan3_jsonl'
+
+export interface SceneBundleExportResponse {
+  format: string
+  content: string
+  bundle_id: string
+}
+
+export interface SceneDraftSummary {
+  draft_id: string
+  workflow_id: string
+  name: string
+  source: string
+  scene_count: number
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export function listSceneDrafts(workflowId: string): Promise<SceneDraftSummary[]> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts`)
+}
+
+export function getSceneDraft(workflowId: string, draftId: string): Promise<Record<string, unknown>> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/${draftId}`)
+}
+
+export function createSceneDraft(workflowId: string, bundle: Record<string, unknown>): Promise<{ draft_id: string; workflow_id: string; scene_count: number }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts`, {
+    method: 'POST',
+    body: JSON.stringify({ bundle }),
+  })
+}
+
+export function updateSceneDraft(
+  workflowId: string,
+  draftId: string,
+  updates: { bundle?: Record<string, unknown>; name?: string; source?: string },
+): Promise<{ ok: boolean; draft_id: string; version: number }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/${draftId}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  })
+}
+
+export function deleteSceneDraft(workflowId: string, draftId: string): Promise<{ ok: boolean; deleted: string }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/${draftId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function updateScene(
+  workflowId: string,
+  draftId: string,
+  sceneIndex: number,
+  updates: Record<string, unknown>,
+): Promise<{ ok: boolean; draft_id: string; scene_index: number }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/${draftId}/scenes/${sceneIndex}`, {
+    method: 'PUT',
+    body: JSON.stringify({ updates }),
+  })
+}
+
+export function lockScene(workflowId: string, draftId: string, sceneIndex: number): Promise<{ ok: boolean; locked: boolean }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/${draftId}/scenes/${sceneIndex}/lock`, {
+    method: 'POST',
+  })
+}
+
+export function unlockScene(workflowId: string, draftId: string, sceneIndex: number): Promise<{ ok: boolean; locked: boolean }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/${draftId}/scenes/${sceneIndex}/unlock`, {
+    method: 'POST',
+  })
+}
+
+export function importSceneBundle(workflowId: string, bundle: Record<string, unknown>): Promise<{ draft_id: string; workflow_id: string; scene_count: number }> {
+  return apiRequest(`/workflows/${workflowId}/scene-drafts/import`, {
+    method: 'POST',
+    body: JSON.stringify({ bundle }),
+  })
+}
+
+export function validateSceneBundle(bundleId: string): Promise<{ bundle_id: string; valid: boolean; issue_count: number; issues: Array<{ code: string; message: string }> }> {
+  return apiRequest(`/scene-bundles/${bundleId}/validate`)
+}
+
+export function exportSceneBundle(
+  bundleId: string,
+  format: ExportFormat,
+): Promise<SceneBundleExportResponse> {
+  return apiRequest(`/scene-bundles/${bundleId}/export?format=${format}`)
+}

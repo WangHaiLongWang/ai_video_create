@@ -92,12 +92,14 @@ def export_to_qwen_jsonl(bundle: ScenePromptBundle) -> str:
     """One Qwen image request JSON object per line."""
     lines: list[str] = []
     for scene in bundle.scenes:
-        obj = {
+        obj: dict[str, Any] = {
             "model": scene.image.model or "qwen-image-3.0",
             "prompt": scene.image.prompt,
             "negative_prompt": scene.image.negative_prompt or "",
             "size": scene.image.size or "1280x720",
         }
+        if scene.image.seed != -1:
+            obj["seed"] = scene.image.seed
         lines.append(json.dumps(obj, ensure_ascii=False))
     return "\n".join(lines) + "\n"
 

@@ -343,15 +343,20 @@ class RealImageToVideoHandler:
                 message="Image path required for video generation",
             )
 
+        # Resolve video prompt: prefer scene.video.prompt from config,
+        # fall back to generic default
+        video_prompt = config.get("video_prompt", "") or config.get("prompt", "镜头自然运动")
+
         provider_name = _provider_name(config, "video")
         if provider_name in {"wan3", "comfyui"}:
-            return await self._use_provider(task, config, actual_scene_id, variant_id, duration, image_path)
+            return await self._use_provider(task, config, actual_scene_id, variant_id, duration, image_path, video_prompt)
         if provider_name == "mock":
             return self._mock_video_output(actual_scene_id, variant_id, duration)
         return await self._use_ffmpeg(task, config, actual_scene_id, variant_id, image_path, duration)
 
     async def _use_provider(
-        self, task: dict, config: dict, scene_id: str, variant_id: str, duration: float, image_path: str
+        self, task: dict, config: dict, scene_id: str, variant_id: str,
+        duration: float, image_path: str, video_prompt: str = "",
     ) -> NodeResult:
         """Use video provider to generate video."""
         provider = get_provider(_provider_name(config, "video"))
@@ -367,7 +372,7 @@ class RealImageToVideoHandler:
                 image_path = asset_manager.get_asset_path(image_path)
             video_data = await provider.generate_video(
                 image_path,
-                str(config.get("video_prompt", config.get("prompt", "镜头自然运动"))),
+                video_prompt or "镜头自然运动",
                 config,
             )
 
