@@ -38,6 +38,13 @@ class SceneVideoPrompt(BaseModel):
     first_frame_asset_id: str | None = None
 
 
+class SceneTransition(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    type: str
+    duration: float
+
+
 class SceneEntry(BaseModel):
     model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
 
@@ -49,7 +56,7 @@ class SceneEntry(BaseModel):
     locked: bool = False
     image: SceneImagePrompt
     video: SceneVideoPrompt
-    transition: dict | None = None
+    transition: SceneTransition | None = None
     metadata: dict = Field(default_factory=dict)
 
 

@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scene-prompt-bundle-v1",
+  "title": "Scene Prompt Bundle",
+  "description": "Single-source-of-truth JSON Schema for Scene Prompt Bundles. Used by both the TypeScript frontend and Pydantic backend.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "storyboardId",
+    "workflowId",
+    "executionId",
+    "title",
+    "scenes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version identifier"
+    },
+    "storyboardId": {
+      "type": "string",
+      "description": "Unique storyboard identifier"
+    },
+    "workflowId": {
+      "type": "string",
+      "description": "Workflow this bundle belongs to"
+    },
+    "executionId": {
+      "type": "string",
+      "description": "Execution identifier (empty string for drafts)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable bundle title"
+    },
+    "globalStyle": {
+      "type": "string",
+      "description": "Global style directive applied to all scene prompts"
+    },
+    "negativePrompt": {
+      "type": "string",
+      "description": "Global negative prompt applied to all scene prompts"
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SceneEntry"
+      },
+      "description": "Ordered list of scenes in this bundle"
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the bundle was exported"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["draft", "execution", "merged"],
+      "description": "Origin of the bundle: draft (manual), execution (storyboard run), or merged (execution + user overrides)"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "SceneEntry": {
+      "type": "object",
+      "required": [
+        "sceneId",
+        "index",
+        "title",
+        "narration",
+        "durationSeconds",
+        "locked",
+        "image",
+        "video"
+      ],
+      "properties": {
+        "sceneId": {
+          "type": "string",
+          "description": "Unique scene identifier"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based position in the storyboard"
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable scene title"
+        },
+        "narration": {
+          "type": "string",
+          "description": "Voiceover narration text for the scene"
+        },
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "default": 5.0,
+          "description": "Target duration in seconds"
+        },
+        "locked": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, scene is protected from regeneration"
+        },
+        "image": {
+          "$ref": "#/$defs/SceneImagePrompt",
+          "description": "Image generation prompt configuration"
+        },
+        "video": {
+          "$ref": "#/$defs/SceneVideoPrompt",
+          "description": "Video generation prompt configuration"
+        },
+        "transition": {
+          "$ref": "#/$defs/SceneTransition",
+          "description": "Transition configuration to the next scene"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "default": {},
+          "description": "Arbitrary key-value metadata (e.g. variantCount, outputStrategy)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SceneImagePrompt": {
+      "type": "object",
+      "required": ["prompt"],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Text prompt for image generation"
+        },
+        "negativePrompt": {
+          "type": "string",
+          "default": null,
+          "description": "Negative prompt to steer generation away from unwanted elements"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provider identifier (e.g. 'dashscope', 'openai')"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier (e.g. 'qwen-image-3.0')"
+        },
+        "size": {
+          "type": "string",
+          "description": "Image dimensions as 'WIDTHxHEIGHT' (e.g. '1280x720')"
+        },
+        "seed": {
+          "type": "integer",
+          "default": -1,
+          "description": "Random seed for reproducibility (-1 for random)"
+        },
+        "referenceAssetIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Asset IDs of reference images for the generation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SceneVideoPrompt": {
+      "type": "object",
+      "required": ["prompt"],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Text prompt for video generation"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provider identifier (e.g. 'wan3')"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier (e.g. 'wan3.0-video')"
+        },
+        "resolution": {
+          "type": "string",
+          "description": "Video resolution (e.g. '480P', '720P', '1080P')"
+        },
+        "ratio": {
+          "type": "string",
+          "description": "Aspect ratio (e.g. '16:9', 'adaptive')"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 5,
+          "description": "Video duration in seconds"
+        },
+        "audio": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to generate audio with the video"
+        },
+        "seed": {
+          "type": "integer",
+          "default": -1,
+          "description": "Random seed for reproducibility (-1 for random)"
+        },
+        "firstFrameAssetId": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Asset ID of the first frame image for the video"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SceneTransition": {
+      "type": "object",
+      "required": ["type", "duration"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Transition type (e.g. 'crossfade', 'cut', 'dissolve')"
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Transition duration in seconds"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
