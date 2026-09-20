@@ -8,5 +8,17 @@ export default defineConfig({
       '/api': 'http://127.0.0.1:8000',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-xyflow': ['@xyflow/react'],
+          'vendor-phosphor': ['@phosphor-icons/react'],
+          'vendor-zustand': ['zustand'],
+        },
+      },
+    },
+  },
 })
 

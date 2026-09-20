@@ -214,7 +214,8 @@ class TestEndToEndExternalJobId:
             result = await handler.execute(
                 {"id": "t-e2e-1", "item_key": "scene-001",
                  "config": {"image_path": str(image_file),
-                            "video_prompt": "镜头缓慢移动"}},
+                            "video_prompt": "镜头缓慢移动",
+                            "provider": "wan3"}},
                 {"upstream_results": {}},
             )
 

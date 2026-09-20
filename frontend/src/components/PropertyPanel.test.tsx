@@ -141,7 +141,7 @@ describe('PropertyPanel', () => {
     expect(screen.getByText('添加字段', { selector: 'h3' })).toBeDefined()
   })
 
-  it('delete field shows confirmation dialog', () => {
+  it('delete field shows confirmation dialog with config value and irreversibility warning', () => {
     const nodeWithField: StudioNode = {
       id: 'n1',
       type: 'studio',
@@ -151,7 +151,7 @@ describe('PropertyPanel', () => {
         description: '',
         kind: 'textInput',
         status: 'idle',
-        config: { del_field: 'val' },
+        config: { del_field: 'val_to_show' },
         fieldSchema: [
           { id: 'del_field', label: 'Delete Me', type: 'text' },
         ],
@@ -171,9 +171,13 @@ describe('PropertyPanel', () => {
     const deleteBtn = screen.getByTitle('删除')
     fireEvent.click(deleteBtn)
 
-    // Confirmation dialog should appear
+    // Confirmation dialog should appear with field name
     expect(screen.getByText('确认删除')).toBeDefined()
     expect(screen.getByText(/确定要删除字段 'Delete Me'/)).toBeDefined()
+    // Should show the config value that will be removed
+    expect(screen.getByText(/配置值 "val_to_show" 将被移除/)).toBeDefined()
+    // Should show irreversibility warning
+    expect(screen.getByText(/此操作不可恢复/)).toBeDefined()
   })
 
   it('reorder fields moves field up/down', () => {

@@ -463,7 +463,18 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
       if (node.id !== nodeId) return node
       const schema = node.data.fieldSchema ?? []
       const newSchema = schema.map((f) => f.id === fieldId ? field : f)
-      return { ...node, data: { ...node.data, fieldSchema: newSchema } }
+
+      // Config key migration: if the field ID changed, move the config value
+      const newConfig = { ...node.data.config }
+      if (fieldId !== field.id) {
+        const oldValue = newConfig[fieldId]
+        if (oldValue !== undefined) {
+          newConfig[field.id] = oldValue
+          delete newConfig[fieldId]
+        }
+      }
+
+      return { ...node, data: { ...node.data, fieldSchema: newSchema, config: newConfig } }
     })
     const workflow = { ...state.workflow, nodes }
     const history = pushHistory(state, workflow)

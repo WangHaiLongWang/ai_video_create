@@ -5,17 +5,18 @@
  * 使用 workflowStore 管理工作流状态
  */
 
-import { useMemo, useState, useCallback } from 'react'
+import { Suspense, lazy, useMemo, useState, useCallback } from 'react'
 import { CaretDown, Export, FileArrowUp, FloppyDisk, FilmStrip, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
 import { computeCallEstimate } from '../utils/callEstimate'
-import { AssetPanel } from './AssetPanel'
 import { ExportDialog } from './ExportDialog'
 import { ImportDialog } from './ImportDialog'
-import SettingsPanel from './SettingsPanel'
-import TemplateSelector from './TemplateSelector'
-import WorkflowListPage from './WorkflowListPage'
+
+const AssetPanel = lazy(() => import('./AssetPanel').then(m => ({ default: m.AssetPanel })))
+const SettingsPanel = lazy(() => import('./SettingsPanel'))
+const TemplateSelector = lazy(() => import('./TemplateSelector'))
+const WorkflowListPage = lazy(() => import('./WorkflowListPage'))
 
 export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => void }) {
   const { workflow, ensureSavedToServer, setWorkflow } = useStudioStore()
@@ -135,10 +136,26 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
         )}
       </header>
 
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-      {showTemplates && <TemplateSelector onSelect={handleTemplateSelect} onClose={() => setShowTemplates(false)} />}
-      {showWorkflowList && <WorkflowListPage onClose={() => setShowWorkflowList(false)} />}
-      {showAssets && <AssetPanel onClose={() => setShowAssets(false)} />}
+      {showSettings && (
+        <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
+          <SettingsPanel onClose={() => setShowSettings(false)} />
+        </Suspense>
+      )}
+      {showTemplates && (
+        <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
+          <TemplateSelector onSelect={handleTemplateSelect} onClose={() => setShowTemplates(false)} />
+        </Suspense>
+      )}
+      {showWorkflowList && (
+        <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
+          <WorkflowListPage onClose={() => setShowWorkflowList(false)} />
+        </Suspense>
+      )}
+      {showAssets && (
+        <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
+          <AssetPanel onClose={() => setShowAssets(false)} />
+        </Suspense>
+      )}
       {showExport && <ExportDialog workflowId={workflow.id} onClose={() => setShowExport(false)} />}
       {showImport && (
         <ImportDialog

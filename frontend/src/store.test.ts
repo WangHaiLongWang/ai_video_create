@@ -109,3 +109,130 @@ describe('store node operations', () => {
     expect(useStudioStore.getState().selectedNodeId).toBeNull()
   })
 })
+
+describe('field rename config key migration', () => {
+  const nodeId = 'test-node'
+  const field: import('./types').FieldDefinition = { id: 'camera_motion', label: 'Camera Motion', type: 'text' }
+
+  beforeEach(() => {
+    localStorageMock.clear()
+    useStudioStore.setState({
+      workflow: {
+        id: 'wf',
+        name: 'Test',
+        schemaVersion: '2.0',
+        nodes: [{
+          id: nodeId,
+          type: 'studio',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Node',
+            description: '',
+            kind: 'textInput',
+            status: 'idle',
+            config: { camera_motion: 'slow_push', other_key: 'keep' },
+            fieldSchema: [field],
+          },
+        }],
+        edges: [],
+      },
+      past: [],
+      future: [],
+      selectedNodeId: null,
+      isDirty: false,
+    })
+  })
+
+  it('migrates config key when field ID is renamed', () => {
+    const { updateField } = useStudioStore.getState()
+    const renamed: import('./types').FieldDefinition = { ...field, id: 'camera_move', label: 'Camera Move' }
+    updateField(nodeId, 'camera_motion', renamed)
+
+    const node = useStudioStore.getState().workflow.nodes.find((n) => n.id === nodeId)!
+    expect(node.data.config).toEqual({ camera_move: 'slow_push', other_key: 'keep' })
+    expect(node.data.fieldSchema).toHaveLength(1)
+    expect(node.data.fieldSchema![0].id).toBe('camera_move')
+  })
+
+  it('preserves other config keys during rename', () => {
+    const { updateField } = useStudioStore.getState()
+    const renamed: import('./types').FieldDefinition = { ...field, id: 'camera_move' }
+    updateField(nodeId, 'camera_motion', renamed)
+
+    const node = useStudioStore.getState().workflow.nodes.find((n) => n.id === nodeId)!
+    expect(node.data.config.other_key).toBe('keep')
+  })
+
+  it('undo rename restores original config key', () => {
+    const { updateField, undo } = useStudioStore.getState()
+    const renamed: import('./types').FieldDefinition = { ...field, id: 'camera_move' }
+    updateField(nodeId, 'camera_motion', renamed)
+
+    // Verify rename happened
+    const renamedNode = useStudioStore.getState().workflow.nodes.find((n) => n.id === nodeId)!
+    expect(renamedNode.data.config.camera_move).toBe('slow_push')
+
+    undo()
+
+    const restoredNode = useStudioStore.getState().workflow.nodes.find((n) => n.id === nodeId)!
+    expect(restoredNode.data.config.camera_motion).toBe('slow_push')
+    expect(restoredNode.data.config.camera_move).toBeUndefined()
+  })
+})
+
+describe('field deletion config cleanup', () => {
+  const nodeId = 'test-node-del'
+
+  beforeEach(() => {
+    localStorageMock.clear()
+    useStudioStore.setState({
+      workflow: {
+        id: 'wf',
+        name: 'Test',
+        schemaVersion: '2.0',
+        nodes: [{
+          id: nodeId,
+          type: 'studio',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Node',
+            description: '',
+            kind: 'textInput',
+            status: 'idle',
+            config: { my_field: 'to_delete', other: 'kept' },
+            fieldSchema: [
+              { id: 'my_field', label: 'My Field', type: 'text' },
+            ],
+          },
+        }],
+        edges: [],
+      },
+      past: [],
+      future: [],
+      selectedNodeId: null,
+      isDirty: false,
+    })
+  })
+
+  it('removes config value when field is deleted', () => {
+    const { deleteField } = useStudioStore.getState()
+    deleteField(nodeId, 'my_field')
+
+    const node = useStudioStore.getState().workflow.nodes.find((n) => n.id === nodeId)!
+    expect(node.data.config.my_field).toBeUndefined()
+    expect(node.data.config.other).toBe('kept')
+    expect(node.data.fieldSchema).toHaveLength(0)
+  })
+
+  it('undo delete restores config value', () => {
+    const { deleteField, undo } = useStudioStore.getState()
+    deleteField(nodeId, 'my_field')
+
+    undo()
+
+    const node = useStudioStore.getState().workflow.nodes.find((n) => n.id === nodeId)!
+    expect(node.data.config.my_field).toBe('to_delete')
+    expect(node.data.fieldSchema).toHaveLength(1)
+    expect(node.data.fieldSchema![0].id).toBe('my_field')
+  })
+})

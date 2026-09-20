@@ -2622,3 +2622,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
 .batch-apply-btn:hover { filter: brightness(1.1); }
 
+/* Lazy-load fallback */
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+}
+

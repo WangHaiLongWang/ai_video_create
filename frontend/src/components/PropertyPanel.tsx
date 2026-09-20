@@ -303,26 +303,31 @@ export function PropertyPanel() {
         />
       )}
 
-      {deleteConfirm && (
-        <div className="field-dialog-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="field-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 'min(400px, calc(100% - 40px))' }}>
-            <h3>确认删除</h3>
-            <p style={{ fontSize: 12, color: '#c5c9be', lineHeight: 1.6, margin: '0 0 6px' }}>
-              确定要删除字段 '{deleteConfirm.fieldLabel}' 吗？
-            </p>
-            <p style={{ fontSize: 11, color: '#8b9286', lineHeight: 1.5, margin: '0 0 4px' }}>
-              对应的配置值也将被删除。
-            </p>
-            <p style={{ fontSize: 11, color: '#737a6e', lineHeight: 1.5, margin: '0 0 16px' }}>
-              此操作可以撤销 (Ctrl+Z)。
-            </p>
-            <div className="field-dialog-actions">
-              <button className="field-dialog-cancel" onClick={() => setDeleteConfirm(null)}>取消</button>
-              <button className="field-dialog-delete" onClick={() => handleDeleteField(deleteConfirm.fieldId)}>删除</button>
+      {deleteConfirm && (() => {
+        const cfgValue = node?.data.config[deleteConfirm.fieldId]
+        return (
+          <div className="field-dialog-overlay" onClick={() => setDeleteConfirm(null)}>
+            <div className="field-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 'min(400px, calc(100% - 40px))' }}>
+              <h3>确认删除</h3>
+              <p style={{ fontSize: 12, color: '#c5c9be', lineHeight: 1.6, margin: '0 0 6px' }}>
+                确定要删除字段 '{deleteConfirm.fieldLabel}' 吗？
+              </p>
+              {cfgValue !== undefined && (
+                <p style={{ fontSize: 11, color: '#d4a76c', lineHeight: 1.5, margin: '0 0 4px' }}>
+                  配置值 "{String(cfgValue)}" 将被移除。
+                </p>
+              )}
+              <p style={{ fontSize: 11, color: '#737a6e', lineHeight: 1.5, margin: '0 0 16px' }}>
+                此操作不可恢复，但可以通过 Ctrl+Z 撤销。
+              </p>
+              <div className="field-dialog-actions">
+                <button className="field-dialog-cancel" onClick={() => setDeleteConfirm(null)}>取消</button>
+                <button className="field-dialog-delete" onClick={() => handleDeleteField(deleteConfirm.fieldId)}>删除</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
         </>
       )}
     </aside>

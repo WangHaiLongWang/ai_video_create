@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from typing import Any
 
@@ -37,8 +38,19 @@ class MockProvider(BaseProvider):
         config = config or {}
         max_tokens = config.get("max_tokens", 500)
 
+        # Detect workflow generation / modification prompts
+        prompt_lower = prompt.lower()
+        is_workflow = (
+            "nodes" in prompt_lower and "edges" in prompt_lower
+        ) or "工作流" in prompt
+        is_patch = "graphpatch" in prompt_lower or "patch" in prompt_lower
+
         # Generate a mock response based on the prompt
-        if "storyboard" in prompt.lower() or "scene" in prompt.lower():
+        if is_patch:
+            return self._generate_patch_text(prompt)
+        elif is_workflow:
+            return self._generate_workflow_text(prompt)
+        elif "storyboard" in prompt_lower or "scene" in prompt_lower:
             return self._generate_storyboard_text(prompt)
         else:
             return self._generate_generic_text(prompt)
@@ -131,6 +143,96 @@ class MockProvider(BaseProvider):
     def _generate_generic_text(self, prompt: str) -> str:
         """Generate generic mock text."""
         return f"这是对提示词的模拟回复。提示词内容：{prompt[:100]}..."
+
+    def _generate_workflow_text(self, prompt: str) -> str:
+        """Generate a mock workflow JSON response with valid nodes and edges."""
+        # Parse scene count from prompt (e.g. "7 镜头" or "7镜头")
+        import re
+        match = re.search(r"(\d+)\s*镜头", prompt)
+        scene_count = int(match.group(1)) if match else 5
+
+        return json.dumps({
+            "nodes": [
+                {
+                    "id": "n1",
+                    "position": {"x": 100, "y": 200},
+                    "data": {
+                        "label": "输入提示词",
+                        "description": "视频主题描述",
+                        "kind": "textInput",
+                        "config": {"prompt": ""},
+                    },
+                },
+                {
+                    "id": "n2",
+                    "position": {"x": 350, "y": 200},
+                    "data": {
+                        "label": "生成分镜",
+                        "description": "将提示词拆分为多个场景",
+                        "kind": "storyboard",
+                        "config": {"scenes": scene_count, "style": "cinematic"},
+                    },
+                },
+                {
+                    "id": "n3",
+                    "position": {"x": 600, "y": 200},
+                    "data": {
+                        "label": "生成图片",
+                        "description": "为每个场景生成图片",
+                        "kind": "textToImage",
+                        "config": {"mapOver": True},
+                    },
+                },
+                {
+                    "id": "n4",
+                    "position": {"x": 850, "y": 200},
+                    "data": {
+                        "label": "图片转视频",
+                        "description": "将图片转为视频片段",
+                        "kind": "imageToVideo",
+                        "config": {"mapOver": True, "duration": 4},
+                    },
+                },
+                {
+                    "id": "n5",
+                    "position": {"x": 1100, "y": 200},
+                    "data": {
+                        "label": "合成视频",
+                        "description": "拼接所有视频片段",
+                        "kind": "videoConcat",
+                        "config": {},
+                    },
+                },
+                {
+                    "id": "n6",
+                    "position": {"x": 1350, "y": 200},
+                    "data": {
+                        "label": "输出",
+                        "description": "最终视频输出",
+                        "kind": "output",
+                        "config": {},
+                    },
+                },
+            ],
+            "edges": [
+                {"id": "e1-2", "source": "n1", "target": "n2", "sourceHandle": "text", "targetHandle": "prompt"},
+                {"id": "e2-3", "source": "n2", "target": "n3", "sourceHandle": "scenes", "targetHandle": "scene"},
+                {"id": "e3-4", "source": "n3", "target": "n4", "sourceHandle": "images", "targetHandle": "image"},
+                {"id": "e4-5", "source": "n4", "target": "n5", "sourceHandle": "videos", "targetHandle": "videos"},
+                {"id": "e5-6", "source": "n5", "target": "n6", "sourceHandle": "video", "targetHandle": "video"},
+            ],
+        }, ensure_ascii=False)
+
+    def _generate_patch_text(self, prompt: str) -> str:
+        """Generate a mock GraphPatch JSON response."""
+        return json.dumps({
+            "description": "模拟修改：添加一个节点",
+            "add_nodes": [],
+            "remove_nodes": [],
+            "update_nodes": [],
+            "add_edges": [],
+            "remove_edges": [],
+        }, ensure_ascii=False)
 
     def _create_minimal_mp4(self) -> bytes:
         """Create a minimal valid MP4 file."""

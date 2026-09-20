@@ -124,10 +124,14 @@ export function FieldEditorDialog({ field, onSave, onDelete, onClose }: FieldEdi
             type="text"
             value={id}
             onChange={(e) => handleIdChange(e.target.value)}
-            disabled={isEditing}
             placeholder="snake_case_field_id"
           />
           {idError && <small style={{ color: '#d47868' }}>{idError}</small>}
+          {isEditing && field && id !== field.id && (
+            <small style={{ color: '#8ba87a', display: 'block', marginTop: 2 }}>
+              Rename from "{field.id}" — config value will be migrated
+            </small>
+          )}
         </label>
 
         <label>

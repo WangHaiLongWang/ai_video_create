@@ -10,11 +10,18 @@ from backend.app.main import app
 @pytest.fixture(autouse=True)
 def fresh_db(tmp_path, monkeypatch):
     """每个测试使用临时数据库。"""
+    from backend.app.providers import init_providers, clear_providers
+    from backend.app.handlers import init_mock_handlers
+
     monkeypatch.setattr("backend.app.db.connection._DB_PATH", tmp_path / "test.db")
     close_connection()
     init_db()
+    clear_providers()
+    init_providers(mock=True)
+    init_mock_handlers()
     yield
     close_connection()
+    clear_providers()
 
 
 client = TestClient(app)

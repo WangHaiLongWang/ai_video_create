@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Canvas } from './components/Canvas'
 import { ExecutionPanel } from './components/ExecutionPanel'
 import { NodePalette } from './components/NodePalette'
 import { PropertyPanel } from './components/PropertyPanel'
-import { SceneEditor } from './components/SceneEditor'
 import { Toast } from './components/Toast'
 import { TopBar } from './components/TopBar'
 import { useStudioStore } from './store'
+
+const SceneEditor = lazy(() => import('./components/SceneEditor').then(m => ({ default: m.SceneEditor })))
 
 function isInputFocused() {
   const tag = (document.activeElement as HTMLElement)?.tagName
@@ -127,7 +128,11 @@ export default function App() {
         <PropertyPanel />
         <ExecutionPanel />
       </div>
-      {showSceneEditor && <SceneEditor onClose={() => setShowSceneEditor(false)} />}
+      {showSceneEditor && (
+        <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
+          <SceneEditor onClose={() => setShowSceneEditor(false)} />
+        </Suspense>
+      )}
     </ReactFlowProvider>
   )
 }
