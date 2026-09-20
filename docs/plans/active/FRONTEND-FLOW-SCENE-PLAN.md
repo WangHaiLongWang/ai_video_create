@@ -1,32 +1,32 @@
 # React Flow 与 Scene Prompt 产品化计划
 
 > 状态：Active 子计划  
-> 日期：2026-09-18
+> 日期：2026-09-20
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
 > 目标：把现有线性六节点画布升级为端口明确、可验证、可编辑、可导出的工作流与 Scene Prompt 系统。
 
-## 0. 2026-09-17 实现检查点
+## 0. 2026-09-20 实现检查点
 
 | 工单 | 状态 | 当前证据 | 剩余工作 |
 |---|---|---|---|
 | FLOW-001 | 基础完成 | TS/Pydantic Node Manifest | 建立共享 JSON Schema/fixture 生成链 |
 | FLOW-002 | 完成基础版 | StudioNode 多 Handle + 稳定 ID | 端口 hover/连接状态视觉 |
 | FLOW-003 | 完成基础版 | 前后端 self/type/cardinality/cycle 校验 | create/update/start 强制调用与错误信封 |
-| FLOW-004 | 部分 | Store connectionError + Toast 已挂载 | 兼容端口高亮、前置拒绝原因、可访问提示 |
-| FLOW-005 | 部分 | EdgeData 已定义 | Edge 组件、label/mode/order/重连 UI |
+| FLOW-004 | 部分 | Store connectionError + Toast + flow E2E 已有 | 兼容端口高亮、前置拒绝原因、可访问实跑 |
+| FLOW-005 | 完成基础版 | EdgeInspector 已支持 label/mode/order/delete | reconnect 与执行语义验收 |
 | FLOW-006 | 完成基础版 | WorkflowSpec 2.0 + v1 migration | DB/API/viewport roundtrip 验收 |
 | FLOW-007 | 未完成 | V2 有 viewport 字段 | 实际 onMoveEnd 保存与工具栏 |
 | FLOW-008 | 未完成 | 普通历史存在 | 拖动语义事务 |
 | FLOW-009 | 未完成 | 无多选复制粘贴 | UI/快捷键/E2E |
-| FLOW-010 | 部分 | 大量 schema 单测 | Playwright 连线矩阵缺失 |
+| FLOW-010 | 完成文件版 | `flow-connection.spec.ts`、`fields-ports.spec.ts` 已存在 | 在 CI/本机执行并归档证据 |
 | SCENE-001 | 完成基础版 | TS/Pydantic ScenePromptBundle | 共用 fixture 与版本兼容测试 |
 | SCENE-002 | 完成基础版 | Storyboard materializer | execution endpoint 主路径验收 |
 | SCENE-003 | 部分 | CRUD/lock/merge API，内存 SceneService | SQLite migration/repository |
-| SCENE-004 | 未完成 | 无 Scene Editor | 前端逐镜/批量编辑 |
-| SCENE-005 | 后端完成 | JSON/Markdown/CSV/Text exporter | 文件下载响应与前端 UI |
+| SCENE-004 | 完成基础版 | `SceneEditor.tsx` 已挂载 | API 持久化与复杂批量编辑验收 |
+| SCENE-005 | 完成基础版 | ExportDialog/ImportDialog + exporter | 下载响应与 roundtrip E2E |
 | SCENE-006 | 后端完成 | Qwen JSONL exporter | Provider 参数完整性/前端预览 |
 | SCENE-007 | 后端完成 | Wan3 JSONL exporter | firstFrame Asset ID 与 media 映射 |
-| SCENE-008 | 未完成 | 无导出 Dialog | 来源/格式/文件名/错误 UI |
+| SCENE-008 | 完成基础版 | ExportDialog/ImportDialog 已存在 | 文件下载、错误和大文件体验 |
 | SCENE-009 | 完成基础版 | secret/signed URL/path scanner | API 强制阻断策略 |
 | SCENE-010 | 部分 | API/unit tests 存在 | 浏览器 roundtrip E2E |
 
@@ -60,8 +60,8 @@
 
 #### Scene 与 Prompt
 
-- Scene Bundle 与导出器已实现，但画布没有 Scene Editor。
-- Scene Draft API 已有，当前只存内存，重启丢失。
+- Scene Bundle、导出器和 SceneEditor 已实现；API/SQLite roundtrip 仍需完整验收。
+- Scene Draft 已有 migration/repository/API，需验证重启恢复和前端调用链。
 - Qwen/Wan3 JSONL 后端导出器已存在，缺参数完整性验收和前端下载 UI。
 - Scene lock/merge API 已有，缺真实执行主路径与用户交互验收。
 - Schema 已提供 draft/execution/merged 来源字段，但产品 UI 尚未清晰展示“定义”和“运行结果”的区别。

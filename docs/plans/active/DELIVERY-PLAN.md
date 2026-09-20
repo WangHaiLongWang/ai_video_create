@@ -1,14 +1,14 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.3
-> 制定日期：2026-09-18
+> 计划版本：1.4
+> 制定日期：2026-09-20
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-09-18 执行检查点
+## 0. 2026-09-20 执行检查点
 
 项目主要功能模块已完成，当前重点从“扩充能力”切换为“恢复可复现绿色门禁与产品闭环”。
 
@@ -36,12 +36,12 @@
 
 ### 当前质量基线
 
-- 前端：15 files / 228 passed；typecheck 和 production build 通过。
-- 生产构建：JS 535.29 kB / gzip 154.14 kB，有 chunk > 500 kB 警告。
-- 后端可收集核心集：741 passed、1 skipped、7 failed；失败均来自当前受限 Windows 环境的 FFmpeg subprocess `WinError 5`。
-- 完整 pytest 另被 Pillow 缺失和重复 `test_agent_api.py` basename 阻断。
+- 前端：15 passed / 1 failed，276 passed、1 failed；typecheck 通过，production build 通过。
+- 生产构建：JS 611.69 kB / gzip 171.00 kB，有 chunk > 500 kB 警告。
+- 后端目标回归集：276 passed、4 failed；失败来自旧 Agent v1 API 测试默认连接不可达 MiMo。
+- 完整 pytest、FFmpeg 和 Pillow 门禁需要在修复测试环境后重新执行。
 - 当前 Node 20.19.0；Playwright 本次基线未运行。
-- 当前综合产品完成度约 80%；React Flow 浏览器闭环、Agent v2 前端接入、权威校验和发布门禁未完成。
+- 当前综合产品完成度约 84%；React Flow/Agent/Scene 主体代码已接入，浏览器证据、权威校验收口和发布门禁未完成。
 
 ### 前端驱动的当前关键路径
 
@@ -56,9 +56,9 @@ TEST/ENV 门禁修复
 
 当前已实现但不得误标为产品完成：
 
-- Handle 命中区、overflow、基础 `isValidConnection` 和 Toast 已有；兼容端口高亮、连接结束失败原因、Edge 编辑和 E2E 仍缺。
-- 自定义配置字段已基本实现；PortEditor 仍只读。
-- Agent v2 后端已注册；AgentComposer 仍调用 v1 API，v2 `compiled_workflow` 尚未适配。
+- Handle 命中区、overflow、基础 `isValidConnection`、Toast、EdgeInspector、PortEditorDialog 和 SceneEditor 已有；兼容端口高亮、连接结束失败原因及 E2E 实跑仍需验收。
+- 自定义配置字段和动态端口 UI 已基本实现；删除端口关联 Edge 的事务和后端契约仍需收口。
+- Agent v2 前后端已接入；需验证 expected_version、apply、保存和运行的浏览器闭环。
 
 ### 剩余工作量重估
 
