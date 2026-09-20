@@ -31,6 +31,7 @@ from backend.app.schemas.scene_exporter import (
     export_to_markdown,
     export_to_qwen_jsonl,
     export_to_text,
+    export_to_wan3_jsonl,
     import_from_csv,
     import_from_json,
     import_from_text,
@@ -1064,3 +1065,341 @@ class TestQwenJsonlFormat:
             assert "scenes" not in obj
             assert "global_style" not in obj
             assert "globalStyle" not in obj
+
+
+# ---------------------------------------------------------------------------
+# Wan3 JSONL format verification (SCENE-007)
+# ---------------------------------------------------------------------------
+
+
+class TestWan3JsonlFormat:
+    """Verify Wan3-specific JSONL request preview format.
+
+    The Wan3 JSONL output is a *request preview*, NOT a full bundle export.
+    Each line is a flat JSON object suitable for the Wan3 Video API.
+    """
+
+    # ---- basic structure ----
+
+    def test_each_line_is_valid_json(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            obj = json.loads(line)  # must not raise
+            assert isinstance(obj, dict)
+
+    def test_one_line_per_scene(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        lines = jsonl.strip().split("\n")
+        assert len(lines) == 2
+
+    def test_multiple_scenes_produce_multiple_lines(self):
+        bundle = _make_large_bundle(10)
+        jsonl = export_to_wan3_jsonl(bundle)
+        lines = jsonl.strip().split("\n")
+        assert len(lines) == 10
+
+    def test_empty_bundle_produces_no_lines(self):
+        jsonl = export_to_wan3_jsonl(_make_empty_bundle())
+        assert jsonl.strip() == ""
+
+    # ---- required fields present ----
+
+    def test_required_fields_model_prompt_resolution_ratio_duration(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            obj = json.loads(line)
+            assert "model" in obj, "model field missing"
+            assert "prompt" in obj, "prompt field missing"
+            assert "resolution" in obj, "resolution field missing"
+            assert "ratio" in obj, "ratio field missing"
+            assert "duration" in obj, "duration field missing"
+
+    def test_model_default_value(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["model"] == "wan3.0-video"
+
+    def test_model_custom_value_preserved(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test", model="wan3.5-video"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["model"] == "wan3.5-video"
+
+    def test_resolution_default_value(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["resolution"] == "480P"
+
+    def test_resolution_custom_value_preserved(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test", resolution="1080P"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["resolution"] == "1080P"
+
+    def test_ratio_default_value(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["ratio"] == "adaptive"
+
+    def test_ratio_custom_value_preserved(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test", ratio="16:9"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["ratio"] == "16:9"
+
+    def test_duration_default_value(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["duration"] == 5
+
+    def test_duration_custom_value_preserved(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test", duration=10),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert obj["duration"] == 10
+
+    # ---- firstFrame / asset_id mapping ----
+
+    def test_first_frame_asset_id_included_when_set(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(
+                    prompt="test",
+                    first_frame_asset_id="asset-abc-123",
+                ),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert "firstFrame" in obj
+        assert obj["firstFrame"] == "asset-abc-123"
+
+    def test_first_frame_omitted_when_none(self):
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(prompt="test"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        assert "firstFrame" not in obj
+
+    def test_first_frame_is_asset_id_not_path(self):
+        """firstFrame must be an asset_id string, not a filesystem path."""
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T", narration="N",
+                image=SceneImagePrompt(prompt="test"),
+                video=SceneVideoPrompt(
+                    prompt="test",
+                    first_frame_asset_id="img_20250115_skier_001",
+                ),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        obj = json.loads(jsonl.strip())
+        first_frame = obj["firstFrame"]
+        # Must not look like an absolute path
+        assert not first_frame.startswith("/"), "firstFrame must not be an absolute path"
+        assert not first_frame.startswith("C:\\"), "firstFrame must not be a Windows path"
+        # Must be a string identifier
+        assert isinstance(first_frame, str)
+        assert len(first_frame) > 0
+
+    def test_mixed_first_frame_scenes(self):
+        """Some scenes have first_frame_asset_id, others don't."""
+        bundle = _make_bundle(scenes=[
+            SceneEntry(
+                scene_id="s1", index=0, title="T1", narration="N1",
+                image=SceneImagePrompt(prompt="test1"),
+                video=SceneVideoPrompt(
+                    prompt="test1",
+                    first_frame_asset_id="asset-001",
+                ),
+            ),
+            SceneEntry(
+                scene_id="s2", index=1, title="T2", narration="N2",
+                image=SceneImagePrompt(prompt="test2"),
+                video=SceneVideoPrompt(prompt="test2"),
+            ),
+        ])
+        jsonl = export_to_wan3_jsonl(bundle)
+        lines = jsonl.strip().split("\n")
+        obj1 = json.loads(lines[0])
+        obj2 = json.loads(lines[1])
+        assert obj1["firstFrame"] == "asset-001"
+        assert "firstFrame" not in obj2
+
+    # ---- security: no secrets / no absolute paths ----
+
+    def test_no_api_key_in_any_line(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        key_patterns = [
+            _re.compile(r"sk-[A-Za-z0-9]{16,}"),
+            _re.compile(r"api_key\s*[=:]\s*\S+", _re.IGNORECASE),
+            _re.compile(r"apikey\s*:\s*\S+", _re.IGNORECASE),
+        ]
+        for line in jsonl.strip().split("\n"):
+            for pat in key_patterns:
+                assert not pat.search(line), "API key detected in Wan3 JSONL line"
+
+    def test_no_signed_url_in_any_line(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        sig_patterns = [
+            _re.compile(r"[?&]Signature=[^&]+"),
+            _re.compile(r"[?&]X-Amz-Signature=[^&]+"),
+            _re.compile(r"[?&]sig=[^&]+"),
+        ]
+        for line in jsonl.strip().split("\n"):
+            for pat in sig_patterns:
+                assert not pat.search(line), "Signed URL detected in Wan3 JSONL line"
+
+    def test_no_absolute_path_in_any_line(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        path_patterns = [
+            _re.compile(r"[A-Z]:\\[^\"'\s,]+"),          # Windows
+            _re.compile(r"/(?:home|tmp|var|etc|usr|opt)/[^\"'\s,]+"),  # Unix
+        ]
+        for line in jsonl.strip().split("\n"):
+            for pat in path_patterns:
+                assert not pat.search(line), "Absolute path detected in Wan3 JSONL line"
+
+    def test_no_api_key_variable_in_any_line(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        var_patterns = [
+            _re.compile(r"\$\{[A-Z_]*API[_-]?KEY[A-Z_]*\}", _re.IGNORECASE),
+            _re.compile(r"\$[A-Z_]*API[_-]?KEY[A-Z_]*", _re.IGNORECASE),
+            _re.compile(r"process\.env\."),
+        ]
+        for line in jsonl.strip().split("\n"):
+            for pat in var_patterns:
+                assert not pat.search(line), "API key variable detected in Wan3 JSONL line"
+
+    def test_no_bundle_metadata_leaked(self):
+        """Wan3 JSONL should not contain storyboard/workflow/execution IDs."""
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            obj = json.loads(line)
+            assert "storyboard_id" not in obj
+            assert "workflow_id" not in obj
+            assert "execution_id" not in obj
+            assert "storyboardId" not in obj
+            assert "workflowId" not in obj
+            assert "executionId" not in obj
+
+    # ---- Chinese / UTF-8 ----
+
+    def test_chinese_prompts_preserved(self):
+        bundle = _make_chinese_bundle()
+        jsonl = export_to_wan3_jsonl(bundle)
+        lines = jsonl.strip().split("\n")
+        obj0 = json.loads(lines[0])
+        assert "写实电影感" in obj0["prompt"] or "滑雪者" in obj0["prompt"]
+
+    def test_chinese_ensure_ascii_false(self):
+        """Chinese characters should appear as-is, not \\uXXXX escaped."""
+        bundle = _make_chinese_bundle()
+        jsonl = export_to_wan3_jsonl(bundle)
+        assert "\\u" not in jsonl, "Chinese chars should not be unicode-escaped"
+
+    def test_utf8_encoding_valid(self):
+        bundle = _make_chinese_bundle()
+        jsonl = export_to_wan3_jsonl(bundle)
+        jsonl.encode("utf-8")
+
+    # ---- format completeness ----
+
+    def test_output_ends_with_newline(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        assert jsonl.endswith("\n")
+
+    def test_no_trailing_comma(self):
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            assert not line.endswith(","), "JSONL lines must not end with comma"
+
+    def test_no_bundle_level_fields(self):
+        """Wan3 JSONL is per-request; should NOT contain bundle-level fields."""
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            obj = json.loads(line)
+            assert "title" not in obj
+            assert "scenes" not in obj
+            assert "global_style" not in obj
+            assert "globalStyle" not in obj
+
+    def test_no_image_fields_leaked(self):
+        """Wan3 JSONL is for video; should NOT contain image-specific fields."""
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            obj = json.loads(line)
+            assert "size" not in obj, "Image size should not appear in Wan3 video JSONL"
+            assert "negative_prompt" not in obj, "Negative prompt is image-specific"
+            assert "seed" not in obj, "Seed is image-specific in this context"
+
+    def test_no_scene_metadata_leaked(self):
+        """Wan3 JSONL should not contain scene metadata like sceneId or narration."""
+        jsonl = export_to_wan3_jsonl(_make_bundle())
+        for line in jsonl.strip().split("\n"):
+            obj = json.loads(line)
+            assert "sceneId" not in obj
+            assert "scene_id" not in obj
+            assert "narration" not in obj
+            assert "index" not in obj
+            assert "locked" not in obj

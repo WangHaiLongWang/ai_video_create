@@ -108,13 +108,15 @@ def export_to_wan3_jsonl(bundle: ScenePromptBundle) -> str:
     """One Wan3 video request JSON object per line."""
     lines: list[str] = []
     for scene in bundle.scenes:
-        obj = {
+        obj: dict[str, Any] = {
             "model": scene.video.model or "wan3.0-video",
             "prompt": scene.video.prompt,
             "resolution": scene.video.resolution or "480P",
             "ratio": scene.video.ratio or "adaptive",
             "duration": scene.video.duration or 5,
         }
+        if scene.video.first_frame_asset_id:
+            obj["firstFrame"] = scene.video.first_frame_asset_id
         lines.append(json.dumps(obj, ensure_ascii=False))
     return "\n".join(lines) + "\n"
 
@@ -288,23 +290,34 @@ _SECRET_KEY_PATTERNS = [
     (re.compile(r"api_key\s*[=:]\s*\S+", re.IGNORECASE), "api_key assignment"),
     (re.compile(r"apikey\s*:\s*\S+", re.IGNORECASE), "apikey header"),
     (re.compile(r"token\s*:\s*\S+", re.IGNORECASE), "token header"),
+    (re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE), "Bearer token"),
 ]
 
 _SIGNED_URL_PATTERNS = [
-    (re.compile(r"[?&]Signature=[^&]+"), "AWS Signature"),
-    (re.compile(r"[?&]X-Amz-Signature=[^&]+"), "AWS Amz Signature"),
-    (re.compile(r"[?&]sig=[^&]+"), "sig parameter"),
+    (re.compile(r"[?&]Signature=[^&\s]+"), "AWS Signature"),
+    (re.compile(r"[?&]X-Amz-Signature=[^&\s]+"), "AWS Amz Signature"),
+    (re.compile(r"[?&]sig=[^&\s]+"), "sig parameter"),
+    (re.compile(r"[?&]token=[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE), "signed token param"),
 ]
 
 _ABSOLUTE_PATH_PATTERNS = [
     (re.compile(r"[A-Z]:\\[^\"'\s,]+"), "Windows path"),
     (re.compile(r"/(?:home|tmp|var|etc|usr|opt)/[^\"'\s,]+"), "Unix path"),
+    (re.compile(r"\\\\[A-Za-z][^\"'\s,]+"), "UNC network path"),
 ]
 
 _API_KEY_VAR_PATTERNS = [
     (re.compile(r"\$\{[A-Z_]*API[_-]?KEY[A-Z_]*\}", re.IGNORECASE), "${API_KEY} reference"),
     (re.compile(r"\$[A-Z_]*API[_-]?KEY[A-Z_]*", re.IGNORECASE), "$API_KEY variable"),
     (re.compile(r"process\.env\."), "process.env. reference"),
+]
+
+_EMAIL_PATTERNS = [
+    (re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"), "email address"),
+]
+
+_IP_ADDRESS_PATTERNS = [
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "IP address"),
 ]
 
 _ALL_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = []
@@ -316,6 +329,10 @@ for pat, label in _ABSOLUTE_PATH_PATTERNS:
     _ALL_PATTERNS.append((pat, "ABSOLUTE_PATH", label, "warning"))
 for pat, label in _API_KEY_VAR_PATTERNS:
     _ALL_PATTERNS.append((pat, "API_KEY", label, "error"))
+for pat, label in _EMAIL_PATTERNS:
+    _ALL_PATTERNS.append((pat, "EMAIL", label, "warning"))
+for pat, label in _IP_ADDRESS_PATTERNS:
+    _ALL_PATTERNS.append((pat, "IP_ADDRESS", label, "warning"))
 
 
 class SecurityIssue(BaseModel):
@@ -324,6 +341,25 @@ class SecurityIssue(BaseModel):
     message: str
     scene_id: str | None = None
     field: str | None = None
+
+
+def scan_for_secrets(text: str) -> list[SecurityIssue]:
+    """Scan arbitrary text for security violations.
+
+    Returns a list of SecurityIssue for every pattern match found.
+    This is the low-level scanner that checks raw text content.
+    """
+    issues: list[SecurityIssue] = []
+    for pat, code, label, severity in _ALL_PATTERNS:
+        for match in pat.finditer(text):
+            issues.append(SecurityIssue(
+                severity=severity,
+                code=code,
+                message=f"Detected potential {label}",
+                field="text",
+            ))
+            break  # one issue per pattern per call is enough
+    return issues
 
 
 def _check_text(text: str, scene_id: str | None, field: str) -> list[SecurityIssue]:
@@ -368,3 +404,14 @@ def scan_bundle_security(bundle: ScenePromptBundle) -> list[SecurityIssue]:
         issues.extend(_scan_scene(scene))
 
     return issues
+
+
+def validate_export_safety(bundle: ScenePromptBundle) -> tuple[bool, list[SecurityIssue]]:
+    """Validate that a bundle is safe to export.
+
+    Returns (is_safe, issues). If is_safe is False the export must be blocked.
+    Only "error" severity issues block the export; warnings are reported but allowed.
+    """
+    issues = scan_bundle_security(bundle)
+    blocking = [i for i in issues if i.severity == "error"]
+    return len(blocking) == 0, issues

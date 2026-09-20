@@ -612,6 +612,39 @@ export function SceneEditor({ onClose }: SceneEditorProps) {
         }
       } catch (err) {
         if (cancelled) return
+        // API failed — fall back to creating scenes from storyboard nodes
+        const storyboardNodes = workflow.nodes.filter((n) => n.data.kind === 'storyboard')
+        if (storyboardNodes.length > 0) {
+          const fallback: SceneEntry[] = storyboardNodes.map((node, i) => {
+            const cfg = node.data.config
+            return {
+              sceneId: node.id,
+              index: i,
+              title: String(cfg.title ?? `Scene ${i + 1}`),
+              narration: String(cfg.narration ?? ''),
+              durationSeconds: Number(cfg.duration ?? 5),
+              locked: false,
+              image: {
+                prompt: String(cfg.image_prompt ?? ''),
+                negativePrompt: String(cfg.image_negative ?? ''),
+                provider: String(cfg.image_provider ?? ''),
+                model: String(cfg.image_model ?? ''),
+              },
+              video: {
+                prompt: String(cfg.video_prompt ?? ''),
+                provider: String(cfg.video_provider ?? ''),
+                model: String(cfg.video_model ?? ''),
+                duration: Number(cfg.video_duration ?? 5),
+                resolution: String(cfg.video_resolution ?? '480P'),
+                ratio: String(cfg.video_ratio ?? '16:9'),
+              },
+            }
+          })
+          setScenes(fallback)
+        } else {
+          setScenes([0, 1, 2].map((i) => createEmptyScene(i)))
+        }
+        // Still show a non-blocking warning about the API issue
         setError(err instanceof Error ? err.message : 'Failed to load scene drafts')
       } finally {
         if (!cancelled) setLoading(false)
@@ -850,7 +883,7 @@ export function SceneEditor({ onClose }: SceneEditorProps) {
         <div className="se-body">
           {loading ? (
             <div className="se-loading">Loading scene drafts...</div>
-          ) : error ? (
+          ) : error && scenes.length === 0 ? (
             <div className="se-error">
               <Warning size={16} />
               <span>{error}</span>
@@ -864,6 +897,15 @@ export function SceneEditor({ onClose }: SceneEditorProps) {
             </div>
           ) : (
             <>
+              {/* Non-blocking warning when fallback scenes loaded */}
+              {error && (
+                <div className="se-error" style={{ marginBottom: 8 }}>
+                  <Warning size={14} />
+                  <span>{error}</span>
+                  <button onClick={() => setError(null)}>Dismiss</button>
+                </div>
+              )}
+
               {/* Batch edit panel */}
               {hasBatchSelection && (
                 <BatchEditPanel

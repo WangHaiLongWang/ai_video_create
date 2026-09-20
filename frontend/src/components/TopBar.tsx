@@ -5,10 +5,11 @@
  * 使用 workflowStore 管理工作流状态
  */
 
-import { useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { CaretDown, Export, FileArrowUp, FloppyDisk, FilmStrip, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
+import { computeCallEstimate } from '../utils/callEstimate'
 import { AssetPanel } from './AssetPanel'
 import { ExportDialog } from './ExportDialog'
 import { ImportDialog } from './ImportDialog'
@@ -35,6 +36,11 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
   const [showImport, setShowImport] = useState(false)
 
   const isRunning = executionStatus === 'running'
+
+  // Compute call estimate from current workflow spec
+  const callEstimate = useMemo(() => {
+    return computeCallEstimate(workflow)
+  }, [workflow])
 
   const handleTemplateSelect = (_templateId: string) => {
     // TemplateSelector 内部已处理创建，这里刷新工作流
@@ -100,6 +106,11 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
             <FileArrowUp size={18} />
           </button>
           <button className="secondary-button"><FloppyDisk size={17} />已自动保存</button>
+          {callEstimate.sceneCount > 0 && (
+            <span className="call-estimate-badge" title={`场景: ${callEstimate.sceneCount} | 图片: ${callEstimate.imageCalls} | 视频: ${callEstimate.videoCalls}`}>
+              {callEstimate.imageCalls} 图 · {callEstimate.videoCalls} 视频 · {callEstimate.sceneCount} 场景
+            </span>
+          )}
           {isRunning ? (
             <button className="stop-button" onClick={handleStop}><Pause size={17} weight="fill" />停止</button>
           ) : (

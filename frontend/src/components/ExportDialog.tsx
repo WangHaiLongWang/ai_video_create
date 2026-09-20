@@ -114,68 +114,70 @@ export function ExportDialog({ workflowId, onClose }: ExportDialogProps) {
           </div>
         )}
 
-        {loadingDrafts ? (
+        {loadingDrafts && (
           <div className="export-dialog-loading">加载中...</div>
-        ) : drafts.length === 0 ? (
-          <div className="export-dialog-empty">没有可用的 Scene 草稿</div>
-        ) : (
-          <>
-            <label>
-              <span>选择草稿</span>
-              <select
-                value={selectedDraft}
-                onChange={(e) => setSelectedDraft(e.target.value)}
-              >
-                {drafts.map((d) => (
-                  <option key={d.draft_id} value={d.draft_id}>
-                    {d.name} ({d.scene_count} 场景)
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span>来源</span>
-              <div className="export-radio-group">
-                {SOURCE_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="export-radio-item">
-                    <input
-                      type="radio"
-                      name="source"
-                      value={opt.value}
-                      checked={source === opt.value}
-                      onChange={(e) => setSource(e.target.value)}
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </label>
-
-            <label>
-              <span>格式</span>
-              <div className="export-radio-group">
-                {FORMAT_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="export-radio-item">
-                    <input
-                      type="radio"
-                      name="format"
-                      value={opt.value}
-                      checked={format === opt.value}
-                      onChange={(e) => setFormat(e.target.value as ExportFormat)}
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </label>
-
-            <label>
-              <span>文件名</span>
-              <input type="text" value={filename} readOnly className="export-filename" />
-            </label>
-          </>
         )}
+
+        {!loadingDrafts && drafts.length === 0 && (
+          <div className="export-dialog-empty">没有可用的 Scene 草稿</div>
+        )}
+
+        {!loadingDrafts && drafts.length > 0 && (
+          <label>
+            <span>选择草稿</span>
+            <select
+              value={selectedDraft}
+              onChange={(e) => setSelectedDraft(e.target.value)}
+            >
+              {drafts.map((d) => (
+                <option key={d.draft_id} value={d.draft_id}>
+                  {d.name} ({d.scene_count} 场景)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label>
+          <span>来源</span>
+          <div className="export-radio-group">
+            {SOURCE_OPTIONS.map((opt) => (
+              <label key={opt.value} className="export-radio-item">
+                <input
+                  type="radio"
+                  name="source"
+                  value={opt.value}
+                  checked={source === opt.value}
+                  onChange={(e) => setSource(e.target.value)}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </label>
+
+        <label>
+          <span>格式</span>
+          <div className="export-radio-group">
+            {FORMAT_OPTIONS.map((opt) => (
+              <label key={opt.value} className="export-radio-item">
+                <input
+                  type="radio"
+                  name="format"
+                  value={opt.value}
+                  checked={format === opt.value}
+                  onChange={(e) => setFormat(e.target.value as ExportFormat)}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </label>
+
+        <label>
+          <span>文件名</span>
+          <input type="text" value={filename} readOnly className="export-filename" />
+        </label>
 
         <div className="field-dialog-actions">
           <button className="field-dialog-cancel" onClick={onClose}>取消</button>

@@ -78,6 +78,22 @@ export interface EdgeData {
 
 export type EnhancedEdge = Edge<EdgeData>
 
+/* ==================== Call Estimate ==================== */
+
+export interface CallEstimate {
+  sceneCount: number
+  variantCount: number
+  videoDuration: number
+  imageCalls: number
+  videoCalls: number
+  storyboardCalls: number
+  concatCalls: number
+  totalCalls: number
+  estimatedDurationSeconds: number
+  imageProvider: string
+  videoProvider: string
+}
+
 export interface WorkflowSpec {
   schemaVersion: '1.0' | '2.0'
   manifestVersion?: string

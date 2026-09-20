@@ -38,6 +38,17 @@ from backend.app.handlers.contracts import NodeResult, ArtifactRef, NodeError
 # 导入模块以便 monkeypatch
 import backend.app.db.connection as conn_module
 
+# Import ski lesson fixtures for SKI-010 chain verification
+import sys as _sys
+import os as _os
+
+_fixture_dir = _os.path.normpath(
+    _os.path.join(_os.path.dirname(__file__), "..", "fixtures")
+)
+if _fixture_dir not in _sys.path:
+    _sys.path.insert(0, _fixture_dir)
+from ski_lesson_bundle import SKI_LESSON_WORKFLOW_SPEC  # type: ignore[import-not-found]
+
 
 # ------------------------------------------------------------------
 #  工作流定义：标准 promptToVideo 6 节点流水线
@@ -156,6 +167,18 @@ def fresh_db(tmp_path, monkeypatch):
         "INSERT INTO executions (id, workflow_id, workflow_snapshot, status) "
         "VALUES (?, ?, ?, ?)",
         ("exec-test", "wf-full-chain", spec_json, "pending"),
+    )
+
+    # Also create ski lesson workflow/execution for SKI-010 chain verification tests
+    ski_spec_json = json.dumps(SKI_LESSON_WORKFLOW_SPEC, ensure_ascii=False)
+    conn.execute(
+        "INSERT INTO workflows (id, name, spec_json) VALUES (?, ?, ?)",
+        ("wf-ski-uat", "UAT Ski Lesson", ski_spec_json),
+    )
+    conn.execute(
+        "INSERT INTO executions (id, workflow_id, workflow_snapshot, status) "
+        "VALUES (?, ?, ?, ?)",
+        ("exec-ski-uat", "wf-ski-uat", ski_spec_json, "pending"),
     )
     conn.commit()
 
@@ -361,9 +384,52 @@ async def run_full_pipeline(
     return scheduler.get_execution_summary(execution_id)
 
 
-# ==================================================================
-#  测试类
-# ==================================================================
+async def run_ski_pipeline(
+    scheduler: Scheduler,
+    execution_id: str,
+    mock_factory: MockHandlerFactory,
+) -> dict:
+    """Drive the ski lesson pipeline (1->2->2->1) to convergence.
+
+    Uses the same manual-dispatch loop as run_full_pipeline but targets
+    the ski execution (exec-ski-uat).
+    """
+    await scheduler.start_execution(execution_id)
+
+    max_iterations = 100
+    iteration = 0
+    while not scheduler.check_convergence(execution_id) and iteration < max_iterations:
+        iteration += 1
+        tasks = get_tasks_by_execution(execution_id)
+        ready_tasks = [
+            t for t in tasks
+            if t["status"] == "pending"
+            and all(
+                next((tt for tt in tasks if tt["id"] == d), None) is not None
+                and next(tt for tt in tasks if tt["id"] == d)["status"] == "completed"
+                for d in t.get("depends_on", [])
+            )
+        ]
+
+        if not ready_tasks:
+            await asyncio.sleep(0.05)
+            continue
+
+        for task in ready_tasks:
+            handler = mock_factory.make_handler(task["kind"])
+            assembled = scheduler.assemble_node_input(task, execution_id)
+            context = {"upstream_results": {}}
+            result = await handler.execute(assembled, context)
+
+            if result.status == "failed":
+                await scheduler.fail_task(
+                    task["id"],
+                    result.error or NodeError(code="UNKNOWN", message="unknown"),
+                )
+            else:
+                await scheduler.complete_task(task["id"], result)
+
+    return scheduler.get_execution_summary(execution_id)
 
 
 class TestFullPipelineCompilation:
@@ -1026,3 +1092,937 @@ class TestEdgeCases:
         assert summary["completed"] == 10
         assert summary.get("failed", 0) == 0
         assert summary.get("skipped", 0) == 0
+
+
+# ==================================================================
+#  SKI-010: End-to-End Data Flow Verification
+# ==================================================================
+
+
+class TestDataFlow_TextInput_To_Storyboard:
+    """Verify data flows correctly from TextInput to Storyboard."""
+
+    def test_storyboard_receives_prompt_from_text_input(self, scheduler):
+        """Storyboard handler receives the prompt that TextInput produced."""
+        factory = MockHandlerFactory()
+        # Run the full pipeline
+        summary = run_full_pipeline_sync(scheduler, "exec-test", factory)
+
+        # The textInput handler was called
+        text_calls = [c for c in factory.call_log if c["kind"] == "textInput"]
+        assert len(text_calls) == 1
+
+        # The storyboard handler was called after textInput
+        sb_calls = [c for c in factory.call_log if c["kind"] == "storyboard"]
+        assert len(sb_calls) == 1
+
+        # Verify ordering: textInput before storyboard
+        text_idx = next(i for i, c in enumerate(factory.call_log) if c["kind"] == "textInput")
+        sb_idx = next(i for i, c in enumerate(factory.call_log) if c["kind"] == "storyboard")
+        assert text_idx < sb_idx
+
+    def test_storyboard_config_contains_scene_count(self, scheduler):
+        """Storyboard task config carries the scene count from workflow spec."""
+        plan = compile_workflow(WORKFLOW_SPEC)
+        sb_task = next(t for t in plan.tasks if t.node_id == "storyboard")
+        assert sb_task.config.get("scenes") == 3
+
+    def test_storyboard_output_contains_scenes(self, scheduler):
+        """After execution, storyboard result contains the scenes array."""
+        factory = MockHandlerFactory()
+        run_full_pipeline_sync(scheduler, "exec-test", factory)
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT result_json FROM tasks WHERE id = 'storyboard-task'"
+        ).fetchone()
+        assert row is not None
+        result = json.loads(row["result_json"])
+        output = result.get("output", {})
+        scenes = output.get("metadata", {}).get("scenes", [])
+        assert len(scenes) == 3
+        for i, scene in enumerate(scenes):
+            assert scene["scene_id"] == f"scene-{i + 1:03d}"
+            assert "narration" in scene
+            assert "image_prompt" in scene
+
+
+class TestDataFlow_Storyboard_To_TextToImage:
+    """Verify storyboard scenes flow into textToImage tasks correctly."""
+
+    @pytest.mark.asyncio
+    async def test_text_to_image_receives_scene_image_prompt(self, scheduler):
+        """Each textToImage task receives the image_prompt from the corresponding scene."""
+        conn = get_connection()
+        plan = compile_workflow(WORKFLOW_SPEC)
+        enqueue_tasks("wf-full-chain", "exec-test", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        # Write storyboard output with distinct prompts per scene
+        storyboard_result = {
+            "status": "succeeded",
+            "output": {
+                "type": "text",
+                "metadata": {
+                    "scenes": [
+                        {"scene_id": "scene-001", "index": 0, "narration": "叙述一",
+                         "image_prompt": "image-prompt-A", "video_prompt": "video-prompt-A",
+                         "duration_seconds": 4},
+                        {"scene_id": "scene-002", "index": 1, "narration": "叙述二",
+                         "image_prompt": "image-prompt-B", "video_prompt": "video-prompt-B",
+                         "duration_seconds": 4},
+                        {"scene_id": "scene-003", "index": 2, "narration": "叙述三",
+                         "image_prompt": "image-prompt-C", "video_prompt": "video-prompt-C",
+                         "duration_seconds": 4},
+                    ],
+                },
+            },
+        }
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = 'storyboard-task'",
+            (json.dumps(storyboard_result),),
+        )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+
+        # Test each textToImage task receives correct scene data
+        for scene_num in [1, 2, 3]:
+            scene_id = f"scene-{scene_num:03d}"
+            task_id = f"textToImage-{scene_id}"
+            task = {
+                "id": task_id,
+                "kind": "textToImage",
+                "config": {"mapOver": True},
+                "item_key": scene_id,
+                "depends_on": ["storyboard-task"],
+            }
+            assembled = scheduler_task.assemble_node_input(task, "exec-test")
+            expected_prompt = f"image-prompt-{chr(64 + scene_num)}"  # A, B, C
+            assert assembled["config"]["image_prompt"] == expected_prompt, (
+                f"{task_id}: expected prompt '{expected_prompt}', "
+                f"got '{assembled['config']['image_prompt']}'"
+            )
+
+    @pytest.mark.asyncio
+    async def test_text_to_image_receives_scene_video_prompt(self, scheduler):
+        """Each textToImage task also receives the video_prompt from the scene."""
+        conn = get_connection()
+        plan = compile_workflow(WORKFLOW_SPEC)
+        enqueue_tasks("wf-full-chain", "exec-test", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        storyboard_result = {
+            "status": "succeeded",
+            "output": {
+                "type": "text",
+                "metadata": {
+                    "scenes": [
+                        {"scene_id": "scene-001", "index": 0, "narration": "叙述一",
+                         "image_prompt": "img-A", "video_prompt": "vid-A",
+                         "duration_seconds": 4},
+                    ],
+                },
+            },
+        }
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = 'storyboard-task'",
+            (json.dumps(storyboard_result),),
+        )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+        task = {
+            "id": "textToImage-scene-001",
+            "kind": "textToImage",
+            "config": {"mapOver": True},
+            "item_key": "scene-001",
+            "depends_on": ["storyboard-task"],
+        }
+        assembled = scheduler_task.assemble_node_input(task, "exec-test")
+        assert assembled["config"]["video_prompt"] == "vid-A"
+
+    @pytest.mark.asyncio
+    async def test_text_to_image_receives_scene_duration(self, scheduler):
+        """Each textToImage task receives the duration_seconds from the scene."""
+        conn = get_connection()
+        plan = compile_workflow(WORKFLOW_SPEC)
+        enqueue_tasks("wf-full-chain", "exec-test", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        storyboard_result = {
+            "status": "succeeded",
+            "output": {
+                "type": "text",
+                "metadata": {
+                    "scenes": [
+                        {"scene_id": "scene-001", "index": 0, "narration": "叙述",
+                         "image_prompt": "img", "video_prompt": "vid",
+                         "duration_seconds": 7},
+                    ],
+                },
+            },
+        }
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = 'storyboard-task'",
+            (json.dumps(storyboard_result),),
+        )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+        task = {
+            "id": "textToImage-scene-001",
+            "kind": "textToImage",
+            "config": {"mapOver": True},
+            "item_key": "scene-001",
+            "depends_on": ["storyboard-task"],
+        }
+        assembled = scheduler_task.assemble_node_input(task, "exec-test")
+        assert assembled["config"]["duration"] == 7
+
+
+class TestDataFlow_TextToImage_To_ImageToVideo:
+    """Verify TextToImage output flows into ImageToVideo input correctly.
+
+    In the SKI lesson workflow, imageToVideo depends on textToImage (linear chain),
+    so the scheduler's _inject_upstream_image method correctly matches the upstream
+    textToImage output by scene_id and variant_id and injects the image path.
+    """
+
+    @pytest.mark.asyncio
+    async def test_image_to_video_receives_upstream_image_path(self, scheduler):
+        """imageToVideo task receives the image path from the matching textToImage output."""
+        conn = get_connection()
+        plan = compile_workflow(SKI_LESSON_WORKFLOW_SPEC)
+        from backend.app.engine.queue import enqueue_tasks
+        enqueue_tasks("wf-ski-uat", "exec-ski-uat", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        # Insert textToImage results with distinct paths (matching SKI variant structure)
+        result_v1 = {
+            "status": "succeeded",
+            "output": {
+                "type": "image",
+                "asset_id": "img-v1",
+                "scene_id": "scene-001",
+                "variant_id": "variant-01",
+                "path": "data/assets/img-v1.png",
+                "metadata": {"variant_index": 0},
+            },
+        }
+        result_v2 = {
+            "status": "succeeded",
+            "output": {
+                "type": "image",
+                "asset_id": "img-v2",
+                "scene_id": "scene-001",
+                "variant_id": "variant-02",
+                "path": "data/assets/img-v2.png",
+                "metadata": {"variant_index": 1},
+            },
+        }
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+            (json.dumps(result_v1), "textToImage-scene-001::variant-01"),
+        )
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+            (json.dumps(result_v2), "textToImage-scene-001::variant-02"),
+        )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+
+        # Test variant-01 gets the v1 image
+        task_v1 = {
+            "id": "imageToVideo-scene-001::variant-01",
+            "kind": "imageToVideo",
+            "config": {"mapOver": True, "variantCount": 2},
+            "item_key": "scene-001::variant-01",
+            "depends_on": [
+                "textToImage-scene-001::variant-01",
+                "textToImage-scene-001::variant-02",
+            ],
+        }
+        assembled_v1 = scheduler_task.assemble_node_input(task_v1, "exec-ski-uat")
+        assert assembled_v1["config"]["image_path"] == "data/assets/img-v1.png"
+
+        # Test variant-02 gets the v2 image
+        task_v2 = {
+            "id": "imageToVideo-scene-001::variant-02",
+            "kind": "imageToVideo",
+            "config": {"mapOver": True, "variantCount": 2},
+            "item_key": "scene-001::variant-02",
+            "depends_on": [
+                "textToImage-scene-001::variant-01",
+                "textToImage-scene-001::variant-02",
+            ],
+        }
+        assembled_v2 = scheduler_task.assemble_node_input(task_v2, "exec-ski-uat")
+        assert assembled_v2["config"]["image_path"] == "data/assets/img-v2.png"
+
+    @pytest.mark.asyncio
+    async def test_image_to_video_variant_matching_is_correct(self, scheduler):
+        """imageToVideo variant-01 only matches textToImage variant-01 output, not variant-02."""
+        conn = get_connection()
+        plan = compile_workflow(SKI_LESSON_WORKFLOW_SPEC)
+        from backend.app.engine.queue import enqueue_tasks
+        enqueue_tasks("wf-ski-uat", "exec-ski-uat", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        # Insert results with variant-specific paths
+        result_v1 = {
+            "status": "succeeded",
+            "output": {
+                "type": "image",
+                "scene_id": "scene-001",
+                "variant_id": "variant-01",
+                "path": "data/assets/v1-correct.png",
+            },
+        }
+        result_v2 = {
+            "status": "succeeded",
+            "output": {
+                "type": "image",
+                "scene_id": "scene-001",
+                "variant_id": "variant-02",
+                "path": "data/assets/v2-correct.png",
+            },
+        }
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+            (json.dumps(result_v1), "textToImage-scene-001::variant-01"),
+        )
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+            (json.dumps(result_v2), "textToImage-scene-001::variant-02"),
+        )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+
+        # imageToVideo for variant-01 should get v1's path
+        task = {
+            "id": "imageToVideo-scene-001::variant-01",
+            "kind": "imageToVideo",
+            "config": {},
+            "item_key": "scene-001::variant-01",
+            "depends_on": [
+                "textToImage-scene-001::variant-01",
+                "textToImage-scene-001::variant-02",
+            ],
+        }
+        assembled = scheduler_task.assemble_node_input(task, "exec-ski-uat")
+        assert assembled["config"]["image_path"] == "data/assets/v1-correct.png"
+
+
+class TestDataFlow_ImageToVideo_To_VideoConcat:
+    """Verify ImageToVideo outputs flow into VideoConcat input correctly."""
+
+    @pytest.mark.asyncio
+    async def test_video_concat_receives_sorted_paths(self, scheduler):
+        """videoConcat receives video_paths sorted by variant_index.
+
+        This test uses the SKI lesson workflow (variant-based) to verify
+        that videoConcat correctly sorts upstream video paths by
+        (scene_index, variant_index) even when results are stored in
+        reverse order in the database.
+        """
+        conn = get_connection()
+        plan = compile_workflow(SKI_LESSON_WORKFLOW_SPEC)
+        from backend.app.engine.queue import enqueue_tasks
+        enqueue_tasks("wf-ski-uat", "exec-ski-uat", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        # Insert video results in reverse order (variant-02 first in DB).
+        # The path is in metadata to match what the mock handler produces.
+        result_v2 = {
+            "status": "succeeded",
+            "output": {
+                "type": "video",
+                "asset_id": "vid-v2",
+                "scene_id": "scene-001",
+                "variant_id": "variant-02",
+                "metadata": {
+                    "variant_index": 1,
+                    "scene_index": 0,
+                    "path": "data/assets/vid-v2.mp4",
+                },
+            },
+        }
+        result_v1 = {
+            "status": "succeeded",
+            "output": {
+                "type": "video",
+                "asset_id": "vid-v1",
+                "scene_id": "scene-001",
+                "variant_id": "variant-01",
+                "metadata": {
+                    "variant_index": 0,
+                    "scene_index": 0,
+                    "path": "data/assets/vid-v1.mp4",
+                },
+            },
+        }
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+            (json.dumps(result_v2), "imageToVideo-scene-001::variant-02"),
+        )
+        conn.execute(
+            "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+            (json.dumps(result_v1), "imageToVideo-scene-001::variant-01"),
+        )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+        concat_task = next(t for t in plan.tasks if t.node_id == "videoConcat")
+        task_dict = {
+            "id": concat_task.id,
+            "kind": concat_task.node_kind,
+            "config": {},
+            "depends_on": [
+                "imageToVideo-scene-001::variant-01",
+                "imageToVideo-scene-001::variant-02",
+            ],
+        }
+        assembled = scheduler_task.assemble_node_input(task_dict, "exec-ski-uat")
+        video_paths = assembled["config"]["video_paths"]
+        assert len(video_paths) == 2
+        # variant-01 must come first despite DB insertion order
+        assert "vid-v1.mp4" in video_paths[0]
+        assert "vid-v2.mp4" in video_paths[1]
+
+    @pytest.mark.asyncio
+    async def test_video_concat_path_count_matches_upstream(self, scheduler):
+        """videoConcat receives exactly N paths for N upstream video tasks."""
+        conn = get_connection()
+        plan = compile_workflow(WORKFLOW_SPEC)
+        enqueue_tasks("wf-full-chain", "exec-test", [
+            {
+                "id": t.id, "node_id": t.node_id, "kind": t.node_kind,
+                "label": t.node_label, "item_key": t.item_key, "index": t.index,
+                "config": t.config, "depends_on": t.depends_on,
+            }
+            for t in plan.tasks
+        ])
+
+        for i in range(1, 4):
+            result = {
+                "status": "succeeded",
+                "output": {
+                    "type": "video",
+                    "path": f"data/assets/vid-s{i:03d}.mp4",
+                    "metadata": {"scene_index": i - 1, "variant_index": 0},
+                },
+            }
+            conn.execute(
+                "UPDATE tasks SET status = 'completed', result_json = ? WHERE id = ?",
+                (json.dumps(result), f"imageToVideo-scene-{i:03d}"),
+            )
+        conn.commit()
+
+        scheduler_task = Scheduler(max_retries=3)
+        concat_task = next(t for t in plan.tasks if t.node_id == "videoConcat")
+        task_dict = {
+            "id": concat_task.id,
+            "kind": concat_task.node_kind,
+            "config": {},
+            "depends_on": [
+                "imageToVideo-scene-001",
+                "imageToVideo-scene-002",
+                "imageToVideo-scene-003",
+            ],
+        }
+        assembled = scheduler_task.assemble_node_input(task_dict, "exec-test")
+        video_paths = assembled["config"]["video_paths"]
+        assert len(video_paths) == 3
+
+
+class TestDataFlow_VideoConcat_To_Output:
+    """Verify VideoConcat output flows into Output node."""
+
+    @pytest.mark.asyncio
+    async def test_output_receives_final_video_asset(self, scheduler):
+        """Output task receives the final video from videoConcat."""
+        factory = MockHandlerFactory()
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        # Verify the output handler was called
+        output_calls = [c for c in factory.call_log if c["kind"] == "output"]
+        assert len(output_calls) == 1
+
+        # Verify execution completed with all tasks done
+        summary = scheduler.get_execution_summary("exec-test")
+        assert summary["completed"] == 10
+
+    @pytest.mark.asyncio
+    async def test_output_task_depends_on_video_concat(self, scheduler):
+        """Output task only runs after videoConcat completes."""
+        plan = compile_workflow(WORKFLOW_SPEC)
+        output_task = next(t for t in plan.tasks if t.node_id == "output")
+        assert "videoConcat-task" in output_task.depends_on
+
+
+class TestDataFlow_FullPipeline_ConcurrentVerification:
+    """Verify data integrity across the entire pipeline in a single run."""
+
+    @pytest.mark.asyncio
+    async def test_all_handlers_called_in_topological_order(self, scheduler):
+        """All handlers are called in correct topological order.
+
+        In the WORKFLOW_SPEC (3-scene pipeline), textToImage and imageToVideo
+        are parallel branches from storyboard, so they may interleave.
+        The key ordering constraints are:
+          textInput -> storyboard -> {textToImage, imageToVideo} -> videoConcat -> output
+        """
+        factory = MockHandlerFactory()
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        kind_order = [c["kind"] for c in factory.call_log]
+
+        # textInput must be first
+        assert kind_order[0] == "textInput"
+        # storyboard must be second (depends on textInput)
+        assert kind_order[1] == "storyboard"
+
+        # All textToImage and imageToImage calls happen after storyboard
+        first_t2i = next(i for i, k in enumerate(kind_order) if k == "textToImage")
+        first_i2v = next(i for i, k in enumerate(kind_order) if k == "imageToVideo")
+        assert first_t2i > 1  # after storyboard
+        assert first_i2v > 1  # after storyboard
+
+        # All imageToVideo must be before videoConcat
+        last_i2v = max(i for i, k in enumerate(kind_order) if k == "imageToVideo")
+        first_concat = min(i for i, k in enumerate(kind_order) if k == "videoConcat")
+        assert last_i2v < first_concat
+
+        # All textToImage must be before videoConcat (both feed into concat)
+        last_t2i = max(i for i, k in enumerate(kind_order) if k == "textToImage")
+        assert last_t2i < first_concat
+
+        # videoConcat before output
+        concat_idx = next(i for i, k in enumerate(kind_order) if k == "videoConcat")
+        output_idx = next(i for i, k in enumerate(kind_order) if k == "output")
+        assert concat_idx < output_idx
+
+    @pytest.mark.asyncio
+    async def test_each_scene_produces_distinct_image_and_video(self, scheduler):
+        """Each scene produces a distinct image and video asset."""
+        factory = MockHandlerFactory()
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        img_calls = [c for c in factory.call_log if c["kind"] == "textToImage"]
+        vid_calls = [c for c in factory.call_log if c["kind"] == "imageToVideo"]
+        assert len(img_calls) == 3
+        assert len(vid_calls) == 3
+
+        # Each scene has distinct item_key
+        img_keys = sorted(c["item_key"] for c in img_calls)
+        vid_keys = sorted(c["item_key"] for c in vid_calls)
+        assert img_keys == ["scene-001", "scene-002", "scene-003"]
+        assert vid_keys == ["scene-001", "scene-002", "scene-003"]
+
+    @pytest.mark.asyncio
+    async def test_final_concat_single_call(self, scheduler):
+        """videoConcat is called exactly once in the full pipeline."""
+        factory = MockHandlerFactory()
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        concat_calls = [c for c in factory.call_log if c["kind"] == "videoConcat"]
+        assert len(concat_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_task_results_all_contain_output_type(self, scheduler):
+        """All completed tasks have result_json with output containing a type field."""
+        factory = MockHandlerFactory()
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT id, result_json FROM tasks WHERE execution_id = 'exec-test'"
+        ).fetchall()
+
+        for row in rows:
+            result = json.loads(row["result_json"]) if row["result_json"] else {}
+            output = result.get("output", {})
+            assert "type" in output, f"{row['id']} output missing 'type'"
+
+
+# ==================================================================
+#  SKI-010: Error Scenario Tests
+# ==================================================================
+
+
+class TestErrorScenario_SingleImageFailure:
+    """When one textToImage task fails, the entire concat chain fails."""
+
+    @pytest.mark.asyncio
+    async def test_one_image_failure_blocks_concat(self, scheduler):
+        """textToImage-scene-001 fails -> videoConcat gets skipped (depends on all 3 images)."""
+        factory = MockHandlerFactory()
+        factory.will_fail("textToImage-scene-001", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        result = scheduler.get_execution_summary("exec-test")
+        # textToImage-scene-001 should be failed
+        assert result.get("failed", 0) >= 1
+        # videoConcat depends on all 3 textToImage tasks, so it should be skipped
+        assert result.get("skipped", 0) >= 1
+        # output depends on videoConcat (skipped), so also skipped
+        assert result.get("skipped", 0) >= 2
+
+    @pytest.mark.asyncio
+    async def test_one_image_failure_does_not_block_other_scenes(self, scheduler):
+        """Other scene textToImage/imageToVideo tasks complete normally when one fails."""
+        factory = MockHandlerFactory()
+        factory.will_fail("textToImage-scene-002", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        result = scheduler.get_execution_summary("exec-test")
+        # textInput + storyboard + 2 textToImage (scene-001, scene-003) = 4 completed
+        # imageToVideo scene-001, scene-003 also complete = 6 completed
+        assert result.get("completed", 0) >= 5
+
+    @pytest.mark.asyncio
+    async def test_image_failure_cascades_to_video_concat(self, scheduler):
+        """videoConcat is skipped when any upstream image task fails."""
+        factory = MockHandlerFactory()
+        factory.will_fail("textToImage-scene-001", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        # Verify videoConcat was not called (skipped before execution)
+        concat_calls = [c for c in factory.call_log if c["kind"] == "videoConcat"]
+        assert len(concat_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_output_skipped_after_concat_failure(self, scheduler):
+        """Output is skipped when videoConcat is skipped."""
+        factory = MockHandlerFactory()
+        factory.will_fail("textToImage-scene-001", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        output_calls = [c for c in factory.call_log if c["kind"] == "output"]
+        assert len(output_calls) == 0
+
+
+class TestErrorScenario_VideoFailure:
+    """When an imageToVideo task fails, the concat chain fails."""
+
+    @pytest.mark.asyncio
+    async def test_video_failure_blocks_concat(self, scheduler):
+        """imageToVideo-scene-001 fails -> videoConcat skipped."""
+        factory = MockHandlerFactory()
+        factory.will_fail("imageToVideo-scene-001", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        result = scheduler.get_execution_summary("exec-test")
+        assert result.get("failed", 0) >= 1  # imageToVideo-scene-001
+        assert result.get("skipped", 0) >= 2  # videoConcat + output
+
+    @pytest.mark.asyncio
+    async def test_video_failure_does_not_block_other_videos(self, scheduler):
+        """Other scene imageToVideo tasks complete when one fails."""
+        factory = MockHandlerFactory()
+        factory.will_fail("imageToVideo-scene-001", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        result = scheduler.get_execution_summary("exec-test")
+        # textInput + storyboard + 3 textToImage + 2 imageToVideo (scene-002, scene-003) = 7
+        assert result.get("completed", 0) >= 7
+
+
+class TestErrorScenario_CancelDuringExecution:
+    """Cancel operation during video generation stops downstream tasks."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_after_partial_completion(self, scheduler):
+        """Cancel during execution: completed tasks stay, pending tasks cancelled."""
+        # Start execution
+        await scheduler.start_execution("exec-test")
+        factory = MockHandlerFactory()
+
+        tasks = get_tasks_by_execution("exec-test")
+
+        # Complete textInput and storyboard
+        txt_task = next(t for t in tasks if t["id"] == "textInput-task")
+        result = await factory.make_handler("textInput").execute(txt_task, {})
+        await scheduler.complete_task("textInput-task", result)
+
+        sb_task = next(t for t in tasks if t["id"] == "storyboard-task")
+        result = await factory.make_handler("storyboard").execute(sb_task, {})
+        await scheduler.complete_task("storyboard-task", result)
+
+        # Now cancel
+        await scheduler.cancel_execution("exec-test")
+
+        tasks = get_tasks_by_execution("exec-test")
+        # textInput and storyboard should be completed
+        txt = next(t for t in tasks if t["id"] == "textInput-task")
+        sb = next(t for t in tasks if t["id"] == "storyboard-task")
+        assert txt["status"] == "completed"
+        assert sb["status"] == "completed"
+
+        # All remaining tasks should be cancelled
+        for t in tasks:
+            if t["id"] not in ("textInput-task", "storyboard-task"):
+                assert t["status"] == "cancelled", (
+                    f"Task {t['id']} should be cancelled, got {t['status']}"
+                )
+
+    @pytest.mark.asyncio
+    async def test_cancel_execution_status(self, scheduler):
+        """Cancelled execution is marked as cancelled in DB."""
+        await scheduler.start_execution("exec-test")
+        await scheduler.cancel_execution("exec-test")
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT status FROM executions WHERE id = 'exec-test'"
+        ).fetchone()
+        assert row["status"] == "cancelled"
+
+    @pytest.mark.asyncio
+    async def test_cancel_does_not_affect_completed_tasks(self, scheduler):
+        """Tasks that completed before cancel remain completed."""
+        await scheduler.start_execution("exec-test")
+        factory = MockHandlerFactory()
+
+        # Complete textInput
+        txt_result = await factory.make_handler("textInput").execute(
+            {"id": "textInput-task", "config": {}, "item_key": ""}, {}
+        )
+        await scheduler.complete_task("textInput-task", txt_result)
+
+        # Cancel
+        await scheduler.cancel_execution("exec-test")
+
+        txt = get_task("textInput-task")
+        assert txt["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_cancel_converges(self, scheduler):
+        """After cancel, execution converges."""
+        await scheduler.start_execution("exec-test")
+        await scheduler.cancel_execution("exec-test")
+
+        assert scheduler.check_convergence("exec-test") is True
+
+    @pytest.mark.asyncio
+    async def test_cancel_at_start_all_cancelled(self, scheduler):
+        """Cancel immediately after start: all tasks cancelled."""
+        await scheduler.start_execution("exec-test")
+        await scheduler.cancel_execution("exec-test")
+
+        tasks = get_tasks_by_execution("exec-test")
+        for t in tasks:
+            assert t["status"] == "cancelled"
+
+
+class TestErrorScenario_StoryboardFailure:
+    """When storyboard fails, the entire downstream chain is blocked."""
+
+    @pytest.mark.asyncio
+    async def test_storyboard_failure_blocks_all_downstream(self, scheduler):
+        """storyboard fails -> all textToImage, imageToVideo, videoConcat, output skipped."""
+        factory = MockHandlerFactory()
+        factory.will_fail("storyboard-task", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        result = scheduler.get_execution_summary("exec-test")
+        # textInput completes, storyboard fails
+        assert result.get("failed", 0) >= 1
+        # 3 textToImage + 3 imageToVideo + videoConcat + output = 8 skipped
+        assert result.get("skipped", 0) >= 8
+
+    @pytest.mark.asyncio
+    async def test_storyboard_failure_prevents_all_image_generation(self, scheduler):
+        """No textToImage or imageToVideo tasks should be called when storyboard fails."""
+        factory = MockHandlerFactory()
+        factory.will_fail("storyboard-task", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        img_calls = [c for c in factory.call_log if c["kind"] == "textToImage"]
+        vid_calls = [c for c in factory.call_log if c["kind"] == "imageToVideo"]
+        concat_calls = [c for c in factory.call_log if c["kind"] == "videoConcat"]
+        assert len(img_calls) == 0
+        assert len(vid_calls) == 0
+        assert len(concat_calls) == 0
+
+
+class TestErrorScenario_TextInputFailure:
+    """When textInput fails, the entire pipeline is blocked."""
+
+    @pytest.mark.asyncio
+    async def test_textinput_failure_blocks_everything(self, scheduler):
+        """textInput fails -> all downstream tasks skipped."""
+        factory = MockHandlerFactory()
+        factory.will_fail("textInput-task", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        result = scheduler.get_execution_summary("exec-test")
+        assert result.get("failed", 0) >= 1
+        # storyboard + 3 textToImage + 3 imageToVideo + videoConcat + output = 9 skipped
+        assert result.get("skipped", 0) >= 9
+
+    @pytest.mark.asyncio
+    async def test_textinput_failure_no_downstream_called(self, scheduler):
+        """No downstream handlers should be called when textInput fails."""
+        factory = MockHandlerFactory()
+        factory.will_fail("textInput-task", times=999)
+
+        await run_full_pipeline(scheduler, "exec-test", factory)
+
+        downstream_kinds = {"storyboard", "textToImage", "imageToVideo", "videoConcat", "output"}
+        for call in factory.call_log:
+            assert call["kind"] not in downstream_kinds, (
+                f"Handler for {call['kind']} should not be called after textInput failure"
+            )
+
+
+# ==================================================================
+#  SKI-010: Convergent Chain Verification (1->2->2->1)
+# ==================================================================
+
+
+class TestChain_ConvergentVerification:
+    """Verify the complete 1->2->2->1 chain converges correctly.
+
+    Chain: TextInput(1) -> Storyboard(1) -> TextToImage(2) -> ImageToVideo(2) -> VideoConcat(1) -> Output(1)
+    This is the SKI-LESSON_WORKFLOW_SPEC chain with variant fan-out.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ski_chain_all_8_tasks_complete(self, scheduler):
+        """The ski lesson chain (1->2->2->1) completes all 8 tasks."""
+        factory = MockHandlerFactory()
+        await run_ski_pipeline(scheduler, "exec-ski-uat", factory)
+
+        summary = scheduler.get_execution_summary("exec-ski-uat")
+        assert summary["total"] == 8
+        assert summary["completed"] == 8
+        assert summary.get("failed", 0) == 0
+        assert summary.get("skipped", 0) == 0
+
+    @pytest.mark.asyncio
+    async def test_ski_chain_execution_completed(self, scheduler):
+        """The ski lesson execution is marked completed in the database."""
+        factory = MockHandlerFactory()
+        await run_ski_pipeline(scheduler, "exec-ski-uat", factory)
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT status FROM executions WHERE id = 'exec-ski-uat'"
+        ).fetchone()
+        assert row["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_ski_chain_task_kinds_called(self, scheduler):
+        """All 6 node kinds are called in the ski chain."""
+        factory = MockHandlerFactory()
+        await run_ski_pipeline(scheduler, "exec-ski-uat", factory)
+
+        kinds_called = set(c["kind"] for c in factory.call_log)
+        assert kinds_called == {
+            "textInput", "storyboard", "textToImage",
+            "imageToVideo", "videoConcat", "output",
+        }
+
+    @pytest.mark.asyncio
+    async def test_ski_chain_variant_fanout_count(self, scheduler):
+        """2 variants produce 2 textToImage + 2 imageToVideo calls."""
+        factory = MockHandlerFactory()
+        await run_ski_pipeline(scheduler, "exec-ski-uat", factory)
+
+        img_calls = [c for c in factory.call_log if c["kind"] == "textToImage"]
+        vid_calls = [c for c in factory.call_log if c["kind"] == "imageToVideo"]
+        assert len(img_calls) == 2
+        assert len(vid_calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_ski_chain_convergence(self, scheduler):
+        """The ski chain converges after all tasks complete."""
+        factory = MockHandlerFactory()
+        await run_ski_pipeline(scheduler, "exec-ski-uat", factory)
+
+        assert scheduler.check_convergence("exec-ski-uat") is True
+
+    def test_ski_chain_task_count_matches_compilation(self, scheduler):
+        """Compiler produces exactly 8 tasks for the ski lesson workflow."""
+        plan = compile_workflow(SKI_LESSON_WORKFLOW_SPEC)
+        assert len(plan.tasks) == 8
+        # Verify breakdown: 1 + 1 + 2 + 2 + 1 + 1
+        by_kind = {}
+        for t in plan.tasks:
+            by_kind[t.node_kind] = by_kind.get(t.node_kind, 0) + 1
+        assert by_kind == {
+            "textInput": 1,
+            "storyboard": 1,
+            "textToImage": 2,
+            "imageToVideo": 2,
+            "videoConcat": 1,
+            "output": 1,
+        }
+
+
+# ==================================================================
+#  Helpers
+# ==================================================================
+
+
+def run_full_pipeline_sync(scheduler, execution_id, factory):
+    """Synchronous wrapper that runs the async pipeline and returns summary.
+
+    Used by non-async test methods that need the pipeline results.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(
+            run_full_pipeline(scheduler, execution_id, factory)
+        )
+    finally:
+        loop.close()

@@ -49,6 +49,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .stop-button { border-color: #d47868 !important; background: #3a211d; color: #ffd7cf; }
 .execution-status { display: flex; align-items: center; gap: 12px; margin-left: 16px; padding: 4px 12px; background: #1a2e1a; border: 1px solid #2d5a2d; border-radius: 6px; font-size: 12px; color: #7dce7d; }
 .execution-status span:first-child { color: #a0d8a0; }
+.call-estimate-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 6px;
+  background: #15171a; border: 1px solid #333;
+  font-size: 11px; color: #7dce7d; font-weight: 500;
+  font-family: "Cascadia Code", monospace;
+  white-space: nowrap;
+}
 
 .ws-indicator {
   display: inline-block;

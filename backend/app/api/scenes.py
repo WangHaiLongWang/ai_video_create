@@ -17,6 +17,7 @@ from ..schemas.scene_exporter import (
     export_to_qwen_jsonl,
     export_to_wan3_jsonl,
     scan_bundle_security,
+    validate_export_safety,
 )
 from ..services.scene_service import SceneService
 
@@ -215,6 +216,10 @@ async def export_scene_bundle(bundle_id: str, format: str = "json") -> dict[str,
     """Export scene bundle in specified format.
 
     Supported formats: json | markdown | csv | text | qwen_jsonl | wan3_jsonl
+
+    Export is blocked if the bundle contains secrets, signed URLs, or other
+    sensitive data (severity=error violations). Warnings are reported but
+    do not block the export.
     """
     if format not in _EXPORT_FORMATS:
         raise HTTPException(
@@ -226,12 +231,27 @@ async def export_scene_bundle(bundle_id: str, format: str = "json") -> dict[str,
     if bundle is None:
         raise HTTPException(status_code=404, detail=f"Bundle '{bundle_id}' not found")
 
+    is_safe, issues = validate_export_safety(bundle)
+    if not is_safe:
+        blocking_codes = sorted({i.code for i in issues if i.severity == "error"})
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Export blocked: bundle contains sensitive data "
+                f"({', '.join(blocking_codes)}). "
+                f"Remove secrets before exporting."
+            ),
+        )
+
     exporter = _EXPORT_FORMATS[format]
     content = exporter(bundle)
 
     content_type = "application/json" if format == "json" else "text/plain; charset=utf-8"
 
-    return {"format": format, "content": content, "bundle_id": bundle_id}
+    response: dict[str, Any] = {"format": format, "content": content, "bundle_id": bundle_id}
+    if issues:
+        response["warnings"] = [i.model_dump() for i in issues if i.severity == "warning"]
+    return response
 
 
 @router.post("/scene-bundles/{bundle_id}/validate")
