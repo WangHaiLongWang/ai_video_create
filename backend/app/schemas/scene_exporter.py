@@ -282,8 +282,16 @@ def import_from_text(text_str: str) -> ScenePromptBundle:
 
 
 # ---------------------------------------------------------------------------
-# Security scanner
+# Security scanner (delegated to dedicated module, kept for backward compat)
 # ---------------------------------------------------------------------------
+
+from backend.app.services.security_scanner import scan_text as _scan_text
+from backend.app.services.security_scanner import Severity, SecurityFinding
+
+
+# Re-export the legacy patterns so that any external code still importing
+# from this module continues to work.  The canonical implementation now
+# lives in ``backend.app.services.security_scanner``.
 
 _SECRET_KEY_PATTERNS = [
     (re.compile(r"sk-[A-Za-z0-9]{16,}"), "sk-* secret key"),
@@ -346,33 +354,35 @@ class SecurityIssue(BaseModel):
 def scan_for_secrets(text: str) -> list[SecurityIssue]:
     """Scan arbitrary text for security violations.
 
-    Returns a list of SecurityIssue for every pattern match found.
-    This is the low-level scanner that checks raw text content.
+    Uses the comprehensive pattern set defined in this module for
+    scene-export-specific detection (secrets, signed URLs, absolute paths,
+    emails, IP addresses, env vars).
     """
     issues: list[SecurityIssue] = []
-    for pat, code, label, severity in _ALL_PATTERNS:
-        for match in pat.finditer(text):
-            issues.append(SecurityIssue(
-                severity=severity,
-                code=code,
-                message=f"Detected potential {label}",
-                field="text",
-            ))
-            break  # one issue per pattern per call is enough
+    for line_no, line in enumerate(text.splitlines(), 1):
+        for pat, code, label, severity in _ALL_PATTERNS:
+            if pat.search(line):
+                issues.append(SecurityIssue(
+                    severity=severity,
+                    code=code,
+                    message=f"{label} (line {line_no})",
+                    field="text",
+                ))
     return issues
 
 
 def _check_text(text: str, scene_id: str | None, field: str) -> list[SecurityIssue]:
     issues: list[SecurityIssue] = []
-    for pat, code, label, severity in _ALL_PATTERNS:
-        if pat.search(text):
-            issues.append(SecurityIssue(
-                severity=severity,
-                code=code,
-                message=f"Detected potential {label} in {field}",
-                scene_id=scene_id,
-                field=field,
-            ))
+    for line_no, line in enumerate(text.splitlines(), 1):
+        for pat, code, label, severity in _ALL_PATTERNS:
+            if pat.search(line):
+                issues.append(SecurityIssue(
+                    severity=severity,
+                    code=code,
+                    message=f"{label} in {field} (line {line_no})",
+                    scene_id=scene_id,
+                    field=field,
+                ))
     return issues
 
 

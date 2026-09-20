@@ -18,7 +18,7 @@ export class SettingsPanelPage {
     this.overlay = page.locator('[style*="position: fixed"]').filter({ hasText: '设置' })
     this.panel = this.overlay.locator('div').filter({ has: this.page.locator('h2') }).first()
     this.title = this.overlay.locator('h2', { hasText: '设置' })
-    this.closeButton = this.overlay.locator('button', { hasText: 'x' })
+    this.closeButton = this.overlay.locator('button', { hasText: '×' })
     this.saveButton = this.overlay.locator('button', { hasText: /保存设置/ })
     this.testResult = this.overlay.locator('span').last()
   }

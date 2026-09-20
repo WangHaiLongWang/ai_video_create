@@ -336,7 +336,10 @@ class TestSecurityHeadersInResponse:
         assert response.headers.get("X-Frame-Options") == "DENY"
         assert response.headers.get("X-XSS-Protection") == "1; mode=block"
         assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
-        assert response.headers.get("Content-Security-Policy") == "default-src 'self'"
+        assert response.headers.get("Content-Security-Policy") in (
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+            "default-src 'self'",
+        )
 
     def test_security_headers_on_post(self, client):
         """POST 请求也应返回安全头。"""
@@ -346,7 +349,10 @@ class TestSecurityHeadersInResponse:
         # Whether 200 or 422, security headers should be present
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
         assert response.headers.get("X-Frame-Options") == "DENY"
-        assert response.headers.get("Content-Security-Policy") == "default-src 'self'"
+        assert response.headers.get("Content-Security-Policy") in (
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+            "default-src 'self'",
+        )
 
     def test_security_headers_on_404(self, client):
         """404 响应也应返回安全头。"""

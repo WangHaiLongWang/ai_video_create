@@ -450,3 +450,77 @@ async def cleanup_assets(max_age_days: int = 7) -> dict[str, Any]:
         "deleted_count": deleted_count,
         "max_age_days": max_age_days,
     }
+
+
+# ---------------------------------------------------------------------------
+# Secret rotation
+# ---------------------------------------------------------------------------
+
+
+class RotateSecretsRequest(BaseModel):
+    """Request body for rotating all secrets to a new master key."""
+    new_master_key: str
+    old_master_key: str | None = None  # If None, reads from current env/fallback
+
+
+class RotateSecretsResponse(BaseModel):
+    """Response after secret rotation."""
+    status: str
+    rotated_count: int
+    message: str
+
+
+@router.post("/rotate-secrets")
+async def rotate_all_secrets(request: RotateSecretsRequest) -> RotateSecretsResponse:
+    """Re-encrypt all secrets with a new master key.
+
+    The old master key is required either via the request body or the
+    ``SECRET_ENCRYPTION_KEY`` environment variable.
+    """
+    import os
+
+    from backend.app.repositories.configs import (
+        get_encrypted_keys,
+        get_raw,
+        list_secrets,
+        re_encrypt_value,
+    )
+    from backend.app.services.secret_encryption import rotate_key
+
+    old_key = request.old_master_key or os.environ.get("SECRET_ENCRYPTION_KEY", "")
+    if not old_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Old master key is required. Provide it in the request body or set SECRET_ENCRYPTION_KEY env var.",
+        )
+
+    # Gather all keys that hold secrets
+    secret_keys = list_secrets()
+    encrypted_keys = get_encrypted_keys()
+    keys_to_rotate = list(set(secret_keys + encrypted_keys))
+
+    rotated_count = 0
+    errors: list[str] = []
+
+    for key in keys_to_rotate:
+        raw_value = get_raw(key)
+        if raw_value is None:
+            continue
+        try:
+            new_encrypted = rotate_key(old_key, request.new_master_key, [raw_value])
+            re_encrypt_value(key, new_encrypted[0])
+            rotated_count += 1
+        except Exception as exc:
+            errors.append(f"{key}: {exc}")
+
+    if errors:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Rotation partially failed: {'; '.join(errors)}",
+        )
+
+    return RotateSecretsResponse(
+        status="ok",
+        rotated_count=rotated_count,
+        message=f"Successfully rotated {rotated_count} secret(s) to the new master key.",
+    )

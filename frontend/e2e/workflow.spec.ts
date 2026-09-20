@@ -123,6 +123,10 @@ test.describe('Workflow Editor', () => {
     const topBar = new TopBarPage(page)
     await topBar.waitForReady()
 
+    // Mock settings API endpoints
+    await page.route('**/api/config/providers', route => route.fulfill({ status: 200, body: JSON.stringify([]), headers: { 'Content-Type': 'application/json' } }))
+    await page.route('**/api/config/settings', route => route.fulfill({ status: 200, body: JSON.stringify({ default_llm_provider: 'mock', default_image_provider: 'mock', default_video_provider: 'mock' }), headers: { 'Content-Type': 'application/json' } }))
+
     // Open settings
     await topBar.openSettings()
 
@@ -140,6 +144,10 @@ test.describe('Workflow Editor', () => {
   test('settings panel shows provider dropdowns', async ({ page }) => {
     const topBar = new TopBarPage(page)
     await topBar.waitForReady()
+
+    // Mock settings API endpoints
+    await page.route('**/api/config/providers', route => route.fulfill({ status: 200, body: JSON.stringify([]), headers: { 'Content-Type': 'application/json' } }))
+    await page.route('**/api/config/settings', route => route.fulfill({ status: 200, body: JSON.stringify({ default_llm_provider: 'mock', default_image_provider: 'mock', default_video_provider: 'mock' }), headers: { 'Content-Type': 'application/json' } }))
 
     await topBar.openSettings()
 
@@ -164,6 +172,10 @@ test.describe('Workflow Editor', () => {
   test('changing LLM provider shows relevant config section', async ({ page }) => {
     const topBar = new TopBarPage(page)
     await topBar.waitForReady()
+
+    // Mock settings API endpoints
+    await page.route('**/api/config/providers', route => route.fulfill({ status: 200, body: JSON.stringify([]), headers: { 'Content-Type': 'application/json' } }))
+    await page.route('**/api/config/settings', route => route.fulfill({ status: 200, body: JSON.stringify({ default_llm_provider: 'mock', default_image_provider: 'mock', default_video_provider: 'mock' }), headers: { 'Content-Type': 'application/json' } }))
 
     await topBar.openSettings()
 

@@ -18,6 +18,7 @@ from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
 from backend.app.engine.queue import (
     get_tasks_by_execution,
+    get_task,
     enqueue_tasks,
     retry_node_task,
     DuplicateRetryError,
@@ -235,6 +236,149 @@ def retry_node(execution_id: str, request: RetryNodeRequest) -> dict:
         "status": "pending",
         "idempotency_key": request.idempotency_key,
         "message": f"节点 {request.node_id} 已重置为待执行，等待 Worker 调度",
+    }
+
+
+@router.get("/{execution_id}/tasks/{task_id}/preview")
+def get_task_preview(execution_id: str, task_id: str) -> dict:
+    """Return preview data for a specific task.
+
+    Returns first frame URL if available, status, progress, error message,
+    variant info, and node metadata.
+    """
+    conn = get_connection()
+    exec_row = conn.execute(
+        "SELECT id FROM executions WHERE id = ?", (execution_id,)
+    ).fetchone()
+    if exec_row is None:
+        raise HTTPException(status_code=404, detail=f"执行 {execution_id} 不存在")
+
+    try:
+        task = get_task(task_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail=f"任务 {task_id} 不存在")
+
+    if task["execution_id"] != execution_id:
+        raise HTTPException(status_code=404, detail=f"任务 {task_id} 不属于执行 {execution_id}")
+
+    # Extract first frame URL from task result or assets
+    first_frame_url = None
+    result = task.get("result", {})
+    if isinstance(result, dict):
+        output = result.get("output", {})
+        if isinstance(output, dict):
+            # Check for asset references
+            asset_id = output.get("asset_id")
+            if asset_id:
+                first_frame_url = f"/api/assets/{asset_id}/content"
+            # Check for direct URL
+            url = output.get("url") or output.get("first_frame")
+            if url:
+                first_frame_url = url
+
+    # Check assets table for this task
+    if not first_frame_url:
+        asset_row = conn.execute(
+            "SELECT id, mime_type FROM assets WHERE task_id = ? LIMIT 1",
+            (task_id,),
+        ).fetchone()
+        if asset_row:
+            first_frame_url = f"/api/assets/{asset_row['id']}/content"
+
+    # Extract variant label from item_key or config
+    variant_label = None
+    item_key = task.get("item_key", "")
+    if item_key:
+        # item_key often encodes scene+variant, e.g. "scene-001:variant-0"
+        parts = item_key.split(":")
+        if len(parts) > 1:
+            variant_label = parts[1]
+        else:
+            variant_label = item_key
+
+    # Calculate progress
+    progress = 0
+    status = task.get("status", "pending")
+    if status == "completed":
+        progress = 100
+    elif status == "running":
+        progress = 50
+    elif status == "failed":
+        progress = 0
+
+    return {
+        "task_id": task_id,
+        "status": status,
+        "first_frame_url": first_frame_url,
+        "error_message": task.get("error", "") or None,
+        "variant_label": variant_label,
+        "progress": progress,
+        "kind": task.get("kind", ""),
+        "node_label": task.get("label", ""),
+    }
+
+
+@router.post("/{execution_id}/tasks/{task_id}/retry")
+def retry_task_by_id(execution_id: str, task_id: str) -> dict:
+    """Retry a single failed task by task ID.
+
+    Validates the task exists and is in failed state, then re-enqueues it.
+    """
+    conn = get_connection()
+    exec_row = conn.execute(
+        "SELECT id FROM executions WHERE id = ?", (execution_id,)
+    ).fetchone()
+    if exec_row is None:
+        raise HTTPException(status_code=404, detail=f"执行 {execution_id} 不存在")
+
+    # Get the task directly
+    row = conn.execute(
+        "SELECT * FROM tasks WHERE id = ? AND execution_id = ?",
+        (task_id, execution_id),
+    ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"任务 {task_id} 不存在或不属于执行 {execution_id}")
+
+    if row["status"] != "failed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"任务 {task_id} 状态为 {row['status']}，只有 failed 状态的任务可以重试",
+        )
+
+    # Use the existing retry_node_task via node_id
+    node_id = row["node_id"]
+    try:
+        task = retry_node_task(
+            execution_id=execution_id,
+            node_id=node_id,
+        )
+    except DuplicateRetryError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Send retry event
+    emit_event(
+        execution_id,
+        node_id,
+        "node.retrying",
+        "pending",
+        item_key=task.get("item_key"),
+        message=f"任务 {task_id} 已重置为待重试",
+    )
+
+    # If execution was failed, update it back to running
+    conn.execute(
+        "UPDATE executions SET status = 'running' WHERE id = ? AND status = 'failed'",
+        (execution_id,),
+    )
+    conn.commit()
+
+    return {
+        "task_id": task_id,
+        "status": "pending",
+        "message": f"任务 {task_id} 已重置为待执行，等待 Worker 调度",
     }
 
 

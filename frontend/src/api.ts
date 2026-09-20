@@ -92,6 +92,7 @@ export interface TaskResponse {
   kind: string
   label: string
   status: string
+  item_key?: string
   result?: Record<string, unknown>
   error?: string
 }
@@ -140,6 +141,33 @@ export function retryExecution(executionId: string, nodeId: string): Promise<{
 
 export function getExecutionEvents(executionId: string): Promise<ExecutionEvent[]> {
   return apiRequest(`/executions/${executionId}/events`)
+}
+
+// ==================== Task Preview & Retry ====================
+
+export interface TaskPreviewResponse {
+  task_id: string
+  status: string
+  first_frame_url?: string
+  error_message?: string
+  variant_label?: string
+  progress?: number
+  kind?: string
+  node_label?: string
+}
+
+export function getTaskPreview(executionId: string, taskId: string): Promise<TaskPreviewResponse> {
+  return apiRequest(`/executions/${executionId}/tasks/${taskId}/preview`)
+}
+
+export function retryTask(executionId: string, taskId: string): Promise<{
+  task_id: string
+  status: string
+  message: string
+}> {
+  return apiRequest(`/executions/${executionId}/tasks/${taskId}/retry`, {
+    method: 'POST',
+  })
 }
 
 // ==================== Agent ====================

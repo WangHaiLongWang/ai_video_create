@@ -23,10 +23,10 @@ export class AgentComposerPage {
     this.title = this.section.locator('.agent-title')
     this.textarea = this.section.locator('textarea')
     this.generateButton = this.section.locator('.agent-input button')
-    this.previewSection = this.section.locator('.preview')
+    this.previewSection = this.section.locator('.agent-preview')
     this.applyButton = this.previewSection.locator('button', { hasText: '应用' })
     this.cancelButton = this.previewSection.locator('button', { hasText: '取消' })
-    this.errorMessage = this.section.locator('.error')
+    this.errorMessage = this.section.locator('.agent-error')
     this.collapseButton = this.title.locator('button', { hasText: '收起' })
     this.fabButton = page.locator('button.agent-fab')
   }

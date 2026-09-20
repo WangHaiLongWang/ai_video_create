@@ -2,7 +2,7 @@
  * ExecutionPanel — 执行监控面板
  *
  * 显示执行状态、节点进度、事件日志和执行摘要。
- * 支持折叠/展开。
+ * 支持折叠/展开。支持任务级预览和单项重试。
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
@@ -16,9 +16,13 @@ import {
   Warning,
   XCircle,
   Lightning,
+  Eye,
 } from '@phosphor-icons/react'
 import { useExecutionStore } from '../stores/executionStore'
 import type { ExecutionStatus, NodeExecutionState, ExecutionEvent } from '../stores/executionStore'
+import { ExpandableTaskRow } from './TaskPreview'
+import type { TaskPreview as TaskPreviewType } from '../types'
+import * as api from '../api'
 
 // ==================== 工具函数 ====================
 
@@ -92,9 +96,11 @@ function eventDescription(event: ExecutionEvent): string {
 function NodeStatusRow({
   nodeState,
   onRetry,
+  children,
 }: {
   nodeState: NodeExecutionState
   onRetry: (nodeId: string) => void
+  children?: React.ReactNode
 }) {
   const isFailed = nodeState.status === 'failed'
   const isRunning = nodeState.status === 'running'
@@ -120,6 +126,7 @@ function NodeStatusRow({
           <ArrowsClockwise size={12} />
         </button>
       )}
+      {children}
     </div>
   )
 }
@@ -138,6 +145,9 @@ function EventLogEntry({ event }: { event: ExecutionEvent }) {
 
 export function ExecutionPanel() {
   const [collapsed, setCollapsed] = useState(false)
+  const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null)
+  const [taskPreviews, setTaskPreviews] = useState<Map<string, TaskPreviewType[]>>(new Map())
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const eventsEndRef = useRef<HTMLDivElement>(null)
 
   const executionId = useExecutionStore((s) => s.executionId)
@@ -160,6 +170,63 @@ export function ExecutionPanel() {
   const handleToggle = useCallback(() => setCollapsed((c) => !c), [])
   const handleRetry = useCallback((nodeId: string) => retryNode(nodeId), [retryNode])
   const handleReset = useCallback(() => resetExecution(), [resetExecution])
+
+  // 展开/折叠节点预览，展开时加载任务预览数据
+  const handleToggleNodePreview = useCallback(async (nodeId: string) => {
+    if (expandedNodeId === nodeId) {
+      setExpandedNodeId(null)
+      return
+    }
+    setExpandedNodeId(nodeId)
+
+    // 加载该节点的任务预览数据
+    if (executionId && !taskPreviews.has(nodeId)) {
+      setLoadingPreview(true)
+      try {
+        const tasks = await api.getExecutionTasks(executionId)
+        const nodeTasks = tasks.filter((t) => t.node_id === nodeId)
+        const previews: TaskPreviewType[] = nodeTasks.map((t) => ({
+          taskId: t.id,
+          status: t.status as TaskPreviewType['status'],
+          firstFrameUrl: undefined,
+          errorMessage: t.error || undefined,
+          variantLabel: t.item_key?.includes(':') ? t.item_key.split(':')[1] : t.item_key || undefined,
+          progress: t.status === 'completed' ? 100 : t.status === 'running' ? 50 : 0,
+          kind: t.kind,
+          nodeLabel: t.label,
+        }))
+        setTaskPreviews((prev) => new Map(prev).set(nodeId, previews))
+      } catch (err) {
+        console.error('加载任务预览失败:', err)
+      } finally {
+        setLoadingPreview(false)
+      }
+    }
+  }, [executionId, expandedNodeId, taskPreviews])
+
+  // 重试成功后刷新任务预览数据
+  const handleTaskRetrySuccess = useCallback(async (taskId: string) => {
+    if (!executionId) return
+    try {
+      const preview = await api.getTaskPreview(executionId, taskId)
+      // 找到包含此任务的节点并更新预览数据
+      for (const [nodeId, previews] of taskPreviews.entries()) {
+        const idx = previews.findIndex((p) => p.taskId === taskId)
+        if (idx >= 0) {
+          const updated = [...previews]
+          updated[idx] = {
+            ...updated[idx],
+            status: preview.status as TaskPreviewType['status'],
+            errorMessage: preview.error_message || undefined,
+          }
+          setTaskPreviews((prev) => new Map(prev).set(nodeId, updated))
+          break
+        }
+      }
+    } catch (err) {
+      console.error('刷新任务预览失败:', err)
+    }
+  }, [executionId, taskPreviews])
 
   // 排序后的节点列表
   const sortedNodes = useMemo(() => {
@@ -223,11 +290,42 @@ export function ExecutionPanel() {
           {sortedNodes.length > 0 && (
             <div className="exec-nodes">
               {sortedNodes.map((nodeState) => (
-                <NodeStatusRow
-                  key={nodeState.nodeId}
-                  nodeState={nodeState}
-                  onRetry={handleRetry}
-                />
+                <div key={nodeState.nodeId} className="exec-node-group">
+                  <NodeStatusRow
+                    nodeState={nodeState}
+                    onRetry={handleRetry}
+                  >
+                    {(nodeState.taskCount > 1 || nodeState.status === 'failed' || nodeState.status === 'completed') && (
+                      <button
+                        className="exec-preview-toggle"
+                        onClick={() => handleToggleNodePreview(nodeState.nodeId)}
+                        title={expandedNodeId === nodeState.nodeId ? '折叠任务预览' : '展开任务预览'}
+                      >
+                        <Eye size={12} />
+                      </button>
+                    )}
+                  </NodeStatusRow>
+                  {/* 展开的任务预览区域 */}
+                  {expandedNodeId === nodeState.nodeId && (
+                    <div className="exec-task-previews">
+                      {loadingPreview && taskPreviews.size === 0 ? (
+                        <div className="exec-task-previews-loading">加载中...</div>
+                      ) : (
+                        (taskPreviews.get(nodeState.nodeId) || []).map((task) => (
+                          <ExpandableTaskRow
+                            key={task.taskId}
+                            executionId={executionId!}
+                            task={task}
+                            onRetrySuccess={handleTaskRetrySuccess}
+                          />
+                        ))
+                      )}
+                      {taskPreviews.get(nodeState.nodeId)?.length === 0 && !loadingPreview && (
+                        <div className="exec-task-previews-empty">无任务数据</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

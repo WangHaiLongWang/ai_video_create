@@ -823,6 +823,294 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   border-color: #5b6255;
 }
 
+/* ==================== ExecutionPanel — Node Group & Preview Toggle ==================== */
+
+.exec-node-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.exec-preview-toggle {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: #737a6e;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.exec-preview-toggle:hover {
+  background: #282c24;
+  color: var(--accent);
+  border-color: #5b6255;
+}
+
+.exec-task-previews {
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid #343832;
+  background: rgba(21, 23, 20, 0.4);
+}
+
+.exec-task-previews-loading,
+.exec-task-previews-empty {
+  padding: 8px 0;
+  text-align: center;
+  font-size: 10px;
+  color: #737a6e;
+}
+
+/* ==================== TaskPreview Component ==================== */
+
+.task-preview {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid #343832;
+  border-radius: 6px;
+  background: #1b1e1a;
+  margin-top: 4px;
+}
+
+.task-preview__media {
+  position: relative;
+  width: 80px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #151714;
+}
+
+.task-preview__thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.task-preview__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #5a6055;
+  font-size: 9px;
+}
+
+.task-preview__placeholder-icon {
+  color: #3a3f37;
+  margin-bottom: 2px;
+}
+
+.task-preview__progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.task-preview__progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.task-preview__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-preview__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.task-preview__badge--completed {
+  background: #1a2e1a;
+  color: #5cb85c;
+}
+
+.task-preview__badge--running {
+  background: #1a2e1a;
+  color: var(--accent);
+  border: 1px solid #2d5a2d;
+}
+
+.task-preview__badge--failed {
+  background: #3a211d;
+  color: #ffd7cf;
+  border: 1px solid #6b3a32;
+}
+
+.task-preview__badge--pending {
+  background: #2a2d27;
+  color: #8b9286;
+}
+
+.task-preview__variant {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #30352a;
+  color: #c5c9be;
+  font-size: 9px;
+  font-family: "Cascadia Code", monospace;
+}
+
+.task-preview__node-label {
+  font-size: 10px;
+  color: #737a6e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-preview__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(58, 33, 29, 0.6);
+  border: 1px solid #6b3a32;
+  color: #ffd7cf;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.task-preview__error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #d47868;
+}
+
+.task-preview__retry-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(58, 33, 29, 0.4);
+  color: #d47868;
+  font-size: 9px;
+}
+
+.task-preview__retry-error svg {
+  flex-shrink: 0;
+  color: #d47868;
+}
+
+.task-preview__retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border: 1px solid #6b3a32;
+  border-radius: 4px;
+  background: #3a211d;
+  color: #d47868;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.task-preview__retry-btn:hover:not(:disabled) {
+  background: #4a2a24;
+  color: #ffd7cf;
+}
+
+.task-preview__retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.task-preview__spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==================== Expandable Task Row ==================== */
+
+.task-row {
+  border-bottom: 1px solid #2a2e27;
+}
+
+.task-row:last-child {
+  border-bottom: 0;
+}
+
+.task-row__main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 10px;
+  color: #c5c9be;
+  transition: background 0.1s ease;
+}
+
+.task-row__main:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.task-row--completed .task-row__main {
+  color: #8fa88a;
+}
+
+.task-row--failed .task-row__main {
+  color: #e8b4ae;
+}
+
+.task-row--running .task-row__main {
+  color: var(--accent);
+}
+
+.task-row__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-row__variant {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #30352a;
+  color: #737a6e;
+  font-size: 8px;
+  font-family: "Cascadia Code", monospace;
+  flex-shrink: 0;
+}
+
 @media (max-width: 960px) {
   .app-shell { grid-template-columns: 190px minmax(0, 1fr); }
   .properties { display: none; }

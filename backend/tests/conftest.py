@@ -6,10 +6,14 @@ external binaries (FFmpeg, etc.).
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# Disable rate limiting during tests (rate limiter tests set their own apps)
+os.environ["DISABLE_RATE_LIMIT"] = "1"
 
 # Ensure the project root is on sys.path so that ``backend`` is importable
 # when running tests from within the ``backend/`` directory.
@@ -43,15 +47,30 @@ def ffmpeg_available(ffmpeg_path: str | None) -> bool:
 
 def pytest_collection_modifyitems(config, items):
     """Automatically skip tests marked ``@pytest.mark.external`` when the
-    required external binary is not available on the system.
+    required external resources (FFmpeg, API keys) are not available.
     """
     from backend.app.services.ffmpeg import is_ffmpeg_available
 
-    ffmpeg_missing = not is_ffmpeg_available()
-    if not ffmpeg_missing:
+    skip_reasons = []
+    if not is_ffmpeg_available():
+        skip_reasons.append("FFmpeg not available")
+
+    # Check if external API keys are configured
+    try:
+        from backend.app.config import get_settings
+        settings = get_settings()
+        if not settings.WAN3_API_KEY:
+            skip_reasons.append("WAN3_API_KEY not set")
+        if not settings.DASHSCOPE_API_KEY:
+            skip_reasons.append("DASHSCOPE_API_KEY not set")
+    except Exception:
+        skip_reasons.append("Settings unavailable")
+
+    if not skip_reasons:
         return
 
-    skip_external = pytest.mark.skip(reason="FFmpeg not available on this system")
+    reason = "; ".join(skip_reasons)
+    skip_external = pytest.mark.skip(reason=reason)
     for item in items:
         if "external" in item.keywords:
             item.add_marker(skip_external)

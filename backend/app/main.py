@@ -28,6 +28,9 @@ from .providers import init_providers
 from .handlers import init_handlers
 from .services.asset_manager import get_asset_manager
 from .middleware import SecurityMiddleware, InputSanitizeMiddleware, SecretsMaskingFilter
+from .middleware.security_headers import SecurityHeadersMiddleware
+from .middleware.rate_limit import RateLimitMiddleware
+from .config.cors import get_cors_config
 
 # 配置密钥脱敏日志过滤器
 _masking_filter = SecretsMaskingFilter()
@@ -184,15 +187,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ai_video_create API", version="0.2.0", lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, **get_cors_config())
+app.add_middleware(RateLimitMiddleware, default_limit=60, agent_limit=20)
 app.add_middleware(SecurityMiddleware, rate_limit=200)
 app.add_middleware(InputSanitizeMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include routers
 app.include_router(workflows_router)

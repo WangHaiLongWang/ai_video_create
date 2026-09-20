@@ -78,6 +78,19 @@ export interface EdgeData {
 
 export type EnhancedEdge = Edge<EdgeData>
 
+/* ==================== Task Preview ==================== */
+
+export interface TaskPreview {
+  taskId: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  firstFrameUrl?: string
+  errorMessage?: string
+  variantLabel?: string
+  progress?: number
+  kind?: string
+  nodeLabel?: string
+}
+
 /* ==================== Call Estimate ==================== */
 
 export interface CallEstimate {

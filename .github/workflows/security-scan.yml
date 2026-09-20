@@ -1,0 +1,88 @@
+# ============================================================
+# Security Scan Workflow
+# Runs a dedicated secret/credential scanner across backend and
+# frontend source code on every push and PR.
+# ============================================================
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  # Also allow manual trigger
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-scan:
+    name: "Secrets & Credential Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run security scanner
+        id: scan
+        run: |
+          set +e
+          python scripts/security_scan.py \
+            --scan-dir backend/app \
+            --scan-dir frontend/src \
+            --format table \
+            --format json \
+            --output security-report.json \
+            --severity warning
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          exit $EXIT_CODE
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-report
+          path: security-report.json
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f security-report.json ]; then
+            echo "## Security Scan Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+
+            TOTAL=$(python -c "
+          import json
+          with open('security-report.json') as f:
+              data = json.load(f)
+          print(data.get('total', len(data.get('findings', []))))
+          " 2>/dev/null || echo "N/A")
+
+            CRITICAL=$(python -c "
+          import json
+          with open('security-report.json') as f:
+              data = json.load(f)
+          print(data.get('critical_count', 0))
+          " 2>/dev/null || echo "0")
+
+            echo "- **Total findings:** $TOTAL" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Critical findings:** $CRITICAL" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$TOTAL" = "0" ] || [ "$TOTAL" = "N/A" ]; then
+              echo ":white_check_mark: No security issues detected." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo ":warning: Security findings detected. Download the artifact for details." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi

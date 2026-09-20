@@ -90,9 +90,9 @@ test.describe('Agent Panel', () => {
     const agent = new AgentComposerPage(page)
     await agent.waitForReady()
 
-    // Initially should show "生成预览" (not generating)
+    // Initially should show "生成" (not generating)
     const initialText = await agent.generateButton.textContent()
-    expect(initialText).toContain('生成预览')
+    expect(initialText).toContain('生成')
     expect(initialText).not.toContain('生成中')
   })
 
@@ -119,13 +119,18 @@ test.describe('Agent Panel', () => {
 
     // Set up API interception
     let generateCalled = false
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       generateCalled = true
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: {
+          intent: {
+            name: 'AI 生成工作流',
+            nodes: [{ alias: 'textInput-1', kind: 'textInput', label: '主题输入' }],
+            connections: [],
+          },
+          compiled_workflow: {
             schemaVersion: '1.0',
             id: 'agent-generated',
             name: 'AI 生成工作流',
@@ -146,10 +151,11 @@ test.describe('Agent Panel', () => {
             ],
             edges: [],
           },
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: null,
-          patch: null,
-          destructive: false,
+          can_apply: true,
         }),
       })
     })
@@ -168,7 +174,7 @@ test.describe('Agent Panel', () => {
     await agent.waitForReady()
 
     // Mock API failure
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -195,12 +201,17 @@ test.describe('Agent Panel', () => {
     await agent.waitForReady()
 
     // Mock successful API response
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: {
+          intent: {
+            name: '预览工作流',
+            nodes: [{ alias: 'textInput-1', kind: 'textInput', label: '主题输入' }],
+            connections: [],
+          },
+          compiled_workflow: {
             schemaVersion: '1.0',
             id: 'preview-wf',
             name: '预览工作流',
@@ -221,10 +232,11 @@ test.describe('Agent Panel', () => {
             ],
             edges: [],
           },
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: '新增节点: 主题输入',
-          patch: null,
-          destructive: false,
+          can_apply: true,
         }),
       })
     })
@@ -240,59 +252,62 @@ test.describe('Agent Panel', () => {
     await expect(agent.cancelButton).toBeVisible()
   })
 
-  test('preview section shows diff information', async ({ page }) => {
+  test('preview section shows intent structure', async ({ page }) => {
     const agent = new AgentComposerPage(page)
     await agent.waitForReady()
 
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: {
-            schemaVersion: '1.0',
-            id: 'diff-wf',
+          intent: {
             name: '差异预览',
-            nodes: [],
-            edges: [],
+            nodes: [
+              { alias: 'node-a', kind: 'textInput', label: '节点 A' },
+              { alias: 'node-b', kind: 'storyboard', label: '节点 B' },
+            ],
+            connections: [],
           },
+          compiled_workflow: null,
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: '删除 2 个节点, 新增 1 个节点',
-          patch: null,
-          destructive: false,
+          can_apply: true,
         }),
       })
     })
 
-    await agent.setPrompt('查看差异预览')
+    await agent.setPrompt('查看意图预览')
     await agent.clickGenerate()
     await page.waitForTimeout(1500)
 
-    // Preview section should contain the diff text
+    // Preview section should contain the workflow structure heading
     const previewText = await agent.previewSection.textContent()
-    expect(previewText).toContain('删除 2 个节点')
+    expect(previewText).toContain('工作流结构')
   })
 
   test('preview shows warnings when present', async ({ page }) => {
     const agent = new AgentComposerPage(page)
     await agent.waitForReady()
 
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: {
-            schemaVersion: '1.0',
-            id: 'warn-wf',
+          intent: {
             name: '带警告的工作流',
             nodes: [],
-            edges: [],
+            connections: [],
           },
+          compiled_workflow: null,
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: ['节点缺少输入类型', '连线格式不标准'],
-          diff: null,
-          patch: null,
-          destructive: false,
+          can_apply: true,
         }),
       })
     })
@@ -311,22 +326,22 @@ test.describe('Agent Panel', () => {
     const agent = new AgentComposerPage(page)
     await agent.waitForReady()
 
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: {
-            schemaVersion: '1.0',
-            id: 'destructive-wf',
+          intent: {
             name: '破坏性操作',
             nodes: [],
-            edges: [],
+            connections: [],
           },
+          compiled_workflow: null,
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: null,
-          patch: { operations: [] },
-          destructive: true,
+          can_apply: false,
         }),
       })
     })
@@ -336,7 +351,7 @@ test.describe('Agent Panel', () => {
     await page.waitForTimeout(1500)
 
     const previewText = await agent.previewSection.textContent()
-    expect(previewText).toContain('此操作将删除节点或连线')
+    expect(previewText).toContain('此操作存在验证问题，无法安全应用')
   })
 
   // --- Apply Modification ---
@@ -348,23 +363,29 @@ test.describe('Agent Panel', () => {
     let applyCalled = false
     let appliedPatch: unknown = null
 
-    // Mock generate-preview
-    await page.route('**/api/agent/generate-preview', (route) => {
+    // Mock generate-preview-v2
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: null,
+          intent: {
+            name: '修改提示词',
+            nodes: [{ alias: 'textInput-1', kind: 'textInput', label: '主题输入', config: { prompt: '新提示词' } }],
+            connections: [],
+          },
+          compiled_workflow: null,
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: '修改提示词',
-          patch: { operations: [{ op: 'replace', path: '/nodes/0/data/config/prompt', value: '新提示词' }] },
-          destructive: false,
+          can_apply: true,
         }),
       })
     })
 
-    // Mock apply-patch
-    await page.route('**/api/agent/apply-patch', (route) => {
+    // Mock apply-v2
+    await page.route('**/api/agent/apply-v2', (route) => {
       applyCalled = true
       appliedPatch = route.request().postDataJSON()
 
@@ -372,26 +393,26 @@ test.describe('Agent Panel', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          schemaVersion: '1.0',
-          id: 'prompt-to-video',
-          name: '提示词到短视频',
-          nodes: [
-            {
-              id: 'textInput-1',
-              type: 'studio',
-              position: { x: 110, y: 150 },
-              data: {
-                label: '主题输入',
-                description: '输入创作主题与要求',
-                kind: 'textInput',
-                outputType: 'text',
-                status: 'idle',
-                config: { prompt: '新提示词' },
-              },
-            },
-          ],
-          edges: [],
+          success: true,
+          workflow_id: 'prompt-to-video',
+          version: 1,
         }),
+      })
+    })
+
+    // Mock loadFromServer network calls (use regex to avoid matching /api/agent/*)
+    await page.route(/\/api\/workflows\/prompt-to-video$/, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'mock-wf', spec: { schemaVersion: '1.0', id: 'mock', name: 'Mock', nodes: [], edges: [] }, version: 1 }),
+      })
+    })
+    await page.route(/\/api\/workflows$/, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'mock-wf', name: 'Mock', updated_at: new Date().toISOString() }]),
       })
     })
 
@@ -416,21 +437,23 @@ test.describe('Agent Panel', () => {
     await agent.waitForReady()
 
     let applyCalled = false
-    await page.route('**/api/agent/apply-patch', () => {
+    await page.route('**/api/agent/apply-v2', () => {
       applyCalled = true
     })
 
     // Mock generate
-    await page.route('**/api/agent/generate-preview', (route) => {
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: { schemaVersion: '1.0', id: 'cancel-wf', name: '取消测试', nodes: [], edges: [] },
+          intent: { name: '取消测试', nodes: [], connections: [] },
+          compiled_workflow: null,
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: null,
-          patch: null,
-          destructive: false,
+          can_apply: true,
         }),
       })
     })
@@ -458,13 +481,23 @@ test.describe('Agent Panel', () => {
 
     const initialNodeCount = await canvas.getNodeCount()
 
-    // Mock generate returning a new spec (not a patch)
-    await page.route('**/api/agent/generate-preview', (route) => {
+    let applyCalled = false
+
+    // Mock generate returning a new compiled workflow
+    await page.route('**/api/agent/generate-preview-v2', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          spec: {
+          intent: {
+            name: '全新工作流',
+            nodes: [
+              { alias: 'textInput-1', kind: 'textInput', label: '主题输入' },
+              { alias: 'output-1', kind: 'output', label: '成片输出' },
+            ],
+            connections: [{ source: { node: 'textInput-1', port: 'output' }, target: { node: 'output-1', port: 'input' }, mode: 'direct' }],
+          },
+          compiled_workflow: {
             schemaVersion: '1.0',
             id: 'new-workflow',
             name: '全新工作流',
@@ -500,12 +533,46 @@ test.describe('Agent Panel', () => {
               { id: 'edge-new', source: 'textInput-1', target: 'output-1', type: 'smoothstep', animated: false },
             ],
           },
+          validation_errors: [],
+          repair_steps: [],
+          cost_estimate: null,
           warnings: [],
-          diff: null,
-          patch: null,
-          destructive: false,
+          can_apply: true,
         }),
       })
+    })
+
+    // Mock apply-v2
+    await page.route('**/api/agent/apply-v2', (route) => {
+      applyCalled = true
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          workflow_id: 'new-workflow',
+          version: 1,
+        }),
+      })
+    })
+
+    // Mock loadFromServer and saveToServer network calls (use regex to avoid matching /api/agent/*)
+    await page.route(/\/api\/workflows$/, (route) => {
+      // Handle both GET (fetchWorkflows) and POST (createWorkflow from saveToServer)
+      const method = route.request().method()
+      if (method === 'POST') {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'mock-wf', name: 'Mock', version: 1 }),
+        })
+      } else {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ id: 'mock-wf', name: 'Mock', updated_at: new Date().toISOString() }]),
+        })
+      }
     })
 
     await agent.setPrompt('替换为新工作流')
@@ -516,7 +583,7 @@ test.describe('Agent Panel', () => {
 
     // Apply the new workflow
     await agent.applyPreview()
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(1500)
 
     // The canvas should now show 2 nodes (replacing the original 6)
     const newNodeCount = await canvas.getNodeCount()

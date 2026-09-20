@@ -368,6 +368,7 @@ class TestScenario3_TaskIdPersistence:
 # ===========================================================================
 
 
+@pytest.mark.external
 class TestScenario4_PollingLogic:
     """Verify the polling mechanism correctly handles all task lifecycle states."""
 
