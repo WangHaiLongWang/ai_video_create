@@ -19,6 +19,7 @@ class ProviderType(str, Enum):
     OPENAI_COMPAT = "openai_compat"
     DASHSCOPE = "dashscope"
     WAN3 = "wan3"
+    DOUBAO = "doubao"
     COMFYUI = "comfyui"
 
 
@@ -83,6 +84,21 @@ class Settings(BaseSettings):
     WAN3_WATERMARK: bool = False
     WAN3_POLL_INTERVAL: float = 5.0
     WAN3_TIMEOUT: int = 1800
+
+    # Volcengine Ark media provider. Model fields may also be Ark endpoint IDs.
+    DOUBAO_API_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
+    DOUBAO_API_KEY: str = ""
+    DOUBAO_IMAGE_MODEL: str = "doubao-seedream-4-0"
+    DOUBAO_VIDEO_MODEL: str = "doubao-seedance-2-5"
+    DOUBAO_IMAGE_SIZE: str = "1280x720"
+    DOUBAO_VIDEO_RESOLUTION: str = "720p"
+    DOUBAO_VIDEO_RATIO: str = "adaptive"
+    DOUBAO_VIDEO_DURATION: int = 5
+    DOUBAO_SEED: int = -1
+    DOUBAO_WATERMARK: bool = False
+    DOUBAO_CAMERA_FIXED: bool = False
+    DOUBAO_POLL_INTERVAL: float = 5.0
+    DOUBAO_TIMEOUT: int = 1800
 
     COMFYUI_API_URL: str = "http://localhost:8188"
     COMFYUI_CHECKPOINT: str = "sd_xl_base_1.0.safetensors"
@@ -188,6 +204,24 @@ class Settings(BaseSettings):
                     "watermark": self.WAN3_WATERMARK,
                     "poll_interval": self.WAN3_POLL_INTERVAL,
                     "timeout": self.WAN3_TIMEOUT,
+                },
+            )
+        elif provider_type == ProviderType.DOUBAO:
+            return ProviderConfig(
+                api_url=self.DOUBAO_API_URL,
+                api_key=self.DOUBAO_API_KEY,
+                model=self.DOUBAO_VIDEO_MODEL,
+                extra_params={
+                    "image_model": self.DOUBAO_IMAGE_MODEL,
+                    "image_size": self.DOUBAO_IMAGE_SIZE,
+                    "resolution": self.DOUBAO_VIDEO_RESOLUTION,
+                    "ratio": self.DOUBAO_VIDEO_RATIO,
+                    "duration": self.DOUBAO_VIDEO_DURATION,
+                    "seed": self.DOUBAO_SEED,
+                    "watermark": self.DOUBAO_WATERMARK,
+                    "camera_fixed": self.DOUBAO_CAMERA_FIXED,
+                    "poll_interval": self.DOUBAO_POLL_INTERVAL,
+                    "timeout": self.DOUBAO_TIMEOUT,
                 },
             )
         else:  # MOCK

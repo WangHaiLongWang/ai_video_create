@@ -141,7 +141,7 @@
 
 - API、Engine、Handler、Provider、Repository、Service 边界已经形成。
 - NodeResult/ArtifactRef、scene map、retry、external job id、WorkerPool 和资产血缘具备基础。
-- MiMo、Qwen Image、Wan3、ComfyUI 和 Mock 按能力分离。
+- MiMo、Qwen Image、Wan3、Doubao Seedream/Seedance、ComfyUI 和 Mock 按能力分离。
 - Scene Bundle、materializer、JSON/Markdown/CSV/Text/Qwen/Wan exporter 已有实现。
 - **安全加固 7/7 项全部完成**，含加密密钥存储和审计日志。
 

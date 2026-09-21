@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
     from .providers.base import ProviderCapabilities
 
     # 始终注册 Mock Provider（作为 fallback）
-    from .providers import register_provider
+    from .providers import get_provider, register_provider
     register_provider(MockProvider())
 
     # 根据 LLM Provider 设置注册文本生成 Provider
@@ -117,6 +117,29 @@ async def lifespan(app: FastAPI):
             ))
         except Exception as e:
             logger.warning(f"Failed to register DashScope provider: {e}")
+    elif settings.DEFAULT_IMAGE_PROVIDER == "doubao":
+        if settings.DOUBAO_API_KEY:
+            try:
+                from .providers.doubao_provider import DoubaoProvider
+                register_provider(DoubaoProvider(
+                    api_key=settings.DOUBAO_API_KEY,
+                    api_url=settings.DOUBAO_API_URL,
+                    image_model=settings.DOUBAO_IMAGE_MODEL,
+                    video_model=settings.DOUBAO_VIDEO_MODEL,
+                    default_config={
+                        "size": settings.DOUBAO_IMAGE_SIZE,
+                        "resolution": settings.DOUBAO_VIDEO_RESOLUTION,
+                        "ratio": settings.DOUBAO_VIDEO_RATIO,
+                        "duration": settings.DOUBAO_VIDEO_DURATION,
+                        "seed": settings.DOUBAO_SEED,
+                        "watermark": settings.DOUBAO_WATERMARK,
+                        "camera_fixed": settings.DOUBAO_CAMERA_FIXED,
+                        "poll_interval": settings.DOUBAO_POLL_INTERVAL,
+                        "timeout": settings.DOUBAO_TIMEOUT,
+                    },
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to register Doubao image provider: {e}")
 
     # OpenAI-compatible Provider 可能只用于图像能力，必须独立于默认 LLM 注册。
     if (
@@ -162,6 +185,29 @@ async def lifespan(app: FastAPI):
             ))
         except Exception as e:
             logger.warning(f"Failed to register Wan3 provider: {e}")
+    elif settings.DEFAULT_VIDEO_PROVIDER == "doubao":
+        if get_provider("doubao") is None and settings.DOUBAO_API_KEY:
+            try:
+                from .providers.doubao_provider import DoubaoProvider
+                register_provider(DoubaoProvider(
+                    api_key=settings.DOUBAO_API_KEY,
+                    api_url=settings.DOUBAO_API_URL,
+                    image_model=settings.DOUBAO_IMAGE_MODEL,
+                    video_model=settings.DOUBAO_VIDEO_MODEL,
+                    default_config={
+                        "size": settings.DOUBAO_IMAGE_SIZE,
+                        "resolution": settings.DOUBAO_VIDEO_RESOLUTION,
+                        "ratio": settings.DOUBAO_VIDEO_RATIO,
+                        "duration": settings.DOUBAO_VIDEO_DURATION,
+                        "seed": settings.DOUBAO_SEED,
+                        "watermark": settings.DOUBAO_WATERMARK,
+                        "camera_fixed": settings.DOUBAO_CAMERA_FIXED,
+                        "poll_interval": settings.DOUBAO_POLL_INTERVAL,
+                        "timeout": settings.DOUBAO_TIMEOUT,
+                    },
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to register Doubao video provider: {e}")
 
     # Real handlers resolve each capability independently and may still use the
     # always-registered Mock Provider for capabilities configured as mock.

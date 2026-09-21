@@ -62,6 +62,18 @@ class SettingsResponse(BaseModel):
     wan3_watermark: bool
     wan3_poll_interval: float
     wan3_timeout: int
+    doubao_api_url: str
+    doubao_image_model: str
+    doubao_video_model: str
+    doubao_image_size: str
+    doubao_video_resolution: str
+    doubao_video_ratio: str
+    doubao_video_duration: int
+    doubao_seed: int
+    doubao_watermark: bool
+    doubao_camera_fixed: bool
+    doubao_poll_interval: float
+    doubao_timeout: int
     asset_dir: str
     ffmpeg_path: str
 
@@ -110,6 +122,19 @@ class UpdateSettingsRequest(BaseModel):
     wan3_watermark: bool | None = None
     wan3_poll_interval: float | None = None
     wan3_timeout: int | None = None
+    doubao_api_url: str | None = None
+    doubao_api_key: str | None = None
+    doubao_image_model: str | None = None
+    doubao_video_model: str | None = None
+    doubao_image_size: str | None = None
+    doubao_video_resolution: str | None = None
+    doubao_video_ratio: str | None = None
+    doubao_video_duration: int | None = None
+    doubao_seed: int | None = None
+    doubao_watermark: bool | None = None
+    doubao_camera_fixed: bool | None = None
+    doubao_poll_interval: float | None = None
+    doubao_timeout: int | None = None
 
 
 class TestProviderRequest(BaseModel):
@@ -177,6 +202,18 @@ async def get_settings_endpoint() -> SettingsResponse:
         wan3_watermark=settings.WAN3_WATERMARK,
         wan3_poll_interval=settings.WAN3_POLL_INTERVAL,
         wan3_timeout=settings.WAN3_TIMEOUT,
+        doubao_api_url=settings.DOUBAO_API_URL,
+        doubao_image_model=settings.DOUBAO_IMAGE_MODEL,
+        doubao_video_model=settings.DOUBAO_VIDEO_MODEL,
+        doubao_image_size=settings.DOUBAO_IMAGE_SIZE,
+        doubao_video_resolution=settings.DOUBAO_VIDEO_RESOLUTION,
+        doubao_video_ratio=settings.DOUBAO_VIDEO_RATIO,
+        doubao_video_duration=settings.DOUBAO_VIDEO_DURATION,
+        doubao_seed=settings.DOUBAO_SEED,
+        doubao_watermark=settings.DOUBAO_WATERMARK,
+        doubao_camera_fixed=settings.DOUBAO_CAMERA_FIXED,
+        doubao_poll_interval=settings.DOUBAO_POLL_INTERVAL,
+        doubao_timeout=settings.DOUBAO_TIMEOUT,
         asset_dir=settings.ASSET_DIR,
         ffmpeg_path=settings.FFMPEG_PATH,
     )
@@ -317,6 +354,45 @@ async def update_settings(request: UpdateSettingsRequest) -> dict[str, str]:
         if request.wan3_timeout < 60:
             raise HTTPException(400, "wan3_timeout must be at least 60 seconds")
         settings.WAN3_TIMEOUT = request.wan3_timeout
+    if request.doubao_api_url:
+        settings.DOUBAO_API_URL = request.doubao_api_url
+    if request.doubao_api_key:
+        settings.DOUBAO_API_KEY = request.doubao_api_key
+    if request.doubao_image_model:
+        settings.DOUBAO_IMAGE_MODEL = request.doubao_image_model
+    if request.doubao_video_model:
+        settings.DOUBAO_VIDEO_MODEL = request.doubao_video_model
+    if request.doubao_image_size:
+        settings.DOUBAO_IMAGE_SIZE = request.doubao_image_size
+    if request.doubao_video_resolution:
+        value = request.doubao_video_resolution.lower()
+        if value not in {"480p", "720p", "1080p"}:
+            raise HTTPException(400, "doubao_video_resolution must be 480p, 720p or 1080p")
+        settings.DOUBAO_VIDEO_RESOLUTION = value
+    if request.doubao_video_ratio:
+        if request.doubao_video_ratio not in {"adaptive", "16:9", "4:3", "1:1", "3:4", "9:16", "21:9"}:
+            raise HTTPException(400, "unsupported doubao_video_ratio")
+        settings.DOUBAO_VIDEO_RATIO = request.doubao_video_ratio
+    if request.doubao_video_duration is not None:
+        if request.doubao_video_duration not in {5, 10}:
+            raise HTTPException(400, "doubao_video_duration must be 5 or 10")
+        settings.DOUBAO_VIDEO_DURATION = request.doubao_video_duration
+    if request.doubao_seed is not None:
+        if request.doubao_seed < -1:
+            raise HTTPException(400, "doubao_seed must be -1 or non-negative")
+        settings.DOUBAO_SEED = request.doubao_seed
+    if request.doubao_watermark is not None:
+        settings.DOUBAO_WATERMARK = request.doubao_watermark
+    if request.doubao_camera_fixed is not None:
+        settings.DOUBAO_CAMERA_FIXED = request.doubao_camera_fixed
+    if request.doubao_poll_interval is not None:
+        if request.doubao_poll_interval < 1:
+            raise HTTPException(400, "doubao_poll_interval must be at least 1 second")
+        settings.DOUBAO_POLL_INTERVAL = request.doubao_poll_interval
+    if request.doubao_timeout is not None:
+        if request.doubao_timeout < 60:
+            raise HTTPException(400, "doubao_timeout must be at least 60 seconds")
+        settings.DOUBAO_TIMEOUT = request.doubao_timeout
 
     # Reinitialize providers
     clear_providers()
@@ -373,6 +449,24 @@ async def update_settings(request: UpdateSettingsRequest) -> dict[str, str]:
             "watermark": settings.WAN3_WATERMARK,
             "poll_interval": settings.WAN3_POLL_INTERVAL,
             "timeout": settings.WAN3_TIMEOUT,
+        },
+        doubao_key=settings.DOUBAO_API_KEY if (
+            settings.DEFAULT_IMAGE_PROVIDER.value == "doubao"
+            or settings.DEFAULT_VIDEO_PROVIDER.value == "doubao"
+        ) else None,
+        doubao_url=settings.DOUBAO_API_URL,
+        doubao_image_model=settings.DOUBAO_IMAGE_MODEL,
+        doubao_video_model=settings.DOUBAO_VIDEO_MODEL,
+        doubao_default_config={
+            "size": settings.DOUBAO_IMAGE_SIZE,
+            "resolution": settings.DOUBAO_VIDEO_RESOLUTION,
+            "ratio": settings.DOUBAO_VIDEO_RATIO,
+            "duration": settings.DOUBAO_VIDEO_DURATION,
+            "seed": settings.DOUBAO_SEED,
+            "watermark": settings.DOUBAO_WATERMARK,
+            "camera_fixed": settings.DOUBAO_CAMERA_FIXED,
+            "poll_interval": settings.DOUBAO_POLL_INTERVAL,
+            "timeout": settings.DOUBAO_TIMEOUT,
         },
         comfyui_url=settings.COMFYUI_API_URL if (
             settings.DEFAULT_IMAGE_PROVIDER.value == "comfyui"

@@ -65,6 +65,11 @@ def init_providers(
     wan3_url: str = "https://dashscope.aliyuncs.com/api/v1",
     wan3_model: str = "wan3.0-video",
     wan3_default_config: dict | None = None,
+    doubao_key: str | None = None,
+    doubao_url: str = "https://ark.cn-beijing.volces.com/api/v3",
+    doubao_image_model: str = "doubao-seedream-4-0",
+    doubao_video_model: str = "doubao-seedance-2-5",
+    doubao_default_config: dict | None = None,
     comfyui_url: str | None = None,
 ) -> None:
     """Initialize and register providers based on configuration.
@@ -139,6 +144,19 @@ def init_providers(
             ))
         except Exception as e:
             logger.warning(f"Failed to register Wan3 provider: {e}")
+
+    if doubao_key:
+        try:
+            from backend.app.providers.doubao_provider import DoubaoProvider
+            register_provider(DoubaoProvider(
+                api_key=doubao_key,
+                api_url=doubao_url,
+                image_model=doubao_image_model,
+                video_model=doubao_video_model,
+                default_config=doubao_default_config,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to register Doubao provider: {e}")
 
     if comfyui_url:
         try:

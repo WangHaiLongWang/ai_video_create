@@ -45,6 +45,18 @@ interface Settings {
   wan3_watermark: boolean;
   wan3_poll_interval: number;
   wan3_timeout: number;
+  doubao_api_url: string;
+  doubao_image_model: string;
+  doubao_video_model: string;
+  doubao_image_size: string;
+  doubao_video_resolution: string;
+  doubao_video_ratio: string;
+  doubao_video_duration: number;
+  doubao_seed: number;
+  doubao_watermark: boolean;
+  doubao_camera_fixed: boolean;
+  doubao_poll_interval: number;
+  doubao_timeout: number;
   asset_dir: string;
   ffmpeg_path: string;
 }
@@ -102,6 +114,19 @@ export default function SettingsPanel({ onClose }: Props) {
   const [wan3Watermark, setWan3Watermark] = useState(false);
   const [wan3PollInterval, setWan3PollInterval] = useState(5);
   const [wan3Timeout, setWan3Timeout] = useState(1800);
+  const [doubaoUrl, setDoubaoUrl] = useState('https://ark.cn-beijing.volces.com/api/v3');
+  const [doubaoKey, setDoubaoKey] = useState('');
+  const [doubaoImageModel, setDoubaoImageModel] = useState('doubao-seedream-4-0');
+  const [doubaoVideoModel, setDoubaoVideoModel] = useState('doubao-seedance-2-5');
+  const [doubaoImageSize, setDoubaoImageSize] = useState('1280x720');
+  const [doubaoVideoResolution, setDoubaoVideoResolution] = useState('720p');
+  const [doubaoVideoRatio, setDoubaoVideoRatio] = useState('adaptive');
+  const [doubaoVideoDuration, setDoubaoVideoDuration] = useState(5);
+  const [doubaoSeed, setDoubaoSeed] = useState(-1);
+  const [doubaoWatermark, setDoubaoWatermark] = useState(false);
+  const [doubaoCameraFixed, setDoubaoCameraFixed] = useState(false);
+  const [doubaoPollInterval, setDoubaoPollInterval] = useState(5);
+  const [doubaoTimeout, setDoubaoTimeout] = useState(1800);
 
   useEffect(() => {
     loadData();
@@ -154,6 +179,18 @@ export default function SettingsPanel({ onClose }: Props) {
         setWan3Watermark(s.wan3_watermark);
         setWan3PollInterval(s.wan3_poll_interval);
         setWan3Timeout(s.wan3_timeout);
+        setDoubaoUrl(s.doubao_api_url);
+        setDoubaoImageModel(s.doubao_image_model);
+        setDoubaoVideoModel(s.doubao_video_model);
+        setDoubaoImageSize(s.doubao_image_size);
+        setDoubaoVideoResolution(s.doubao_video_resolution);
+        setDoubaoVideoRatio(s.doubao_video_ratio);
+        setDoubaoVideoDuration(s.doubao_video_duration);
+        setDoubaoSeed(s.doubao_seed);
+        setDoubaoWatermark(s.doubao_watermark);
+        setDoubaoCameraFixed(s.doubao_camera_fixed);
+        setDoubaoPollInterval(s.doubao_poll_interval);
+        setDoubaoTimeout(s.doubao_timeout);
       }
     } catch (e) {
       console.error('Failed to load settings', e);
@@ -210,6 +247,19 @@ export default function SettingsPanel({ onClose }: Props) {
           wan3_watermark: wan3Watermark,
           wan3_poll_interval: wan3PollInterval,
           wan3_timeout: wan3Timeout,
+          doubao_api_url: doubaoUrl,
+          doubao_api_key: doubaoKey || undefined,
+          doubao_image_model: doubaoImageModel,
+          doubao_video_model: doubaoVideoModel,
+          doubao_image_size: doubaoImageSize,
+          doubao_video_resolution: doubaoVideoResolution,
+          doubao_video_ratio: doubaoVideoRatio,
+          doubao_video_duration: doubaoVideoDuration,
+          doubao_seed: doubaoSeed,
+          doubao_watermark: doubaoWatermark,
+          doubao_camera_fixed: doubaoCameraFixed,
+          doubao_poll_interval: doubaoPollInterval,
+          doubao_timeout: doubaoTimeout,
         }),
       });
       if (resp.ok) {
@@ -276,12 +326,15 @@ export default function SettingsPanel({ onClose }: Props) {
               <option value="wan3">万相 3.0（百炼）</option>
               <option value="openai">OpenAI (DALL-E)</option>
               <option value="dashscope">DashScope (Qwen Image)</option>
+              <option value="doubao">Doubao Seedream（火山方舟）</option>
             </select>
 
             <label style={styles.label}>视频生成</label>
             <select style={styles.select} value={videoProvider} onChange={(e) => setVideoProvider(e.target.value)}>
               <option value="mock">Mock (测试)</option>
               <option value="comfyui">ComfyUI</option>
+              <option value="wan3">万相 3.0（百炼）</option>
+              <option value="doubao">Doubao Seedance 2.5（火山方舟）</option>
             </select>
           </section>
 
@@ -420,6 +473,44 @@ export default function SettingsPanel({ onClose }: Props) {
               <label style={styles.checkboxLabel}><input type="checkbox" checked={dashscopeEnableThinking} onChange={(e) => setDashscopeEnableThinking(e.target.checked)} />开启思考模式</label>
               <label style={styles.checkboxLabel}><input type="checkbox" checked={dashscopeWatermark} onChange={(e) => setDashscopeWatermark(e.target.checked)} />添加模型水印</label>
               <button style={styles.testBtn} onClick={() => handleTestProvider('dashscope')}>测试连接</button>
+            </section>
+          )}
+
+          {(imageProvider === 'doubao' || videoProvider === 'doubao') && (
+            <section style={styles.section}>
+              <h3 style={styles.sectionTitle}>Doubao Seedream / Seedance 配置</h3>
+              <label style={styles.label}>Ark API Base URL</label>
+              <input style={styles.input} value={doubaoUrl} onChange={(e) => setDoubaoUrl(e.target.value)} />
+              <label style={styles.label}>API Key（留空则沿用已配置的 Key）</label>
+              <input style={styles.input} type="password" value={doubaoKey} onChange={(e) => setDoubaoKey(e.target.value)} />
+              <label style={styles.label}>Seedream 图像模型 / Endpoint ID</label>
+              <input style={styles.input} value={doubaoImageModel} onChange={(e) => setDoubaoImageModel(e.target.value)} />
+              <label style={styles.label}>Seedance 视频模型 / Endpoint ID</label>
+              <input style={styles.input} value={doubaoVideoModel} onChange={(e) => setDoubaoVideoModel(e.target.value)} />
+              <label style={styles.label}>图像尺寸</label>
+              <input style={styles.input} value={doubaoImageSize} onChange={(e) => setDoubaoImageSize(e.target.value)} />
+              <label style={styles.label}>视频分辨率</label>
+              <select style={styles.select} value={doubaoVideoResolution} onChange={(e) => setDoubaoVideoResolution(e.target.value)}>
+                {['480p', '720p', '1080p'].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <label style={styles.label}>视频宽高比</label>
+              <select style={styles.select} value={doubaoVideoRatio} onChange={(e) => setDoubaoVideoRatio(e.target.value)}>
+                {['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16', '21:9'].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <label style={styles.label}>视频时长</label>
+              <select style={styles.select} value={doubaoVideoDuration} onChange={(e) => setDoubaoVideoDuration(Number(e.target.value))}>
+                <option value={5}>5 秒</option>
+                <option value={10}>10 秒</option>
+              </select>
+              <label style={styles.label}>随机种子（-1 随机）</label>
+              <input style={styles.input} type="number" min={-1} value={doubaoSeed} onChange={(e) => setDoubaoSeed(Number(e.target.value))} />
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={doubaoWatermark} onChange={(e) => setDoubaoWatermark(e.target.checked)} />添加模型水印</label>
+              <label style={styles.checkboxLabel}><input type="checkbox" checked={doubaoCameraFixed} onChange={(e) => setDoubaoCameraFixed(e.target.checked)} />固定相机</label>
+              <label style={styles.label}>轮询间隔（秒）</label>
+              <input style={styles.input} type="number" min={1} value={doubaoPollInterval} onChange={(e) => setDoubaoPollInterval(Number(e.target.value))} />
+              <label style={styles.label}>任务超时（秒）</label>
+              <input style={styles.input} type="number" min={60} value={doubaoTimeout} onChange={(e) => setDoubaoTimeout(Number(e.target.value))} />
+              <button style={styles.testBtn} onClick={() => handleTestProvider('doubao')}>测试 Key 与端点</button>
             </section>
           )}
 
