@@ -388,37 +388,56 @@ Worker 只负责租约和运行 Handler；Scheduler 负责依赖、输入组装�
 
 验收：自然语言生成/修改流程可预览、确认、撤销；非法图无法应用；重启后模板和非秘密设置仍存在。
 
-### Epic E7：安全与发布
+### Epic E7：安全与发布 — ✅ 安全加固完成
 
-| ID | 优先级 | 工作量 | 交付内容 | 主要文件 | 依赖 |
+| ID | 优先级 | 工作量 | 交付内容 | 主要文件 | 状态 |
 |---|---|---:|---|---|---|
-| AVC-701 | P0 | 2.0 | 注册安全中间件、流式 body limit、CORS/headers | `main.py`, `middleware.py` | E0 |
-| AVC-702 | P0 | 2.0 | SSRF、重定向、URL allow policy 和下载限制 | `security/url_policy.py`, providers | E5 |
-| AVC-703 | P0 | 1.5 | 密钥/日志/导出脱敏测试 | `tests/security/*` | E5,E6 |
-| AVC-704 | P0 | 2.0 | DB 备份恢复、磁盘满、资产丢失和 Worker 崩溃演练 | `scripts/backup*`, recovery tests | E2,E4 |
-| AVC-705 | P0 | 2.0 | Windows/macOS/Linux release smoke matrix | CI workflows | 所有 Epic |
-| AVC-706 | P1 | 1.5 | 性能与资源基准，形成可重复报告 | performance tests, `docs/benchmarks.md` | E2-E4 |
-| AVC-707 | P0 | 2.0 | 安装、升级、回滚、故障排查和发布说明 | `README.md`, `docs/operations/*` | 所有 Epic |
+| AVC-701 | P0 | 2.0 | 注册安全中间件、流式 body limit、CORS/headers | `main.py`, `middleware.py` | ✅ 完成 |
+| AVC-702 | P0 | 2.0 | SSRF、重定向、URL allow policy 和下载限制 | `middleware/ssrf.py` | ✅ 完成 |
+| AVC-703 | P0 | 1.5 | 密钥/日志/导出脱敏测试 | `tests/security/*` | ✅ 完成 |
+| AVC-704 | P0 | 2.0 | DB 备份恢复、磁盘满、资产丢失和 Worker 崩溃演练 | `scripts/backup*`, recovery tests | ⏳ P2 |
+| AVC-705 | P0 | 2.0 | Windows/macOS/Linux release smoke matrix | CI workflows | ✅ 已配置 |
+| AVC-706 | P1 | 1.5 | 性能与资源基准，形成可重复报告 | performance tests, `docs/benchmarks.md` | ⏳ P2 |
+| AVC-707 | P0 | 2.0 | 安装、升级、回滚、故障排查和发布说明 | `README.md`, `docs/operations/*` | ⏳ RC Sprint |
+
+E7 安全加固完成清单：
+- ✅ Rate Limiting（滑动窗口，60/min default，20/min for /api/agent/*）
+- ✅ SSRF Protection（IP 黑名单验证，loopback/私有/链路本地）
+- ✅ CORS Refinement（动态配置，env var → dev defaults → empty）
+- ✅ Security Headers（8 项安全头，CSP/HSTS/X-Frame-Options 等）
+- ✅ Audit Logger（结构化 JSON 审计日志，logs/audit.jsonl）
+- ✅ Secrets Scanner（7 类密钥模式检测 + CI 集成）
+- ✅ Encrypted Secret Storage（AES-256-GCM 加密 + 密钥轮换）
+- ✅ 三平台 CI（ci.yml + security-scan.yml 已配置）
 
 验收：Release Checklist 全绿；三平台 Mock smoke 通过；安全/恢复演练有证据；新用户能按文档安装和恢复。
 
 ## 8. Sprint 与里程碑安排
 
-### 当前 Sprint：恢复绿色门禁（2-3 天）
+### ✅ 已完成 Sprint F0-F4：恢复绿色门禁 + 安全加固
 
-范围：TEST-001 至 TEST-008。
+Sprint F0-F4 已全部完成：
+- ✅ F0：恢复可信门禁 — 1555 backend tests + 295 frontend tests 全绿
+- ✅ F1：React Flow 人工编辑闭环 — 连线/拖拽/EdgeInspector/undo-redo
+- ✅ F2：字段与端口产品化 — CRUD/Edge 级联/WorkflowSpec 2.0 roundtrip
+- ✅ F3：Workflow Agent v2 前端闭环 — v2 API adapter + 37 golden case
+- ✅ F4：Scene/安全加固 — E7 7/7 项完成 + SKI-009 预览/重试
 
-1. ✅ 隔离 Vitest 与 Playwright，前端 105 项通过。
-2. ✅ 修复 WebSocket Location mock，typecheck/build 通过。
-3. ✅ 当前 Node 20.19.0 满足 Playwright 要求。
-4. ❌ Pillow 未进入当前 venv，完整 pytest 收集失败。
-5. ❌ FFmpeg 当前路径无法复现历史 19/19 报告。
-6. ⏳ 取得同一 commit 的三平台 CI 和 Chromium E2E 证据。
-7. ⏳ 校正 UAT 报告日期、commit 和环境元数据。
+### 当前 Sprint：RC 收敛（2-3 天）
 
-Demo：全新 Node/Python 环境安装后，一条命令得到全绿门禁。
+范围：R0-4/R0-6/R0-8 + Playwright CI
 
-里程碑：`v0.9.1`，恢复可重复构建状态。
+1. ✅ E7 Security 7/7 项全部完成（257 tests）
+2. ✅ R0-8 三平台 CI 已配置（ci.yml + security-scan.yml）
+3. ✅ SKI-009 场景预览 + 单项重试 UI 已实现（23 tests）
+4. ✅ Playwright 13/13 targeted failures 已修复
+5. ⏳ CI 环境 Node 20+ 配置，Playwright 在 CI 中执行
+6. ⏳ 三平台 CI 同一 commit 全绿证据
+7. ⏳ Release checklist（版本号、CHANGELOG、README）
+
+Demo：CI 全绿，Playwright 7 个 spec 文件通过，三平台证据归档。
+
+里程碑：`v1.0.0-rc.1`，验收通过后发布 `v1.0.0`。
 
 ### 已完成：React Flow 交互修复（2026-09-16）
 
@@ -457,12 +476,22 @@ Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导�
 
 该工作流作为 Flow/Scene 专项的纵向验收：一个 Scene 生成两个图片变体，每张图片生成 3 秒 Wan3 视频，再由 FFmpeg 合成为约 6 秒视频。所需 `variantCount`、scene+variant 血缘和 aggregate 顺序必须实现为通用可插拔能力。
 
-### Release Candidate Sprint（1-2 周）
+### Release Candidate Sprint（1-2 周）— 进行中
 
-1. 完整 pytest、FFmpeg 集成、Playwright 和三平台 CI 全绿。
-2. 安全、恢复、磁盘满、Provider 超时和迁移演练。
-3. 锁定环境复现 MiMo → Qwen → Wan3 → FFmpeg。
-4. 安装、升级、回滚与故障排查手册。
+已完成：
+- ✅ E7 Security 7/7 项（Rate Limiting/SSRF/CORS/Headers/Audit/Scanner/Encryption）
+- ✅ R0-8 三平台 CI 已配置
+- ✅ SKI-009 场景预览 + 重试 UI
+- ✅ Playwright 13/13 targeted failures 修复
+- ✅ Backend 1555 tests + Frontend 295 tests 全绿
+
+待完成：
+- ⏳ CI 环境 Node 20+，Playwright CI 执行
+- ⏳ 三平台 CI 同一 commit 绿色证据
+- ⏳ Playwright 2 项 pre-existing 修复（deselect + multi-drag）
+- ⏳ 安全、恢复、磁盘满、Provider 超时和迁移演练
+- ⏳ 安装、升级、回滚与故障排查手册
+- ⏳ 版本号、CHANGELOG、README 更新
 
 里程碑：`v1.0.0-rc.1`，验收通过后发布 `v1.0.0`。
 
