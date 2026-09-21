@@ -4,6 +4,7 @@
 |---|---|---|
 | [Wan3 UAT](wan3-uat.md) | 报告记录 480P/2s 真实任务成功 | 当前 venv 缺 Pillow，完整套件收集失败 |
 | [FFmpeg 集成](ffmpeg-integration.md) | 报告记录 normalize/concat/probe 19/19 | 当前配置找不到 FFmpeg，7 项集成测试失败 |
+| [Doubao UAT 2026-09-21](doubao-uat-2026-09-21.md) | Key/目录通过，媒体模型未激活 | 激活模型或配置 Endpoint ID 后复测 |
 
 ## 证据要求
 
@@ -19,4 +20,3 @@
 - 成本与产物校验。
 
 当前两份报告的日期是 2026-09-17，晚于 2026-09-16 状态基线。发布前需由报告作者确认日期和环境来源。
-

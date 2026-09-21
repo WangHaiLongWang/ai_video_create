@@ -665,3 +665,11 @@ Sprint 出口：前端 228+ 单测、typecheck、build、后端完整 pytest 和
 - 架构决策写入 `docs/architecture/adr/ADR-xxxx.md`，至少包括 NodeResult、map、Provider JobHandle、密钥存储和数据库升级策略。
 - 需求变化先由 Product Owner 更新 PRD 和验收标准，再调整本计划，不允许仅在代码中改变行为。
 - 工期变化超过 20%、P0 范围变化或外部 Provider 选择变化时，必须重新基线并记录版本。
+
+## 16. Doubao Provider 增量计划（2026-09-21）
+
+Doubao Seedream/Seedance 代码与离线契约已完成，但账号尚未激活对应模型。该增量不改变现有 Qwen Image + Wan3 默认发布路径。
+
+执行顺序：`DOU-001 模型激活 → DOU-002 单能力 UAT → DOU-003 Workflow UAT → DOU-004..008 产品化收口`。
+
+详细计划见 [`DOUBAO-SEEDANCE-PLAN.md`](DOUBAO-SEEDANCE-PLAN.md)。模型权限未解除前，不将 Doubao 加入 RC 必选门禁；但不得宣称其生产可用。

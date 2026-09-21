@@ -236,3 +236,13 @@
 - 测试证据：[`reports/`](reports/)
 
 状态文档只记录已验证事实；工单状态以代码、自动测试和可复现验收证据为准。
+
+## 9. Doubao Seedream / Seedance 2.5 检查点（2026-09-21）
+
+- Provider、配置 API、`.env.example` 和前端设置页已接入 `doubao`。
+- API Key 认证与模型目录读取成功。
+- 正式模型 ID 已校准为 `doubao-seedream-5-0-pro-260628` 和 `doubao-seedance-2-5-260628`。
+- 真实生图和文生视频均被账号“模型服务未激活”阻断，未产生媒体资产。
+- 当前状态：`Contract Ready / External Blocked`，不计为生产可用。
+- 计划：[`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOUBAO-SEEDANCE-PLAN.md)。
+- 报告：[`reports/doubao-uat-2026-09-21.md`](reports/doubao-uat-2026-09-21.md)。

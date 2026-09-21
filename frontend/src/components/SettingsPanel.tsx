@@ -116,8 +116,8 @@ export default function SettingsPanel({ onClose }: Props) {
   const [wan3Timeout, setWan3Timeout] = useState(1800);
   const [doubaoUrl, setDoubaoUrl] = useState('https://ark.cn-beijing.volces.com/api/v3');
   const [doubaoKey, setDoubaoKey] = useState('');
-  const [doubaoImageModel, setDoubaoImageModel] = useState('doubao-seedream-4-0');
-  const [doubaoVideoModel, setDoubaoVideoModel] = useState('doubao-seedance-2-5');
+  const [doubaoImageModel, setDoubaoImageModel] = useState('doubao-seedream-5-0-pro-260628');
+  const [doubaoVideoModel, setDoubaoVideoModel] = useState('doubao-seedance-2-5-260628');
   const [doubaoImageSize, setDoubaoImageSize] = useState('1280x720');
   const [doubaoVideoResolution, setDoubaoVideoResolution] = useState('720p');
   const [doubaoVideoRatio, setDoubaoVideoRatio] = useState('adaptive');

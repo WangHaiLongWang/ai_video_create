@@ -67,8 +67,8 @@ def init_providers(
     wan3_default_config: dict | None = None,
     doubao_key: str | None = None,
     doubao_url: str = "https://ark.cn-beijing.volces.com/api/v3",
-    doubao_image_model: str = "doubao-seedream-4-0",
-    doubao_video_model: str = "doubao-seedance-2-5",
+    doubao_image_model: str = "doubao-seedream-5-0-pro-260628",
+    doubao_video_model: str = "doubao-seedance-2-5-260628",
     doubao_default_config: dict | None = None,
     comfyui_url: str | None = None,
 ) -> None:

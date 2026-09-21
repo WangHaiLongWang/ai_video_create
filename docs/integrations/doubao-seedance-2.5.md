@@ -19,8 +19,8 @@ AI_VIDEO_DEFAULT_VIDEO_PROVIDER=doubao
 
 AI_VIDEO_DOUBAO_API_URL=https://ark.cn-beijing.volces.com/api/v3
 AI_VIDEO_DOUBAO_API_KEY=
-AI_VIDEO_DOUBAO_IMAGE_MODEL=doubao-seedream-4-0
-AI_VIDEO_DOUBAO_VIDEO_MODEL=doubao-seedance-2-5
+AI_VIDEO_DOUBAO_IMAGE_MODEL=doubao-seedream-5-0-pro-260628
+AI_VIDEO_DOUBAO_VIDEO_MODEL=doubao-seedance-2-5-260628
 AI_VIDEO_DOUBAO_IMAGE_SIZE=1280x720
 AI_VIDEO_DOUBAO_VIDEO_RESOLUTION=720p
 AI_VIDEO_DOUBAO_VIDEO_RATIO=adaptive
@@ -53,6 +53,15 @@ API Key 不会由配置读取接口返回。设置页保存只修改当前进程
 - 输入：无图片时文生视频，有图片路径时图生视频。
 
 具体支持的尺寸、分辨率、时长和模型名称以当前方舟控制台中已开通 Endpoint 为准。若供应商更新协议，只需调整 Provider adapter，不应把供应商 payload 泄漏到 WorkflowSpec。
+
+2026-09-21 当前账号目录中已确认正式 ID：
+
+```text
+doubao-seedream-5-0-pro-260628
+doubao-seedance-2-5-260628
+```
+
+目录可见不代表账号已经激活。真实请求若返回 `has not activated the model`，需要先在方舟控制台开通模型服务或创建 Endpoint。
 
 ## 验证
 

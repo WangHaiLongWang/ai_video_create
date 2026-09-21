@@ -38,8 +38,8 @@ class DoubaoProvider(BaseProvider):
         self,
         api_key: str,
         api_url: str = "https://ark.cn-beijing.volces.com/api/v3",
-        image_model: str = "doubao-seedream-4-0",
-        video_model: str = "doubao-seedance-2-5",
+        image_model: str = "doubao-seedream-5-0-pro-260628",
+        video_model: str = "doubao-seedance-2-5-260628",
         default_config: dict[str, Any] | None = None,
     ) -> None:
         if not api_key:

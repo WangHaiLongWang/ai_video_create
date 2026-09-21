@@ -88,8 +88,8 @@ class Settings(BaseSettings):
     # Volcengine Ark media provider. Model fields may also be Ark endpoint IDs.
     DOUBAO_API_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
     DOUBAO_API_KEY: str = ""
-    DOUBAO_IMAGE_MODEL: str = "doubao-seedream-4-0"
-    DOUBAO_VIDEO_MODEL: str = "doubao-seedance-2-5"
+    DOUBAO_IMAGE_MODEL: str = "doubao-seedream-5-0-pro-260628"
+    DOUBAO_VIDEO_MODEL: str = "doubao-seedance-2-5-260628"
     DOUBAO_IMAGE_SIZE: str = "1280x720"
     DOUBAO_VIDEO_RESOLUTION: str = "720p"
     DOUBAO_VIDEO_RATIO: str = "adaptive"

@@ -99,6 +99,6 @@ def test_provider_registry_and_settings_contract() -> None:
         settings = Settings(DOUBAO_API_KEY="test-key")
         config = settings.get_provider_config(ProviderType.DOUBAO)
         assert config.api_url.endswith("/api/v3")
-        assert config.extra_params["image_model"] == "doubao-seedream-4-0"
+        assert config.extra_params["image_model"] == "doubao-seedream-5-0-pro-260628"
     finally:
         clear_providers()
