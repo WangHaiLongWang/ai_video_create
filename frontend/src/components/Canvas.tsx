@@ -19,6 +19,7 @@ import {
   type ReactFlowInstance,
   type Viewport,
 } from '@xyflow/react'
+import '@xyflow/react/dist/base.css'
 import type { ConnectionLineComponentProps } from '@xyflow/react/dist/esm/types/edges'
 import { StudioNodeView } from '../StudioNode'
 import { useStudioStore } from '../store'
@@ -31,9 +32,17 @@ import { AgentComposer } from './AgentComposer'
 function LabelEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, style, markerEnd }: EdgeProps) {
   const [edgePath, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
 
+  // 默认连线样式：亮黄色 (Material Yellow)，宽度 4px，带发光效果
+  // 注意：不要使用展开运算符，因为 style 可能包含 null 值
+  const edgeStyle = {
+    stroke: style?.stroke || '#ffeb3b',
+    strokeWidth: style?.strokeWidth || 4,
+    filter: style?.filter || 'drop-shadow(0 0 6px rgba(255, 235, 59, 0.8))',
+  }
+
   return (
     <>
-      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      <BaseEdge id={id} path={edgePath} style={edgeStyle} markerEnd={markerEnd} />
       {data?.label && (
         <foreignObject x={labelX - 30} y={labelY - 12} width={60} height={24} className="edge-label-container">
           <span className="edge-label">{data.label as string}</span>

@@ -88,8 +88,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .canvas-shell .react-flow { width: 100%; height: 100%; }
 .canvas-shell .react-flow__background svg { pointer-events: none; }
 .canvas-shell .react-flow__pane { z-index: 1; }
-.react-flow__edge-path { stroke: #5c6358; stroke-width: 1.5; }
-.react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); }
+.react-flow__edge-path { stroke: #ffeb3b; stroke-width: 4; filter: drop-shadow(0 0 6px rgba(255, 235, 59, 0.8)); }
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); stroke-width: 5; }
+.react-flow__edge:hover .react-flow__edge-path { stroke: #fff176; stroke-width: 5; filter: drop-shadow(0 0 8px rgba(255, 241, 118, 0.9)); }
+.react-flow__marker-end { fill: #ffeb3b; }
+.react-flow__marker-start { fill: #ffeb3b; }
 .react-flow__controls { box-shadow: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .react-flow__controls-button { border: 0 !important; border-bottom: 1px solid var(--line) !important; background: #20231f !important; fill: #bbc0b5 !important; }
 .react-flow__minimap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #20231f !important; }
@@ -150,7 +153,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .node-handle.handle-compatible {
   animation: port-pulse 1.2s ease-in-out infinite;
   box-shadow: 0 0 8px rgba(214, 240, 109, .55);
-  transform: scale(1.15);
+  /* transform: scale(1.15); */
 }
 
 /* --- Connection session: incompatible target handle dims --- */
@@ -164,7 +167,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .node-handle.handle-active-source {
   animation: port-pulse 1s ease-in-out infinite;
   box-shadow: 0 0 12px rgba(214, 240, 109, .7);
-  transform: scale(1.3);
+  /* transform: scale(1.3); */
 }
 
 /* --- Error target handle: red shake --- */
