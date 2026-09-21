@@ -1,38 +1,38 @@
 # React Flow 节点自定义与 Workflow Agent 前瞻计划
 
 > 状态：Active 子计划  
-> 日期：2026-09-20
+> 日期：2026-09-21
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
 > 关联：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)
 
-## 0. 2026-09-20 代码检查点
+## 0. 2026-09-21 代码检查点
 
 | 工单 | 状态 | 当前代码证据 | 剩余出口 |
 |---|---|---|---|
-| RF-001 | Done | Handle 14px、`overflow: visible`、30%-70% 布局 | Playwright 实测命中区 |
-| RF-002 | Done 基础版 | `isValidConnection`、`connectionRadius=20`、连接校验 | 浏览器实跑 Strict/连接会话 |
+| RF-001 | Done | Handle 14px、`overflow: visible`、30%-70% 布局 | Chromium 已验证 |
+| RF-002 | Done | `isValidConnection`、`connectionRadius=20`、连接 Session | Chromium 已验证 |
 | RF-003 | Partial | Store 校验、`connectionError`、结构化验证器 | 前置拒绝统一 ConnectResult |
-| RF-004 | Partial | Toast、连接预览和 E2E 断言已存在 | 兼容端口高亮/ARIA 实跑确认 |
-| RF-005 | Done 文件版 | `frontend/e2e/flow-connection.spec.ts` 已覆盖拖入/连线矩阵 | 执行 Playwright 并归档证据 |
+| RF-004 | Done 基础版 | Toast、连接预览、兼容高亮、ARIA | Chromium 已验证 |
+| RF-005 | Done | `flow-connection.spec.ts` 主矩阵全绿 | CI 归档证据 |
 | FIELD-001 | Done/需统一 | TS FieldDefinition/validator 已有 | 与后端/共享 Schema 对齐 |
 | FIELD-002 | Done 基础版 | FieldEditorDialog、动态字段 UI | 完整类型与可访问性验收 |
 | FIELD-003 | Done 基础版 | add/update/remove/duplicate/reorder actions | rename 同步迁移 config key |
-| FIELD-004 | Partial | 字段删除/Undo 基础存在 | 影响分析和单事务验收 |
-| FIELD-005 | Done 基础版 | `PortEditorDialog` + add/update/delete actions | 端口删除关联 Edge 事务验收 |
+| FIELD-004 | Done | 字段删除/Undo 浏览器用例通过 | CI 复跑 |
+| FIELD-005 | Done | Port CRUD、核心锁定、Edge 级联浏览器通过 | CI 复跑 |
 | FIELD-006 | Done 基础版 | WorkflowSpec 2.0 + v1 migration | API/DB/viewport roundtrip |
-| FIELD-007 | Partial | Schema/store/component 单测存在 | Playwright 字段/端口 E2E |
+| FIELD-007 | Done | 字段/端口 Playwright 主矩阵通过 | CI 复跑 |
 | AGENT-201 | Done | WorkflowIntent Pydantic 模型 | Schema 版本冻结 |
 | AGENT-202 | Done 基础版 | manifests/templates/validate/layout tools | 工具与共享契约一致性 |
 | AGENT-203 | Done 基础版 | alias compiler 和 Handle edges | MiMo 结构化输出主链 |
 | AGENT-204 | Done 基础版 | bounded repair + repair steps | golden case 失败率验收 |
 | AGENT-205 | Done 基础版 | 调用量/时长估算 | 真实价格/预算策略后置 |
 | AGENT-206 | Backend Done | v2 preview/modify/apply API 已注册 | 前端 API contract 接入 |
-| AGENT-207 | Done 基础版 | AgentComposer 已调用 v2 并展示 compiled workflow | expected_version/apply 浏览器验收 |
+| AGENT-207 | Done 基础版 | AgentComposer v2 preview/apply 浏览器通过 | backend 联调验收 |
 | AGENT-208 | Todo | 未形成可核验审计闭环 | 脱敏、限额、审计持久化 |
 | AGENT-209 | Partial | compiler/preview/repair tests 已有 | 30+ 中文 golden cases |
-| AGENT-210 | Partial | `frontend/e2e/agent.spec.ts` 已存在 | Prompt → apply → save → run 实跑 |
+| AGENT-210 | Partial | Agent route-mock E2E 17 项通过 | 启动真实 Mock backend 完成 Prompt → Run |
 
-当前关键路径已经从“修 DOM 才能连线”转为：`E2E 实跑/测试环境修复 → 后端权威校验 → Port/Edge 事务 → Agent v2 apply/run → Scene roundtrip`。
+当前关键路径已经从编辑能力开发转为：`2 项 Chromium 修复 → backend 联调 E2E → CI 归档 → RC`。
 
 ## 1. 目标
 

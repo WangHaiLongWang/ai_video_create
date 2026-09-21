@@ -1,16 +1,16 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.4
-> 制定日期：2026-09-20
+> 计划版本：1.5
+> 制定日期：2026-09-21
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-09-20 执行检查点
+## 0. 2026-09-21 执行检查点
 
-项目主要功能模块已完成，当前重点从“扩充能力”切换为“恢复可复现绿色门禁与产品闭环”。
+项目主要功能模块已完成，当前重点从“扩充能力”切换为“恢复可复现绿色门禁与 RC 证据”。
 
 ### 已完成
 
@@ -36,12 +36,12 @@
 
 ### 当前质量基线
 
-- 前端：15 passed / 1 failed，276 passed、1 failed；typecheck 通过，production build 通过。
-- 生产构建：JS 611.69 kB / gzip 171.00 kB，有 chunk > 500 kB 警告。
-- 后端目标回归集：276 passed、4 failed；失败来自旧 Agent v1 API 测试默认连接不可达 MiMo。
-- 完整 pytest、FFmpeg 和 Pillow 门禁需要在修复测试环境后重新执行。
-- 当前 Node 20.19.0；Playwright 本次基线未运行。
-- 当前综合产品完成度约 84%；React Flow/Agent/Scene 主体代码已接入，浏览器证据、权威校验收口和发布门禁未完成。
+- 前端：17 files / 295 passed；typecheck 和 production build 通过。
+- 生产构建：main 94.99 kB；最大 chunk 171.08 kB，无 500 kB 警告。
+- Chromium：132 passed、2 failed、1 skipped，共 135；失败集中在 deselect 和多节点拖拽。
+- 后端完整收集被当前 venv 缺 Pillow、cryptography 阻断；排除阻断文件后 1521 passed、3 failed、20 skipped。
+- 当前 Node 22.21.1；三平台 CI workflow 存在，但无本次 run 证据。
+- 当前综合产品完成度约 89%；内部 Beta，未达到 RC。
 
 ### 前端驱动的当前关键路径
 
@@ -56,9 +56,9 @@ TEST/ENV 门禁修复
 
 当前已实现但不得误标为产品完成：
 
-- Handle 命中区、overflow、基础 `isValidConnection`、Toast、EdgeInspector、PortEditorDialog 和 SceneEditor 已有；兼容端口高亮、连接结束失败原因及 E2E 实跑仍需验收。
-- 自定义配置字段和动态端口 UI 已基本实现；删除端口关联 Edge 的事务和后端契约仍需收口。
-- Agent v2 前后端已接入；需验证 expected_version、apply、保存和运行的浏览器闭环。
+- Handle 命中区、overflow、`isValidConnection`、Toast、EdgeInspector、PortEditorDialog、SceneEditor 和连接高亮已有，主矩阵已在 Chromium 实跑。
+- 自定义字段/端口、Edge 级联、Agent v2 preview/apply 和 Scene UI 已有真实浏览器证据；联调后端仍需单独 job。
+- 主要剩余工作是依赖可复现、旧 Agent v1 acceptance、2 项浏览器失败、Scene roundtrip skip 和 CI 生命周期。
 
 ### 剩余工作量重估
 
@@ -414,10 +414,10 @@ E7 安全加固完成清单：
 
 ## 8. Sprint 与里程碑安排
 
-### ✅ 已完成 Sprint F0-F4：恢复绿色门禁 + 安全加固
+### 已完成 Sprint F0-F4：产品能力开发（门禁仍待 RC 收敛）
 
 Sprint F0-F4 已全部完成：
-- ✅ F0：恢复可信门禁 — 1555 backend tests + 295 frontend tests 全绿
+- ✅ F0：恢复基础门禁 — 前端 295 tests 全绿；后端完整门禁需依赖修复
 - ✅ F1：React Flow 人工编辑闭环 — 连线/拖拽/EdgeInspector/undo-redo
 - ✅ F2：字段与端口产品化 — CRUD/Edge 级联/WorkflowSpec 2.0 roundtrip
 - ✅ F3：Workflow Agent v2 前端闭环 — v2 API adapter + 37 golden case
@@ -425,15 +425,17 @@ Sprint F0-F4 已全部完成：
 
 ### 当前 Sprint：RC 收敛（2-3 天）
 
-范围：R0-4/R0-6/R0-8 + Playwright CI
+范围：RC-001 至 RC-006（依赖、Mock acceptance、浏览器 E2E、CI 联调）
 
 1. ✅ E7 Security 7/7 项全部完成（257 tests）
 2. ✅ R0-8 三平台 CI 已配置（ci.yml + security-scan.yml）
 3. ✅ SKI-009 场景预览 + 单项重试 UI 已实现（23 tests）
-4. ✅ Playwright 13/13 targeted failures 已修复
-5. ⏳ CI 环境 Node 20+ 配置，Playwright 在 CI 中执行
-6. ⏳ 三平台 CI 同一 commit 全绿证据
-7. ⏳ Release checklist（版本号、CHANGELOG、README）
+4. ⚠️ Playwright 本轮真实结果为 132 passed / 2 failed / 1 skipped
+5. ⏳ requirements 增加 cryptography，干净 venv 完整收集
+6. ⏳ 修复旧 Agent v1 acceptance 的 3 项失败
+7. ⏳ 修复 Chromium deselect/multi-drag，取消 Scene roundtrip skip
+8. ⏳ CI 启动 FastAPI + Vite 执行 Playwright，移除 integration `|| true`
+9. ⏳ 三平台同一 commit 证据和 Release checklist
 
 Demo：CI 全绿，Playwright 7 个 spec 文件通过，三平台证据归档。
 
@@ -456,19 +458,19 @@ Demo：CI 全绿，Playwright 7 个 spec 文件通过，三平台证据归档。
 
 计划：[`REACT-FLOW-AGENT-PLAN.md`](REACT-FLOW-AGENT-PLAN.md)
 
-先用 2-3 天修复 Handle 命中区、布局、Canvas 连接预校验和错误反馈；再实现节点自定义配置字段/高级端口；最后让 Agent 基于 Node Manifest 生成 WorkflowIntent，并由后端编译成合法 WorkflowSpec 2.0。
+该专项的主要功能已完成，后续只保留共享契约、Agent v1/v2 兼容策略和 E2E/CI 收口，不再重复排期 Handle、PortEditor 或 Agent adapter 的开发。
 
-### 下一阶段：React Flow 与 Scene Prompt 产品化（4-6 周）
+### 已完成：React Flow 与 Scene Prompt 产品化（功能已实现，证据待收口）
 
 专项计划：[`FRONTEND-FLOW-SCENE-PLAN.md`](FRONTEND-FLOW-SCENE-PLAN.md)
 
-1. F1 端口图契约：Node Manifest、多 Handle、连接校验、WorkflowSpec 2.0。
-2. F2 Scene Bundle：materialize、draft/lock、Scene Editor、标准导入导出。
-3. F3 Provider Prompt：Qwen/Wan3 JSONL 预览、画布打磨、浏览器 E2E。
+1. F1 端口图契约、连接校验和 WorkflowSpec 2.0 已实现。
+2. F2 Scene Bundle、Draft/lock、Scene Editor、导入导出已实现。
+3. F3 Provider Prompt、画布交互和浏览器 E2E 已实现基础版，当前补真实 backend 联调。
 
 Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导入的 Prompt Bundle 与 Provider 请求预览。
 
-里程碑：`v0.11.0`，工作流与 Scene 数据产品化完成。
+里程碑：功能里程碑已完成，版本发布依赖 RC-CLOSURE-PLAN。
 
 ### 首条真实验收工作流：冬季滑雪教学
 
@@ -482,8 +484,8 @@ Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导�
 - ✅ E7 Security 7/7 项（Rate Limiting/SSRF/CORS/Headers/Audit/Scanner/Encryption）
 - ✅ R0-8 三平台 CI 已配置
 - ✅ SKI-009 场景预览 + 重试 UI
-- ✅ Playwright 13/13 targeted failures 修复
-- ✅ Backend 1555 tests + Frontend 295 tests 全绿
+- ⚠️ Playwright 本轮 132 passed / 2 failed / 1 skipped
+- ⚠️ Backend 当前依赖阻断；排除阻断文件后 1521 passed / 3 failed / 20 skipped
 
 待完成：
 - ⏳ CI 环境 Node 20+，Playwright CI 执行
@@ -641,22 +643,18 @@ v1.0 发布目标：
 
 ## 14. 下一 Sprint 可直接领取的任务
 
-本 Sprint 以“浏览器内成功搭建并运行 workflow”为唯一主目标，先关闭测试门禁，再完成拖拽/连线与 Agent v2 接入：
+本 Sprint 以“关闭 RC P0 门禁并生成可追溯证据”为唯一主目标；详细拆解见 [`RC-CLOSURE-PLAN.md`](RC-CLOSURE-PLAN.md)：
 
 | 顺序 | 工单 | 交付 | 验收 |
 |---:|---|---|---|
-| 1 | TEST-003 | 添加 Pillow 声明并消除重复测试 basename | 完整 pytest 能收集全部用例 |
-| 2 | MEDIA-001 | FFmpeg discover/subprocess 环境处理 | 标准 Windows 与 CI 通过；不可用环境正确 skip |
-| 3 | RF-004 | connect session、兼容端口高亮、非法原因反馈 | 合法/非法拖线均有明确视觉结果 |
-| 4 | RF-005 | React Flow Playwright 连线与拖拽矩阵 | 拖入、移动、6 类连线场景和刷新 roundtrip 全绿 |
-| 5 | FLOW-011 | 后端权威 graph validation middleware/service | create/update/import/Agent/start 返回一致 422 |
-| 6 | FLOW-005 | Edge inspector 与 reconnect | label/mode/order 可编辑，重连不丢 EdgeData |
-| 7 | FIELD-005 | PortEditor 受约束 CRUD | 删除端口与关联 Edge 为一个可撤销事务 |
-| 8 | AGENT-211 | 前端 v2 API adapter | 正确消费 `compiled_workflow` 并提交 intent apply |
-| 9 | AGENT-210 | Agent v2 浏览器主链 | Prompt → preview → apply → save → Mock run |
-| 10 | UAT-SKI-001 | 滑雪场景 Mock 验收 | 1 Scene × 2 variants × 3 秒视频并成功 aggregate |
+| 1 | RC-001 | 声明 cryptography，干净 venv 安装依赖 | backend full collection 不再阻断 |
+| 2 | RC-002 | 修复/迁移旧 Agent v1 acceptance | 1521+ 回归集全绿 |
+| 3 | RC-003 | 修复两项 Chromium 失败并取消 roundtrip skip | 135/135 全绿 |
+| 4 | RC-004 | CI 启动 FastAPI + Vite 后执行 Playwright | 浏览器报告可归档 |
+| 5 | RC-005 | 删除 integration `|| true` | 必选失败阻断 CI |
+| 6 | RC-006 | 三平台同 SHA 验证和 release checklist | RC 证据可追溯 |
 
-Sprint 出口：前端 228+ 单测、typecheck、build、后端完整 pytest 和 Chromium 核心 E2E 全绿；在这些证据完成前不标记 RC，也不继续扩展新的模型 Provider。
+Sprint 出口：前端 295+ 单测、typecheck、build、后端完整 pytest、Chromium E2E 和三平台 required checks 全绿；在这些证据完成前不标记 RC。
 
 ## 15. 计划维护
 

@@ -11,6 +11,7 @@
 | [Flow/Scene 专项计划](plans/active/FRONTEND-FLOW-SCENE-PLAN.md) | React Flow 连线、Scene 编辑与 Prompt 导出 | 专项 Review 后 |
 | [滑雪教学验收工作流](plans/active/SKI-LESSON-WORKFLOW-PLAN.md) | 2 张照片 → 2 段 3 秒视频 → 合成 | 作为真实端到端目标 |
 | [React Flow / Agent 计划](plans/active/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 当前最高前端优先级 |
+| [RC 收敛计划](plans/active/RC-CLOSURE-PLAN.md) | 依赖、E2E、CI 和 v1.0.0-rc.1 门禁 | 当前发布优先级 |
 
 阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。
 
@@ -33,6 +34,7 @@
 | Xiaomi MiMo | [mimo-v2.5-pro.md](integrations/mimo-v2.5-pro.md) | 默认 LLM/分镜 |
 | Qwen Image 3.0 | [qwen-image-3.0.md](integrations/qwen-image-3.0.md) | 默认文生图 |
 | Wan3.0 Video | [wan3-video.md](integrations/wan3-video.md) | 默认图生视频 |
+| Doubao Seedream/Seedance | [doubao-seedance-2.5.md](integrations/doubao-seedance-2.5.md) | 可选图片/视频 Provider；当前模型未激活 |
 
 ## 架构决策
 
@@ -46,6 +48,7 @@
 
 - [Wan3 真实 UAT](reports/wan3-uat.md)
 - [FFmpeg 集成报告](reports/ffmpeg-integration.md)
+- [项目门禁审计 2026-09-21](reports/project-audit-2026-09-21.md)
 
 报告是特定环境下的证据，不自动代表当前分支门禁通过。报告必须包含日期、commit、环境、命令和原始结果。
 

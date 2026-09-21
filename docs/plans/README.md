@@ -7,6 +7,7 @@
 - [`active/SKI-LESSON-WORKFLOW-PLAN.md`](active/SKI-LESSON-WORKFLOW-PLAN.md)：两张滑雪教学照片、两段 3 秒视频和最终合成的首条真实验收工作流。
 - [`active/REACT-FLOW-AGENT-PLAN.md`](active/REACT-FLOW-AGENT-PLAN.md)：节点字段/端口自定义、连线恢复与 Workflow Agent 2.0。
 - [`active/DOUBAO-SEEDANCE-PLAN.md`](active/DOUBAO-SEEDANCE-PLAN.md)：Doubao Seedream/Seedance 2.5 激活、真实 UAT 与产品化计划。
+- [`active/RC-CLOSURE-PLAN.md`](active/RC-CLOSURE-PLAN.md)：当前 RC 收敛、CI、浏览器和发布门禁计划。
 
 ## Status baseline
 
