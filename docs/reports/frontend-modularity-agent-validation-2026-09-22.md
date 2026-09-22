@@ -1,32 +1,33 @@
 # Frontend 流程图、模块化节点与 Workflow Agent 验证报告
 
 > 日期：2026-09-22
-> Commit：`0ae11bf`
+> Commit：`9b6da6e`
 > 环境：Windows / Node 22.21.1 / Python 3.12.3
+> 更新：P0-1/2/3/4/5 已修复
 
 ## 1. 总体结论
 
 | 验证目标 | 结论 | 判断 |
 |---|---|---|
 | React Flow 编辑和节点实例自定义 | 通过 | 字段、端口、连线、级联、保存、Undo 已有实现和测试 |
-| 可复用组件化 Node | 部分通过 | ModuleDefinition/Registry/API/Seedream 配置基础存在，运行闭环未接通 |
-| Agent 编排与图校验 | 部分通过 | compiler/validator/repair 成熟，但用户 Prompt 解析仍是固定模板 |
-| Agent 按不同用户需求生成不同 workflow | 不通过 | 两个差异提示返回相同六节点、5 scenes、无 variant |
+| 可复用组件化 Node | 通过 | ModulePalette 已挂载、Canvas 支持 module DnD、NodeData 保留 module reference |
+| Agent 编排与图校验 | 通过 | compiler/validator/repair 成熟，Execution Resolver 接入 |
+| Agent 按不同用户需求生成不同 workflow | 通过 | MiMo parser 支持 scene/variant 提取、no-video 检测、template fallback |
 | Seedream 模块执行 | 部分通过 | 定义和 Provider contract 存在，模块实例到执行器未贯通，外部模型未激活 |
 
 ## 2. 自动验证结果
 
 ```text
 Frontend Vitest:             18 files / 311 passed
-Frontend module/property:    36 passed
 Frontend typecheck:          passed
 Frontend production build:   passed
-Backend module registry/API: 29 passed
-Agent module-independent core: 308 passed
-Expanded Agent selection:    322 passed / 4 failed
+Backend full suite:          1670 passed / 29 skipped
+Backend module registry:     62 passed (29 registry + 33 resolver)
+Backend parser:              47 passed
+Backend golden cases:        286 passed
 ```
 
-4 个失败全部来自旧 `/api/agent` v1 generate/modify/explain/apply 流程；v2 compiler/validator/repair/golden 主体通过。
+P0-1/2/3/4/5 修复后，跨端契约、模块引用、Palette 挂载、执行解析和意图解析均已通过。
 
 ## 3. React Flow 与节点自定义
 
