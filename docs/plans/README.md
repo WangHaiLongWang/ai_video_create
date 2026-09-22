@@ -8,6 +8,7 @@
 - [`active/REACT-FLOW-AGENT-PLAN.md`](active/REACT-FLOW-AGENT-PLAN.md)：节点字段/端口自定义、连线恢复与 Workflow Agent 2.0。
 - [`active/DOUBAO-SEEDANCE-PLAN.md`](active/DOUBAO-SEEDANCE-PLAN.md)：Doubao Seedream/Seedance 2.5 激活、真实 UAT 与产品化计划。
 - [`active/RC-CLOSURE-PLAN.md`](active/RC-CLOSURE-PLAN.md)：当前 RC 收敛、CI、浏览器和发布门禁计划。
+- [`active/MODULAR-NODE-SEEDREAM-PLAN.md`](active/MODULAR-NODE-SEEDREAM-PLAN.md)：可复用模块定义、组件化属性和 Seedream 首个纵向模块计划。
 
 ## Status baseline
 

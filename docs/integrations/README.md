@@ -15,3 +15,4 @@
 - 实际成功率、测试数量和缺陷写入 `../PROJECT-STATUS.md`。
 - 特定运行的原始证据写入 `../reports/`。
 - 新 Provider 必须先定义 capability 和 Contract Test，再加入设置 UI。
+- 可复用模块必须先定义 ModuleDefinition/baseKind/binding，再加入节点库；不得通过新增硬编码 NodeKind 绕过模块契约。

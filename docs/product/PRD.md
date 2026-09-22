@@ -41,6 +41,17 @@ ai_video_create 是一个本地优先、可视化编排 AI 内容生成流程的
 
 ## 4. v1.0 功能范围
 
+### 4.0 模块化节点原则（P0/P1）
+
+节点自定义分为“实例覆盖”和“可复用模块”两层：
+
+- 实例覆盖：当前工作流中的字段、Provider 参数、端口 label 和局部配置。
+- 可复用模块：版本化 `ModuleDefinition`，由多个 NodeInstance 引用，可进入节点库、复制、发布、归档和升级。
+
+模块必须绑定平台白名单 `baseKind` 和 capability；模块字段由 Schema 驱动，端口必须有明确 binding。v1 不支持用户上传或执行任意 Python/JavaScript，避免绕过图校验、秘密保护和执行器恢复机制。
+
+首个模块化样板为 `builtin.seedream.text-to-image`：复用 `textToImage` Handler，Provider policy 默认锁定 Doubao Seedream，支持尺寸、negative prompt、seed、watermark 和 variantCount 配置。
+
 ### 4.1 工作流编辑器（P0）
 
 | 功能 | 要求 | 验收 |
@@ -58,6 +69,9 @@ ai_video_create 是一个本地优先、可视化编排 AI 内容生成流程的
 | Edge 语义 | direct/map/aggregate | 映射模式、顺序和标签可保存、迁移 |
 | 自定义字段 | 添加、重命名、排序和删除配置字段 | 类型校验、Undo、导入导出一致 |
 | 自定义端口 | 高级模式添加/删除命名端口 | 删除端口前显示关联边并确认 |
+| 模块引用 | 节点保存 `moduleId/moduleVersion` | 保存、导入导出和执行快照保持精确版本 |
+| 模块设计器 | 创建/校验/发布可复用模块 | 发布版本不可变，无 binding 端口不可执行 |
+| Schema 属性组件 | ModuleDefinition 驱动字段组件 | text/number/select/prompt/provider-model 校验一致 |
 
 ### 4.2 节点类型（P0）
 
@@ -65,7 +79,7 @@ ai_video_create 是一个本地优先、可视化编排 AI 内容生成流程的
 |---|---|---|---|
 | 文本输入 | 无 | `text` | prompt |
 | 分镜生成 | `text` | `list<scene>` | Provider、模型、scene 数、风格 |
-| 文生图 | `scene` | `image` | Provider、模型、尺寸、seed、提示词增强 |
+| 文生图 | `scene` | `image` | Provider、模型、尺寸、seed、提示词增强；Seedream 模块复用此 baseKind |
 | 图生视频 | `image` | `video` | Provider、模型、分辨率、比例、时长、音频、seed、水印 |
 | 视频拼接 | `list<video>` | `video` | 编码、尺寸、帧率、转场、输出格式 |
 | 输出 | 任意资产 | 无 | 预览、下载、文件名 |

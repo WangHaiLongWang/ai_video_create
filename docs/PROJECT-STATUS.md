@@ -1,20 +1,20 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-09-21
+> 基线日期：2026-09-22
 > 状态版本：14.0
-> 代码基线：`cc61b46`
+> 代码基线：`3405884`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
 
 ## 1. 结论
 
-项目已进入内部 Beta / RC 前收敛阶段。React Flow 编辑、Workflow Agent v2、Scene 编辑导出、Mock 执行器、安全组件和多 Provider 架构的主体功能已经形成，但当前仍不能标记为 Release Candidate。
+项目已进入内部 Beta / RC 前收敛阶段。React Flow 编辑、Workflow Agent v2、Scene 编辑导出、Mock 执行器、安全组件和多 Provider 架构的主体功能已经形成；RC 中的两项 Chromium 交互失败已在当前 HEAD 修复，但后端依赖环境和旧 Agent v1 acceptance 仍未闭环。
 
 本轮校准纠正了旧状态中的三项错误：
 
 - 当前日期是 2026-09-21、HEAD 是 `cc61b46`，旧文档记录的未来日期和不属于当前 HEAD 的基线不可作为证据。
-- 后端完整测试并非 1555 全绿：当前 venv 在收集阶段缺少 Pillow 和 cryptography；排除这两个收集文件后仍有 3 个 Mock Agent acceptance 失败。
+- 后端完整测试仍不能在当前 venv 收集：Pillow 未安装；cryptography 已加入 requirements，但当前 venv 尚未同步安装。旧 Agent v1 acceptance 仍有 3 项失败。
 - CI 只有三平台 unit/build 框架，没有 Playwright job；integration 命令使用 `|| true`，失败不会阻断 CI，因此不能视为已通过发布门禁。
 
 ### 当前评分
@@ -23,13 +23,13 @@
 |---|---:|---|
 | 架构骨架 | 92% | API/Engine/Provider/Repository/Scene/Agent 分层清晰，契约仍有双实现 |
 | React Flow 编辑器 | 94% | 连接、字段/端口、Edge、viewport 和浏览器主矩阵基本完成 |
-| 前端产品闭环 | 91% | Chromium 132/135 通过；2 项交互失败、1 项 roundtrip 跳过 |
+| 前端产品闭环 | 94% | 两项交互失败已修复；全套 E2E 仍需重新运行并取消 roundtrip skip |
 | Mock 执行闭环 | 88% | 执行器能力成熟，但旧 Agent v1 acceptance 有 3 项失败 |
 | Workflow Agent | 89% | v2 preview/apply 浏览器用例通过；真实 MiMo 与完整运行仍待验收 |
 | Scene/Prompt 产品层 | 88% | Editor/Import/Export/Draft/Preview 已有；后端联调 roundtrip 未形成浏览器证据 |
 | 安全与秘密管理 | 83% | 中间件、扫描、审计、AES-GCM 代码和测试存在；cryptography 依赖未声明/未安装 |
 | Provider 与媒体 | 79% | Qwen/Wan3 有历史 UAT；Doubao 合约完成但账号模型未激活 |
-| 发布工程 | 70% | 三平台 CI 骨架存在，但无 Playwright、integration 吞错、依赖锁不完整 |
+| 发布工程 | 73% | 依赖声明已部分修复；仍无 Playwright CI、integration 吞错和同 SHA 证据 |
 | 综合产品完成度 | **约 89%** | 内部 Beta，可演示；未达到 RC |
 
 ## 2. 当前可重复测试基线
@@ -41,8 +41,8 @@
 | Frontend Vitest | 17 files / 295 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
 | Vite build | main 94.99 kB；最大 chunk 171.08 kB | 通过，无 500 kB 警告 |
-| Chromium Playwright | 132 passed / 2 failed / 1 skipped，共 135 | 未全绿 |
-| Backend full collection | 2 collection errors | 失败：当前 venv 缺 Pillow、cryptography |
+| Chromium Playwright | 定向复测 2/2 passed；全套基线仍为 132 passed / 2 failed / 1 skipped | 部分修复，需全套复跑 |
+| Backend full collection | 1 collection error | 失败：当前 venv 缺 Pillow；cryptography 依赖已声明但未安装 |
 | Backend 可运行集 | 1521 passed / 3 failed / 20 skipped | 未全绿：Mock Agent acceptance 失败 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
@@ -50,20 +50,20 @@
 
 ### 2.1 浏览器失败
 
-1. `clicking canvas background deselects the selected node`
+1. `clicking canvas background deselects the selected node`（已修复，定向复测通过）
    - Page Object 点击 `.react-flow__viewport`，实际 pointer event 被 `.react-flow__pane` 拦截。
    - 应修改测试定位到 pane，同时确认产品的 `onPaneClick` 行为。
-2. `multiple nodes can be dragged independently`
+2. `multiple nodes can be dragged independently`（已修复，定向复测通过）
    - 第二个节点拖拽后 Y 坐标变化为 0。
    - 需要区分拖拽 helper/坐标断言不稳定，还是第二节点真实无法拖动。
-3. Scene JSON roundtrip 用例处于 skip，不能计入闭环完成。
+3. Scene JSON roundtrip 用例仍处于 skip，不能计入闭环完成。
 
 当前 Playwright 只自动启动 Vite，不启动 FastAPI；日志存在多次 `ECONNREFUSED 127.0.0.1:8000`。因此 132 项通过主要证明前端与 route mock 行为，不等同于真实前后端联调。
 
 ### 2.2 后端失败
 
 - `Pillow>=10` 已写入 requirements，但当前 venv 未同步安装。
-- AES-GCM 实现依赖 `cryptography`，但 `backend/requirements.txt` 未声明该依赖。
+- AES-GCM 实现依赖 `cryptography`，已加入 requirements；当前 venv 尚未同步安装。
 - 排除两个收集阻断后，3 项 `backend/tests/acceptance/test_e2e.py` 失败：旧 `/api/agent/generate` 在 Mock 模式返回 422，导致 generate/modify/explain 链路中断。
 - 后端核心执行耗时约 4 分 28 秒，结果为 1521 passed、3 failed、20 skipped。
 
@@ -136,7 +136,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 |---|---:|---|---|---|
 | RC-001 | P0 | 后端依赖不可复现 | Pillow 未安装，cryptography 未声明 | 新 venv 安装 requirements 后完整收集 |
 | RC-002 | P0 | Mock Agent acceptance 3 项失败 | `/api/agent/generate` 返回 422 | 明确 v1 兼容策略，完整 pytest 全绿 |
-| RC-003 | P0 | Chromium 2 failed / 1 skipped | 本轮真实 Playwright 结果 | 135/135 或经批准调整用例后全绿 |
+| RC-003 | P0 | 全套 Chromium 尚未复跑，Scene roundtrip 仍 skip | 定向 2/2 已通过 | 135/135 或经批准调整用例后全绿 |
 | RC-004 | P0 | CI 无 Playwright job | `ci.yml` 未调用 test:e2e | backend+frontend E2E job 全绿 |
 | RC-005 | P0 | integration 失败被吞 | 两处 `|| true` | 必选集失败必须阻断，external 单独标记 |
 | RC-006 | P0 | 无同一 commit 三平台 run | 只有 workflow 配置 | 保存 Actions run URL/commit/artifact |
@@ -149,7 +149,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 
 - 声明 `cryptography`，使用干净 venv 安装 requirements。
 - 修复旧 Agent v1 Mock acceptance 或将其迁移到 v2 契约。
-- 修复两项 Playwright，启用 Scene roundtrip。
+- 全套复跑 Playwright，启用 Scene roundtrip。
 - 删除 CI `|| true`；external 测试单独 job/手工触发。
 
 出口：backend full pytest、frontend unit/type/build、Chromium E2E 全绿。
@@ -172,6 +172,19 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 
 出口：所有 P0 阻断关闭，P1 有明确延期批准和用户可见说明。
 
+### Product Sprint M0：模块化节点与 Seedream 薄切片（RC 后优先）
+
+当前节点已经支持实例级字段/端口编辑，但还不是可复用模块。下一步不应继续增加硬编码 NodeKind，而应实现版本化 `ModuleDefinition → NodeInstance`：
+
+1. 先冻结 ModuleDefinition/ModuleInstance JSON Schema 和前后端共享 fixture。
+2. 将当前 `configSchema` 接入 Schema-driven PropertyPanel，统一 text/number/select/prompt/provider-model 等组件。
+3. 增加 Module Registry 和 Module Palette；NodeInstance 保存 `moduleId/moduleVersion`。
+4. 将自定义端口分为核心端口和有 binding 的扩展端口；无 binding 不得发布或执行。
+5. 以 `builtin.seedream.text-to-image` 为首个模块，复用 `textToImage` Handler 和 `doubao` image Provider，不新增 Handler/NodeKind。
+6. 模块发布版本不可变，升级必须生成 diff；缺少模块的旧工作流进入 degraded/read-only，而不是静默替换。
+
+详细任务、数据模型、API、组件设计和验收见 [`plans/active/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md)。
+
 ## 8. 文档导航
 
 - 主交付计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
@@ -180,6 +193,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 - Flow/Scene：[`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
 - 滑雪验收：[`plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](plans/active/SKI-LESSON-WORKFLOW-PLAN.md)
 - Doubao：[`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOUBAO-SEEDANCE-PLAN.md)
+- 模块化节点与 Seedream：[`plans/active/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md)
 - 测试报告：[`reports/`](reports/)
 
 当前状态必须在 P0 门禁关闭后才能升级为 Release Candidate。

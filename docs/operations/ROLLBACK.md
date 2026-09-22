@@ -92,7 +92,7 @@ pip install -r requirements.txt
 
 # 前端
 cd ..\frontend
-npm install
+npm ci
 ```
 
 **macOS / Linux：**
@@ -104,7 +104,7 @@ pip install -r requirements.txt
 
 # 前端
 cd ../frontend
-npm install
+npm ci
 ```
 
 ### 步骤 6：重新构建（生产环境）
@@ -186,7 +186,7 @@ pip install -r requirements.txt
 
 # 5. 重新安装前端依赖
 cd ..\frontend
-npm install
+npm ci
 npm run build
 
 # 6. 重启服务
@@ -211,7 +211,7 @@ pip install -r requirements.txt
 
 # 5. 重新安装前端依赖
 cd ../frontend
-npm install
+npm ci
 npm run build
 
 # 6. 重启服务

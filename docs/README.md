@@ -12,6 +12,7 @@
 | [滑雪教学验收工作流](plans/active/SKI-LESSON-WORKFLOW-PLAN.md) | 2 张照片 → 2 段 3 秒视频 → 合成 | 作为真实端到端目标 |
 | [React Flow / Agent 计划](plans/active/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 当前最高前端优先级 |
 | [RC 收敛计划](plans/active/RC-CLOSURE-PLAN.md) | 依赖、E2E、CI 和 v1.0.0-rc.1 门禁 | 当前发布优先级 |
+| [模块化节点与 Seedream](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md) | 可复用模块、Schema 属性组件和 Seedream 薄切片 | 下一产品开发专项 |
 
 阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。
 
@@ -22,6 +23,7 @@
 | [安装指南](operations/INSTALL.md) | 从零开始的完整安装步骤、配置参考、平台说明 |
 | [升级指南](operations/UPGRADE.md) | 版本升级流程、兼容性说明 |
 | [回滚指南](operations/ROLLBACK.md) | 回滚到旧版本的步骤和数据考量 |
+| [已知问题](operations/KNOWN-ISSUES.md) | 当前版本的已知问题和平台限制 |
 | [问题排查](operations/TROUBLESHOOTING.md) | 常见问题诊断和解决方案 |
 | [安全指南](operations/SECURITY.md) | 安全特性、配置建议和漏洞报告 |
 
@@ -68,7 +70,7 @@ docs/
 ├── architecture/                     系统设计与 ADR
 ├── integrations/                     Provider 官方协议与配置
 ├── reports/                          UAT/集成/性能证据
-├── operations/                       运维文档（安装、升级、回滚、排查、安全）
+├── operations/                       运维文档（安装、升级、回滚、已知问题、排查、安全）
 └── plans/
     ├── active/                       当前唯一交付计划
     └── archive/                      已废弃历史计划

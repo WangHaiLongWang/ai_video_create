@@ -113,9 +113,11 @@ cd ..
 
 ```bash
 cd frontend
-npm install
+npm ci
 cd ..
 ```
+
+> **说明：** `npm ci` 根据 `package-lock.json` 安装精确版本的依赖，适合全新安装和 CI 环境。如果遇到 `npm ci` 失败，可以尝试 `npm install`。
 
 ### 4. 配置环境变量
 
@@ -209,8 +211,8 @@ npm run build
 | 环境变量 | 可选值 | 默认值 | 说明 |
 |---------|-------|-------|------|
 | `AI_VIDEO_DEFAULT_LLM_PROVIDER` | `mock` / `ollama` / `openai` / `openai_compat` | `mock` | 文本生成 Provider |
-| `AI_VIDEO_DEFAULT_IMAGE_PROVIDER` | `mock` / `comfyui` / `openai` / `dashscope` | `mock` | 图像生成 Provider |
-| `AI_VIDEO_DEFAULT_VIDEO_PROVIDER` | `mock` / `comfyui` / `wan3` | `mock` | 视频生成 Provider |
+| `AI_VIDEO_DEFAULT_IMAGE_PROVIDER` | `mock` / `comfyui` / `openai` / `dashscope` / `doubao` | `mock` | 图像生成 Provider |
+| `AI_VIDEO_DEFAULT_VIDEO_PROVIDER` | `mock` / `comfyui` / `wan3` / `doubao` | `mock` | 视频生成 Provider |
 
 #### Ollama Provider
 
@@ -268,6 +270,17 @@ npm run build
 | `AI_VIDEO_WAN3_DURATION` | `5` | 视频时长（秒） |
 | `AI_VIDEO_WAN3_AUDIO` | `true` | 是否包含音频 |
 | `AI_VIDEO_WAN3_TIMEOUT` | `1800` | 轮询超时（秒） |
+
+#### Doubao Provider (可选)
+
+| 环境变量 | 默认值 | 说明 |
+|---------|-------|------|
+| `AI_VIDEO_DOUBAO_API_URL` | `https://ark.cn-beijing.volces.com/api/v3` | 火山方舟 API 地址 |
+| `AI_VIDEO_DOUBAO_API_KEY` | （空） | API Key |
+| `AI_VIDEO_DOUBAO_IMAGE_MODEL` | `doubao-seedream-5-0-pro-260628` | 文生图模型 |
+| `AI_VIDEO_DOUBAO_VIDEO_MODEL` | `doubao-seedance-2-5-260628` | 图生视频模型 |
+
+> **注意：** Doubao Provider 为可选集成，当前模型可能需要在火山方舟控制台激活后才能使用。详细配置见 `.env.example`。
 
 #### ComfyUI Provider
 
@@ -331,4 +344,8 @@ npm run build
 - 如果 `uvicorn` 安装失败，确认已安装 `gcc` 和 Python 开发头文件：
   ```bash
   sudo apt install build-essential python3-dev
+  ```
+- 如果 Pillow 安装失败或图像处理相关报错，可能需要安装 OpenCV 依赖：
+  ```bash
+  sudo apt install libgl1-mesa-glx  # Ubuntu
   ```

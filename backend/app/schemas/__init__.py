@@ -8,6 +8,11 @@ from .agent_preview import (
     AgentApplyRequest,
     AgentApplyResponse,
 )
+from .module_definition import (
+    ModuleDefinition,
+    ProviderPolicy,
+    NodeInstanceData,
+)
 
 __all__ = [
     "PortDefinition",
@@ -25,4 +30,7 @@ __all__ = [
     "AgentPreviewResponse",
     "AgentApplyRequest",
     "AgentApplyResponse",
+    "ModuleDefinition",
+    "ProviderPolicy",
+    "NodeInstanceData",
 ]

@@ -19,6 +19,7 @@ from .api.agent_v2 import router as agent_v2_router
 from .api.templates import router as templates_router
 from .api.assets import router as assets_router
 from .api.scenes import router as scenes_router
+from .api.modules import router as modules_router
 from .db.connection import close_connection, init_db
 from .engine.worker import WorkerPool
 from .models import AgentRequest, WorkflowSpec
@@ -248,6 +249,7 @@ app.include_router(agent_v2_router)
 app.include_router(templates_router)
 app.include_router(assets_router)
 app.include_router(scenes_router)
+app.include_router(modules_router)
 
 # Mount static files for serving assets
 try:

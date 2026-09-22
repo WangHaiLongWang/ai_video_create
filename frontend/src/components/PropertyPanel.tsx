@@ -1,11 +1,13 @@
-import { useState } from 'react'
-import { ArrowsClockwise, ArrowUp, ArrowDown, Check, Copy, Pencil, Plus, Trash, Sparkle, SquaresFour } from '@phosphor-icons/react'
+import { useState, useMemo } from 'react'
+import { ArrowsClockwise, ArrowUp, ArrowDown, Check, Copy, Pencil, Plus, Trash, Sparkle, SquaresFour, Package } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
 import { FieldEditorDialog } from './FieldEditorDialog'
 import { PortEditor } from './PortEditor'
 import { EdgeInspector } from './EdgeInspector'
+import { BUILTIN_MODULES } from '../schemas/module-definition'
 import type { FieldDefinition, FieldType } from '../types'
+import type { ModuleDefinition, NodeInstanceExtension } from '../schemas/module-definition'
 
 /** 根据执行状态生成提示文本 */
 function getRunMessage(status: string): string {
@@ -102,7 +104,7 @@ function renderFieldValue(
 
 export function PropertyPanel() {
   const {
-    workflow, selectedNodeId, selectedEdgeId, updateConfig,
+    workflow, selectedNodeId, selectedEdgeId, updateConfig, setWorkflow,
     addField, updateField, removeField,
     deleteField, reorderFields, duplicateField,
     updateFieldConfig,
@@ -194,6 +196,32 @@ export function PropertyPanel() {
             <span>description</span>
             <input type="text" value={node.data.description} readOnly />
           </label>
+
+          {/* Module config (when node references a module) */}
+          {(() => {
+            const nodeExt = node.data as unknown as NodeInstanceExtension
+            if (!nodeExt.moduleId) return null
+            const mod = BUILTIN_MODULES.find((m) => m.id === nodeExt.moduleId)
+            if (!mod) return null
+            const overrides = nodeExt.configOverrides ?? {}
+            const effectiveConfig: Record<string, unknown> = { ...mod.defaultConfig, ...overrides }
+            return (
+              <ModuleConfigSection
+                module={mod}
+                effectiveConfig={effectiveConfig}
+                configOverrides={overrides}
+                onConfigChange={(key, value) => {
+                  const newOverrides = { ...overrides, [key]: value }
+                  const nodes = workflow.nodes.map((n) =>
+                    n.id === selectedNodeId
+                      ? { ...n, data: { ...n.data, configOverrides: newOverrides } }
+                      : n,
+                  )
+                  setWorkflow({ ...workflow, nodes })
+                }}
+              />
+            )
+          })()}
 
           {/* 自定义字段 */}
           <div className="prop-section-title">
@@ -331,5 +359,172 @@ export function PropertyPanel() {
         </>
       )}
     </aside>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ModuleConfigSection — renders JSON Schema-driven config fields for a module
+// ---------------------------------------------------------------------------
+
+interface SchemaProperty {
+  type?: string | string[]
+  title?: string
+  description?: string
+  default?: unknown
+  enum?: string[]
+  format?: string
+  minimum?: number
+  maximum?: number
+}
+
+function SchemaField({
+  name,
+  prop,
+  value,
+  onChange,
+}: {
+  name: string
+  prop: SchemaProperty
+  value: unknown
+  onChange: (v: unknown) => void
+}) {
+  const label = prop.title ?? name
+
+  // Handle enum (select)
+  if (prop.enum) {
+    return (
+      <label>
+        <span>{label}</span>
+        <select
+          value={value != null ? String(value) : ''}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">-- select --</option>
+          {prop.enum.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </label>
+    )
+  }
+
+  const types = Array.isArray(prop.type) ? prop.type : prop.type ? [prop.type] : ['string']
+
+  // Boolean
+  if (types.includes('boolean')) {
+    return (
+      <label>
+        <span>{label}</span>
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+      </label>
+    )
+  }
+
+  // Integer / number
+  if (types.includes('integer') || types.includes('number')) {
+    return (
+      <label>
+        <span>{label}</span>
+        <input
+          type="number"
+          value={value != null ? String(value) : ''}
+          min={prop.minimum}
+          max={prop.maximum}
+          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+        />
+      </label>
+    )
+  }
+
+  // String with textarea format
+  if (prop.format === 'textarea' || prop.format === 'text') {
+    return (
+      <label>
+        <span>{label}</span>
+        <textarea
+          rows={3}
+          value={value != null ? String(value) : ''}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </label>
+    )
+  }
+
+  // Default: string text input
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        type="text"
+        value={value != null ? String(value) : ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
+function ModuleConfigSection({
+  module: mod,
+  effectiveConfig,
+  configOverrides,
+  onConfigChange,
+}: {
+  module: ModuleDefinition
+  effectiveConfig: Record<string, unknown>
+  configOverrides: Record<string, unknown>
+  onConfigChange: (key: string, value: unknown) => void
+}) {
+  const schema = mod.configSchema as { properties?: Record<string, SchemaProperty> } | undefined
+  const properties = schema?.properties ?? {}
+  const propertyEntries = Object.entries(properties)
+
+  // Provider policy locked dropdown
+  const providerPolicy = mod.providerPolicy
+
+  return (
+    <div className="prop-section-title" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <Package size={12} />
+        <span>模块配置</span>
+        <span className="module-config-badge">{mod.label} v{mod.version}</span>
+      </div>
+
+      {/* Locked provider dropdown */}
+      {providerPolicy.locked && (
+        <label>
+          <span>Provider ({providerPolicy.capability})</span>
+          <select
+            value={providerPolicy.default ?? providerPolicy.allowed[0] ?? ''}
+            disabled
+          >
+            {providerPolicy.allowed.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <span className="module-provider-locked">
+            locked to {providerPolicy.allowed.join(', ')}
+          </span>
+        </label>
+      )}
+
+      {/* Schema-driven fields */}
+      {propertyEntries.map(([name, prop]) => {
+        const isOverridden = name in configOverrides
+        const value = effectiveConfig[name]
+        return (
+          <SchemaField
+            key={name}
+            name={name}
+            prop={prop}
+            value={value}
+            onChange={(v) => onConfigChange(name, v)}
+          />
+        )
+      })}
+    </div>
   )
 }

@@ -671,3 +671,25 @@ Doubao Seedream/Seedance 代码与离线契约已完成，但账号尚未激活�
 执行顺序：`DOU-001 模型激活 → DOU-002 单能力 UAT → DOU-003 Workflow UAT → DOU-004..008 产品化收口`。
 
 详细计划见 [`DOUBAO-SEEDANCE-PLAN.md`](DOUBAO-SEEDANCE-PLAN.md)。模型权限未解除前，不将 Doubao 加入 RC 必选门禁；但不得宣称其生产可用。
+
+## 17. 模块化节点与 Seedream 产品专项（2026-09-22）
+
+当前字段/端口自定义属于节点实例级能力；NodeKind、Catalog、图标、Compiler 和 Handler 仍是硬编码，不能直接称为模块平台。
+
+批准的演进方向：
+
+```text
+BaseNodeKind（白名单执行器）
+  → versioned ModuleDefinition（复用组件）
+    → NodeInstance（画布实例覆盖）
+```
+
+Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider policy 锁定为 `doubao`。不新增 `seedream` NodeKind，不允许用户执行自定义代码。
+
+执行顺序：
+
+1. 先关闭 [`RC-CLOSURE-PLAN.md`](RC-CLOSURE-PLAN.md) 的 P0 门禁；
+2. 再交付 ModuleDefinition、Registry、Schema-driven PropertyPanel 和 Seedream Mock/Contract 薄切片；
+3. 最后实现用户 Module Designer、版本发布/升级和 Agent 模块发现。
+
+详细计划见 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md)。预计两人约 3 周，单人约 4-5 周；首个 Seedream M0 薄切片为 5-7 天。

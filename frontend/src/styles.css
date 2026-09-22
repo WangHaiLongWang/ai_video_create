@@ -2923,3 +2923,207 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   font-size: 13px;
 }
 
+/* ==================== ModulePalette ==================== */
+
+.module-palette {
+  padding: 0 8px 8px;
+}
+
+.module-palette-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b9286;
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+}
+
+.module-palette-header svg {
+  color: var(--accent);
+}
+
+.module-palette-hint {
+  padding: 6px;
+  font-size: 10px;
+  color: #5a6055;
+}
+
+.module-palette-error {
+  color: #d47868;
+}
+
+.module-palette-group {
+  margin-bottom: 8px;
+}
+
+.module-palette-group-title {
+  font-size: 9px;
+  font-weight: 700;
+  color: #5a6055;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 6px;
+}
+
+.module-palette-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* ==================== ModuleCard ==================== */
+
+.module-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #cdd1c7;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.module-card:hover {
+  border-color: var(--line);
+  background: #22251f;
+}
+
+.module-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.module-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-card-version {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #30352a;
+  color: #737a6e;
+  font-size: 9px;
+  font-family: "Cascadia Code", monospace;
+}
+
+.module-card-desc {
+  margin: 3px 0 0;
+  font-size: 10px;
+  color: #737a6e;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  font-size: 9px;
+}
+
+.module-card-category {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #2a2d27;
+  color: #8b9286;
+  font-family: "Cascadia Code", monospace;
+  text-transform: uppercase;
+}
+
+.module-card-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  font-family: "Cascadia Code", monospace;
+}
+
+.module-card-ports {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 9px;
+  font-family: "Cascadia Code", monospace;
+  color: #5a6055;
+}
+
+.module-card-arrow {
+  color: #3a3f37;
+}
+
+.module-card-port-in {
+  color: #93c5fd;
+}
+
+.module-card-port-out {
+  color: #6ee7b7;
+}
+
+/* ==================== ModuleConfig section in PropertyPanel ==================== */
+
+.module-config-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(214, 240, 109, 0.08);
+  border: 1px solid rgba(214, 240, 109, 0.2);
+  color: var(--accent);
+  font-size: 10px;
+  font-family: "Cascadia Code", monospace;
+  margin-bottom: 8px;
+}
+
+.module-config-badge svg {
+  color: var(--accent);
+}
+
+.property-form select {
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid #3b4038;
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: #e3e6dd;
+  background: #171916;
+  cursor: pointer;
+}
+
+.property-form select option {
+  background: #171916;
+  color: #e3e6dd;
+}
+
+.property-form select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.module-provider-locked {
+  font-size: 9px;
+  color: #fbbf24;
+  margin-top: 2px;
+}
+
