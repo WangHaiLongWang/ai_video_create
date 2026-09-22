@@ -266,20 +266,20 @@ test.describe('Workflow Editor', () => {
     const boxABefore = await nodeA.boundingBox()
     const boxBBefore = await nodeB.boundingBox()
 
-    // Drag node A
-    await canvas.dragNode('主题输入', 50, 0)
-    await page.waitForTimeout(200)
+    // Drag node A horizontally
+    await canvas.dragNode('主题输入', 80, 0)
+    await page.waitForTimeout(500)
 
-    // Drag node B
+    // Drag node B vertically (from its original position, not A's)
     await canvas.dragNode('文生图', 0, 80)
-    await page.waitForTimeout(200)
+    await page.waitForTimeout(500)
 
     const boxAAfter = await nodeA.boundingBox()
     const boxBAfter = await nodeB.boundingBox()
 
-    // Node A should have moved mostly in X
+    // Node A should have moved in X
     expect(Math.abs(boxAAfter!.x - boxABefore!.x)).toBeGreaterThan(10)
-    // Node B should have moved mostly in Y
+    // Node B should have moved in Y
     expect(Math.abs(boxBAfter!.y - boxBBefore!.y)).toBeGreaterThan(10)
   })
 

@@ -87,7 +87,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
                 PortDefinition(id="image", type="image", required=True, label="Image"),
             ],
             outputs=[
-                PortDefinition(id="videos", type="video", required=True, cardinality="many", label="Videos"),
+                PortDefinition(id="video", type="video", required=True, cardinality="many", label="Video"),
             ],
         ),
         config_schema={
@@ -104,7 +104,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
         description="将多个视频片段拼接为一个完整视频",
         ports=PortGroup(
             inputs=[
-                PortDefinition(id="videos", type="video", required=True, cardinality="many", label="Videos"),
+                PortDefinition(id="video", type="video", required=True, cardinality="many", label="Video"),
             ],
             outputs=[
                 PortDefinition(id="video", type="video", required=True, label="Video"),

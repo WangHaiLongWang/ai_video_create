@@ -39,7 +39,8 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     port: 5173,
-    reuseExistingServer: !process.env.CI,
+    // In CI, servers are started by the workflow; locally, reuse if already running.
+    reuseExistingServer: true,
     timeout: 15_000,
   },
 

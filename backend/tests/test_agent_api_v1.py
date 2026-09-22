@@ -143,7 +143,7 @@ class TestApplyV2:
                 {"source": {"node": "input", "port": "text"}, "target": {"node": "storyboard", "port": "prompt"}},
                 {"source": {"node": "storyboard", "port": "scenes"}, "target": {"node": "img", "port": "scene"}, "mode": "map"},
                 {"source": {"node": "img", "port": "images"}, "target": {"node": "vid", "port": "image"}, "mode": "map"},
-                {"source": {"node": "vid", "port": "videos"}, "target": {"node": "concat", "port": "videos"}, "mode": "aggregate"},
+                {"source": {"node": "vid", "port": "video"}, "target": {"node": "concat", "port": "video"}, "mode": "aggregate"},
                 {"source": {"node": "concat", "port": "video"}, "target": {"node": "output", "port": "video"}},
             ],
         }

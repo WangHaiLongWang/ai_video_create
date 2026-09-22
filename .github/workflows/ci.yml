@@ -98,8 +98,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd backend
-          python -m pytest tests/integration/ -v --tb=short || true
-          echo "::warning::集成测试完成"
+          python -m pytest tests/integration/ -v --tb=short -m "not external"
 
   # ============================================================
   # 前端 CI 任务
@@ -212,8 +211,7 @@ jobs:
           # 等待后端启动（最多 30 秒）
           echo "等待后端启动..."
           for i in $(seq 1 30); do
-            if curl -s http://127.0.0.1:8000/health > /dev/null 2>&1 || \
-               curl -s http://127.0.0.1:8000/ > /dev/null 2>&1; then
+            if curl -s http://127.0.0.1:8000/api/health > /dev/null 2>&1; then
               echo "后端启动成功!"
               break
             fi
@@ -238,5 +236,127 @@ jobs:
       - name: 运行联合测试套件
         run: |
           cd backend
-          python -m pytest tests/integration/ -v --tb=short || true
-          echo "::warning::联合测试完成"
+          python -m pytest tests/integration/ -v --tb=short -m "not external"
+
+  # ============================================================
+  # Playwright 浏览器 E2E 测试 (仅 Linux)
+  # 同时启动 Mock FastAPI + Vite，执行 Chromium 端到端测试
+  # ============================================================
+  browser-e2e:
+    name: "Browser E2E / ubuntu-latest"
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ---------- 检出代码 ----------
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---------- 设置 Python ----------
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "backend/requirements.txt"
+
+      # ---------- 设置 Node.js ----------
+      - name: 设置 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
+      # ---------- 安装后端依赖 ----------
+      - name: 安装后端依赖
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ---------- 安装前端依赖 ----------
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+
+      # ---------- 安装 Playwright 浏览器 ----------
+      - name: 安装 Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install chromium --with-deps
+
+      # ---------- 启动后端 (Mock 模式) ----------
+      - name: 启动后端 (Mock 模式)
+        run: |
+          cd backend
+          AI_VIDEO_DEFAULT_LLM_PROVIDER=mock \
+          AI_VIDEO_DEFAULT_IMAGE_PROVIDER=mock \
+          AI_VIDEO_DEFAULT_VIDEO_PROVIDER=mock \
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          BACKEND_PID=$!
+          echo "BACKEND_PID=$BACKEND_PID" >> "$GITHUB_ENV"
+
+          # 等待后端健康检查
+          echo "等待后端启动..."
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:8000/api/health > /dev/null 2>&1; then
+              echo "后端启动成功!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "后端启动超时"
+              exit 1
+            fi
+            sleep 1
+          done
+
+      # ---------- 启动前端 (Vite) ----------
+      - name: 启动前端 (Vite)
+        working-directory: frontend
+        run: |
+          npm run dev &
+          VITE_PID=$!
+          echo "VITE_PID=$VITE_PID" >> "$GITHUB_ENV"
+
+          # 等待 Vite 就绪
+          echo "等待 Vite 启动..."
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:5173 > /dev/null 2>&1; then
+              echo "Vite 启动成功!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Vite 启动超时"
+              exit 1
+            fi
+            sleep 1
+          done
+
+      # ---------- 运行 Playwright E2E ----------
+      - name: 运行 Playwright E2E (Chromium)
+        working-directory: frontend
+        run: npx playwright test --project=chromium
+        env:
+          CI: true
+
+      # ---------- 上传 Playwright 报告 ----------
+      - name: 上传 Playwright 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
+
+      # ---------- 停止服务 ----------
+      - name: 停止服务
+        if: always()
+        run: |
+          kill ${{ env.VITE_PID }} 2>/dev/null || true
+          kill ${{ env.BACKEND_PID }} 2>/dev/null || true

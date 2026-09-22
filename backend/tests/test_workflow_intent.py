@@ -144,8 +144,8 @@ class TestJSONRoundtrip:
                     mode="map",
                 ),
                 ConnectionIntent(
-                    source=PortRef(node="vid", port="videos"),
-                    target=PortRef(node="concat", port="videos"),
+                    source=PortRef(node="vid", port="video"),
+                    target=PortRef(node="concat", port="video"),
                     mode="aggregate",
                 ),
                 ConnectionIntent(

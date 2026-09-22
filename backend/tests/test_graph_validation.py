@@ -85,7 +85,7 @@ TEST_CATALOG: dict[str, NodeManifest] = {
                 PortDefinition(id="image", type="image", required=True, cardinality="one"),
             ],
             outputs=[
-                PortDefinition(id="videos", type="video", required=True, cardinality="many"),
+                PortDefinition(id="video", type="video", required=True, cardinality="many"),
             ],
         ),
     ),
@@ -95,7 +95,7 @@ TEST_CATALOG: dict[str, NodeManifest] = {
         label="VideoConcat",
         ports=PortGroup(
             inputs=[
-                PortDefinition(id="videos", type="video", required=True, cardinality="many"),
+                PortDefinition(id="video", type="video", required=True, cardinality="many"),
             ],
             outputs=[
                 PortDefinition(id="video", type="video", required=True),
@@ -229,8 +229,8 @@ class TestCardinalityViolation:
             _node("vc", "videoConcat"),
         ]
         edges = [
-            _edge("e1", "v1", "vc", "videos", "videos"),
-            _edge("e2", "v2", "vc", "videos", "videos"),
+            _edge("e1", "v1", "vc", "video", "video"),
+            _edge("e2", "v2", "vc", "video", "video"),
         ]
         errors = validate_graph(nodes, edges, TEST_CATALOG)
         assert not any(e.code == "CARDINALITY_VIOLATION" for e in errors)
@@ -272,7 +272,7 @@ class TestCycle:
         edges = [
             _edge("e1", "a", "b", "scenes", "scene"),
             _edge("e2", "b", "c", "images", "image"),
-            _edge("e3", "c", "a", "videos", "prompt"),  # back edge -- creates cycle
+            _edge("e3", "c", "a", "video", "prompt"),  # back edge -- creates cycle
         ]
         errors = validate_graph(nodes, edges, TEST_CATALOG)
         codes = [e.code for e in errors]
@@ -334,7 +334,7 @@ class TestValidGraph:
             _edge("e1", "ti", "sb", "text", "prompt"),
             _edge("e2", "sb", "tti", "scenes", "scene"),
             _edge("e3", "tti", "itv", "images", "image"),
-            _edge("e4", "itv", "vc", "videos", "videos"),
+            _edge("e4", "itv", "vc", "video", "video"),
             _edge("e5", "vc", "out", "video", "video"),
         ]
         errors = validate_graph(nodes, edges, TEST_CATALOG)

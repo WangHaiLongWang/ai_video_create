@@ -258,7 +258,7 @@ def _output_port_for_kind(kind: str) -> str:
         "textInput": "text",
         "storyboard": "scenes",
         "textToImage": "images",
-        "imageToVideo": "videos",
+        "imageToVideo": "video",
         "videoConcat": "video",
     }
     return port_map.get(kind, "output")
@@ -270,7 +270,7 @@ def _input_port_for_kind(kind: str) -> str:
         "storyboard": "prompt",
         "textToImage": "scene",
         "imageToVideo": "image",
-        "videoConcat": "videos",
+        "videoConcat": "video",
         "output": "video",
     }
     return port_map.get(kind, "input")
@@ -311,8 +311,8 @@ def _default_intent(prompt: str) -> WorkflowIntent:
                 mode="map",
             ),
             ConnectionIntent(
-                source=PortRef(node="imageToVideo", port="videos"),
-                target=PortRef(node="videoConcat", port="videos"),
+                source=PortRef(node="imageToVideo", port="video"),
+                target=PortRef(node="videoConcat", port="video"),
                 mode="aggregate",
             ),
             ConnectionIntent(

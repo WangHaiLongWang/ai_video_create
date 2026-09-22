@@ -218,7 +218,7 @@ class MockProvider(BaseProvider):
                 {"id": "e1-2", "source": "n1", "target": "n2", "sourceHandle": "text", "targetHandle": "prompt"},
                 {"id": "e2-3", "source": "n2", "target": "n3", "sourceHandle": "scenes", "targetHandle": "scene"},
                 {"id": "e3-4", "source": "n3", "target": "n4", "sourceHandle": "images", "targetHandle": "image"},
-                {"id": "e4-5", "source": "n4", "target": "n5", "sourceHandle": "videos", "targetHandle": "videos"},
+                {"id": "e4-5", "source": "n4", "target": "n5", "sourceHandle": "video", "targetHandle": "video"},
                 {"id": "e5-6", "source": "n5", "target": "n6", "sourceHandle": "video", "targetHandle": "video"},
             ],
         }, ensure_ascii=False)

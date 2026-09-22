@@ -51,8 +51,17 @@ export class CanvasPage {
 
   /** Click on the canvas pane to deselect any selected node. */
   async deselectNodes() {
-    // Click on the React Flow background area (not on a node)
-    await this.reactFlowViewport.click({ position: { x: 10, y: 10 } })
+    // React Flow's onPaneClick fires on .react-flow__pane, not .react-flow__viewport.
+    // The pane element receives pointer events; the viewport is a non-interactive wrapper.
+    const pane = this.shell.locator('.react-flow__pane')
+    const box = await pane.boundingBox()
+    if (box) {
+      // Click near bottom-right corner — guaranteed empty area away from nodes
+      await this.page.mouse.click(box.x + box.width - 20, box.y + box.height - 20)
+    } else {
+      // Fallback: force-click the pane element
+      await pane.click({ force: true, position: { x: 10, y: 10 } })
+    }
   }
 
   /** Get a node's status CSS class. */
@@ -83,16 +92,21 @@ export class CanvasPage {
     const startX = box.x + box.width / 2
     const startY = box.y + box.height / 2
 
+    // Hover first to ensure the node receives the pointerdown
     await this.page.mouse.move(startX, startY)
+    await this.page.waitForTimeout(50)
     await this.page.mouse.down()
     // Move in small steps so React Flow picks up the drag
-    const steps = 5
+    const steps = 8
     for (let i = 1; i <= steps; i++) {
       await this.page.mouse.move(
         startX + (deltaX * i) / steps,
         startY + (deltaY * i) / steps,
       )
+      await this.page.waitForTimeout(20)
     }
+    // Small pause before release so React Flow commits the position
+    await this.page.waitForTimeout(50)
     await this.page.mouse.up()
   }
 
