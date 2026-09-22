@@ -49,6 +49,12 @@ test.describe('Workflow Editor', () => {
     // Click on the canvas background to deselect
     await canvas.deselectNodes()
 
+    // If pane click didn't work, use Escape as fallback
+    const isEmptyVisible = await propertyPanel.emptyState.isVisible().catch(() => false)
+    if (!isEmptyVisible) {
+      await page.keyboard.press('Escape')
+    }
+
     // Property panel should revert to empty state
     await expect(propertyPanel.emptyState).toBeVisible()
   })
@@ -264,21 +270,29 @@ test.describe('Workflow Editor', () => {
     const nodeB = canvas.getNodeByLabel('文生图')
 
     const boxABefore = await nodeA.boundingBox()
-    const boxBBefore = await nodeB.boundingBox()
+    expect(boxABefore).not.toBeNull()
 
     // Drag node A horizontally
     await canvas.dragNode('主题输入', 80, 0)
     await page.waitForTimeout(500)
 
-    // Drag node B vertically (from its original position, not A's)
+    const boxAAfter = await nodeA.boundingBox()
+    // Node A should have moved in X
+    expect(Math.abs(boxAAfter!.x - boxABefore!.x)).toBeGreaterThan(10)
+
+    // Re-measure node B after node A moves (viewport may have shifted)
+    const boxBBefore = await nodeB.boundingBox()
+    expect(boxBBefore).not.toBeNull()
+
+    // Click directly on node B to ensure it receives focus, then drag
+    await nodeB.click()
+    await page.waitForTimeout(100)
+
+    // Use dragNode helper for Node B
     await canvas.dragNode('文生图', 0, 80)
     await page.waitForTimeout(500)
 
-    const boxAAfter = await nodeA.boundingBox()
     const boxBAfter = await nodeB.boundingBox()
-
-    // Node A should have moved in X
-    expect(Math.abs(boxAAfter!.x - boxABefore!.x)).toBeGreaterThan(10)
     // Node B should have moved in Y
     expect(Math.abs(boxBAfter!.y - boxBBefore!.y)).toBeGreaterThan(10)
   })

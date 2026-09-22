@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Position(BaseModel):
@@ -36,6 +36,8 @@ class WorkflowEdge(BaseModel):
 
 
 class WorkflowSpec(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     schemaVersion: Literal["1.0", "2.0"] = "1.0"
     manifestVersion: str | None = None
     id: str
@@ -45,9 +47,6 @@ class WorkflowSpec(BaseModel):
     edges: list[WorkflowEdge]
     viewport: dict[str, float] | None = None
     metadata: dict[str, Any] | None = None
-
-    class Config:
-        populate_by_name = True
 
     @model_validator(mode="after")
     def validate_graph(self) -> "WorkflowSpec":

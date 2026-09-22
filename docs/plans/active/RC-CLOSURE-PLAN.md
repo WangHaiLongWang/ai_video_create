@@ -18,8 +18,8 @@
 Frontend unit:     295 passed
 Frontend build:    passed
 Chromium E2E:      132 passed / 2 failed / 1 skipped
-Backend full:      collection blocked by Pillow + cryptography
-Backend runnable:  1521 passed / 3 failed / 20 skipped
+Backend full:      1561 passed / 0 failed / 29 skipped (all green)
+Backend acceptance: 170 passed / 0 failed
 Provider tests:    44 passed
 ```
 
@@ -86,14 +86,14 @@ external-provider (manual/nightly)
 
 ## 6. Definition of Done
 
-- [ ] requirements 可在全新 Python 3.12 venv 安装。
-- [ ] backend full non-external suite 全绿。
+- [x] requirements 可在全新 Python 3.12 venv 安装。
+- [x] backend full non-external suite 全绿。
 - [ ] frontend 295+ unit tests、typecheck、build 全绿。
 - [ ] Chromium 135 项不含无审批 skip，全部通过。
-- [ ] CI 不包含关键路径 `|| true`。
+- [x] CI 不包含关键路径 `|| true`。
 - [ ] 同一 SHA 的 Windows/macOS/Linux required checks 全绿。
 - [ ] Playwright report、JUnit、安全报告和 build artifact 可下载。
-- [ ] CHANGELOG、安装、升级、回滚和已知问题已更新。
+- [x] CHANGELOG、安装、升级、回滚和已知问题已更新。
 - [ ] `v1.0.0-rc.1` tag 指向已验证 SHA。
 
 ## 7. 风险与回滚

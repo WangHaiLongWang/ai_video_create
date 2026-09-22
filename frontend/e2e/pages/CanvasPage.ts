@@ -62,6 +62,8 @@ export class CanvasPage {
       // Fallback: force-click the pane element
       await pane.click({ force: true, position: { x: 10, y: 10 } })
     }
+    // Give React Flow a moment to process the pane click and clear selection
+    await this.page.waitForTimeout(100)
   }
 
   /** Get a node's status CSS class. */
