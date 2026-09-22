@@ -2,7 +2,7 @@
 
 > 基线日期：2026-09-22
 > 状态版本：14.0
-> 代码基线：`3405884`
+> 代码基线：`0ae11bf`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
@@ -38,9 +38,9 @@
 
 | 验证项 | 当前结果 | 状态 |
 |---|---:|---|
-| Frontend Vitest | 17 files / 295 passed | 通过 |
+| Frontend Vitest | 18 files / 311 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
-| Vite build | main 94.99 kB；最大 chunk 171.08 kB | 通过，无 500 kB 警告 |
+| Vite build | main 98.41 kB；最大 chunk 172.68 kB | 通过，无 500 kB 警告 |
 | Chromium Playwright | 定向复测 2/2 passed；全套基线仍为 132 passed / 2 failed / 1 skipped | 部分修复，需全套复跑 |
 | Backend full collection | 1 collection error | 失败：当前 venv 缺 Pillow；cryptography 依赖已声明但未安装 |
 | Backend 可运行集 | 1521 passed / 3 failed / 20 skipped | 未全绿：Mock Agent acceptance 失败 |
@@ -68,6 +68,17 @@
 - 后端核心执行耗时约 4 分 28 秒，结果为 1521 passed、3 failed、20 skipped。
 
 ## 3. 前端实现评估
+
+### 3.0 模块化与 Agent 专项判断（2026-09-22）
+
+- 节点实例级自定义通过：字段、端口、Edge、保存和 Undo 能力完整。
+- ModuleDefinition、Seedream 内置 Registry、GET API 和部分 Schema Property UI 已实现，专项测试为 frontend 36 passed、backend 29 passed。
+- 组件化运行闭环未完成：ModulePalette 未挂载、Canvas 未处理 module DnD、Workflow NodeData 未接 module reference、Execution Resolver 未接入。
+- Agent compiler/validator/repair 专项 308 passed；扩大 Agent 选择为 322 passed / 4 failed，失败均为旧 v1 API。
+- v2 Prompt parser 当前使用固定 template fallback。两个差异需求均生成相同六节点、5 scenes、无 variants，因此“按任意用户需求生成编排”不通过。
+- 前后端 Manifest 存在 `textToImage.image` vs `textToImage.images` 和 cardinality 漂移，列为模块/Agent P0。
+
+详细证据见 [`reports/frontend-modularity-agent-validation-2026-09-22.md`](reports/frontend-modularity-agent-validation-2026-09-22.md)。
 
 ### 3.1 已通过浏览器验证
 

@@ -318,14 +318,41 @@ function CanvasInner() {
 
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault()
-    const kind = event.dataTransfer.getData('application/reactflow') as NodeKind
-    if (!kind) return
 
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const position = reactFlowInstance.screenToFlowPosition({
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
     })
+
+    // Check for module drop first
+    const moduleData = event.dataTransfer.getData('application/reactflow-module')
+    if (moduleData) {
+      try {
+        const parsed = JSON.parse(moduleData) as {
+          moduleId: string
+          moduleVersion: string
+          baseKind: string
+          label: string
+          description: string
+          configOverrides?: Record<string, unknown>
+        }
+        const node = createNode(parsed.baseKind as NodeKind, position.x, position.y)
+        node.data.moduleId = parsed.moduleId
+        node.data.moduleVersion = parsed.moduleVersion
+        node.data.configOverrides = parsed.configOverrides ?? {}
+        node.data.label = parsed.label
+        node.data.description = parsed.description
+        setWorkflow({ ...workflow, nodes: [...workflow.nodes, node] })
+        return
+      } catch {
+        // fall through to standard node drop
+      }
+    }
+
+    const kind = event.dataTransfer.getData('application/reactflow') as NodeKind
+    if (!kind) return
+
     const node = createNode(kind, position.x, position.y)
     setWorkflow({ ...workflow, nodes: [...workflow.nodes, node] })
   }, [workflow, setWorkflow, reactFlowInstance])

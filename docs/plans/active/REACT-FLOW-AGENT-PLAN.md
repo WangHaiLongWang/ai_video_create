@@ -7,6 +7,8 @@
 
 ## 0. 2026-09-21 代码检查点
 
+> 2026-09-22 复核补充：Agent compiler/validator/repair 核心专项 308 项通过，但 v2 的自然语言入口仍通过 `_template_fallback` 构造 Intent。两个约束完全不同的 Prompt 返回相同六节点、5 scenes、无 variants；因此 AGENT-203 只能判定“编译器完成”，不能判定“Structured Prompt Parser 完成”。前后端 `textToImage` 端口 ID 还存在 `image/images` 漂移。
+
 | 工单 | 状态 | 当前代码证据 | 剩余出口 |
 |---|---|---|---|
 | RF-001 | Done | Handle 14px、`overflow: visible`、30%-70% 布局 | Chromium 已验证 |
@@ -23,16 +25,18 @@
 | FIELD-007 | Done | 字段/端口 Playwright 主矩阵通过 | CI 复跑 |
 | AGENT-201 | Done | WorkflowIntent Pydantic 模型 | Schema 版本冻结 |
 | AGENT-202 | Done 基础版 | manifests/templates/validate/layout tools | 工具与共享契约一致性 |
-| AGENT-203 | Done 基础版 | alias compiler 和 Handle edges | MiMo 结构化输出主链 |
+| AGENT-203 | Partial | alias compiler 和 Handle edges 完成 | MiMo structured WorkflowIntent parser 未实现 |
 | AGENT-204 | Done 基础版 | bounded repair + repair steps | golden case 失败率验收 |
 | AGENT-205 | Done 基础版 | 调用量/时长估算 | 真实价格/预算策略后置 |
 | AGENT-206 | Backend Done | v2 preview/modify/apply API 已注册 | 前端 API contract 接入 |
 | AGENT-207 | Done 基础版 | AgentComposer v2 preview/apply 浏览器通过 | backend 联调验收 |
 | AGENT-208 | Todo | 未形成可核验审计闭环 | 脱敏、限额、审计持久化 |
-| AGENT-209 | Partial | compiler/preview/repair tests 已有 | 30+ 中文 golden cases |
+| AGENT-209 | Partial | 37+ intent/compiler golden cases 已有 | 改为调用真实 Prompt Parser 的 golden cases |
 | AGENT-210 | Partial | Agent route-mock E2E 17 项通过 | 启动真实 Mock backend 完成 Prompt → Run |
 
 当前关键路径已经从编辑能力开发转为：`2 项 Chromium 修复 → backend 联调 E2E → CI 归档 → RC`。
+
+Agent 产品关键路径补充：`统一 Manifest → MiMo structured output → parser golden cases → module discovery → Prompt → Mock run E2E`。
 
 ## 1. 目标
 

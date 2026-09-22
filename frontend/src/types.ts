@@ -46,6 +46,9 @@ export type StudioNodeData = {
   outputType?: string     // keep for backward compat
   status: RunStatus
   config: Record<string, string | number | boolean>
+  moduleId?: string
+  moduleVersion?: string
+  configOverrides?: Record<string, unknown>
   fieldSchema?: FieldDefinition[]
   ports?: {
     inputs: PortInfo[]

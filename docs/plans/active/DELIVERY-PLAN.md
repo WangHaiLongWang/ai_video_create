@@ -693,3 +693,12 @@ Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider pol
 3. 最后实现用户 Module Designer、版本发布/升级和 Agent 模块发现。
 
 详细计划见 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md)。预计两人约 3 周，单人约 4-5 周；首个 Seedream M0 薄切片为 5-7 天。
+
+### 2026-09-22 验证结论
+
+- 节点实例级字段/端口自定义通过。
+- ModuleDefinition/Registry/Seedream definition 已有基础，但 Palette 未挂载、module drop/roundtrip/execution resolver 未接通。
+- Agent validator/compiler/repair 通过 308 项专项测试，但自然语言 parser 仍是固定模板。
+- 前后端 `textToImage` 端口 ID/cardinality 漂移是 P0，必须早于模块 E2E 和 Agent parser 修复。
+
+专项报告见 [`../../reports/frontend-modularity-agent-validation-2026-09-22.md`](../../reports/frontend-modularity-agent-validation-2026-09-22.md)。

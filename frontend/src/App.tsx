@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Canvas } from './components/Canvas'
 import { ExecutionPanel } from './components/ExecutionPanel'
+import { ModulePalette } from './components/ModulePalette'
 import { NodePalette } from './components/NodePalette'
 import { PropertyPanel } from './components/PropertyPanel'
 import { Toast } from './components/Toast'
@@ -124,6 +125,7 @@ export default function App() {
       <div className="app-shell">
         <TopBar onToggleSceneEditor={() => setShowSceneEditor((v) => !v)} />
         <NodePalette />
+        <ModulePalette />
         <Canvas />
         <PropertyPanel />
         <ExecutionPanel />

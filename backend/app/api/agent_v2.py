@@ -257,7 +257,7 @@ def _output_port_for_kind(kind: str) -> str:
     port_map = {
         "textInput": "text",
         "storyboard": "scenes",
-        "textToImage": "images",
+        "textToImage": "image",
         "imageToVideo": "video",
         "videoConcat": "video",
     }
@@ -306,7 +306,7 @@ def _default_intent(prompt: str) -> WorkflowIntent:
                 mode="map",
             ),
             ConnectionIntent(
-                source=PortRef(node="textToImage", port="images"),
+                source=PortRef(node="textToImage", port="image"),
                 target=PortRef(node="imageToVideo", port="image"),
                 mode="map",
             ),

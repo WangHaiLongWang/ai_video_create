@@ -72,7 +72,7 @@ TEST_CATALOG: dict[str, NodeManifest] = {
                 PortDefinition(id="scene", type="scene", required=True, cardinality="one"),
             ],
             outputs=[
-                PortDefinition(id="images", type="image", required=True, cardinality="many"),
+                PortDefinition(id="image", type="image", required=True, cardinality="one"),
             ],
         ),
     ),
@@ -271,7 +271,7 @@ class TestCycle:
         ]
         edges = [
             _edge("e1", "a", "b", "scenes", "scene"),
-            _edge("e2", "b", "c", "images", "image"),
+            _edge("e2", "b", "c", "image", "image"),
             _edge("e3", "c", "a", "video", "prompt"),  # back edge -- creates cycle
         ]
         errors = validate_graph(nodes, edges, TEST_CATALOG)
@@ -333,7 +333,7 @@ class TestValidGraph:
         edges = [
             _edge("e1", "ti", "sb", "text", "prompt"),
             _edge("e2", "sb", "tti", "scenes", "scene"),
-            _edge("e3", "tti", "itv", "images", "image"),
+            _edge("e3", "tti", "itv", "image", "image"),
             _edge("e4", "itv", "vc", "video", "video"),
             _edge("e5", "vc", "out", "video", "video"),
         ]

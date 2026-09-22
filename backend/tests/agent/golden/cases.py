@@ -61,7 +61,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -84,7 +84,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -107,7 +107,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -134,7 +134,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -159,7 +159,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -183,7 +183,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -240,7 +240,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -264,7 +264,7 @@ BASIC_GENERATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -323,7 +323,7 @@ MODIFICATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "transition", "video", "aggregate"),
             ("transition", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
@@ -346,7 +346,7 @@ MODIFICATION: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
         ],
         is_destructive=True,
@@ -384,7 +384,7 @@ MODIFICATION: list[GoldenCase] = [
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "refine", "prompt", "map"),
             ("refine", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -442,7 +442,7 @@ VALIDATION_REPAIR: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -467,7 +467,7 @@ VALIDATION_REPAIR: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -490,7 +490,7 @@ VALIDATION_REPAIR: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "story", "prompt", "direct"),  # cycle!
         ],
         expect_validation_pass=False,
@@ -530,7 +530,7 @@ VALIDATION_REPAIR: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -576,7 +576,7 @@ VALIDATION_REPAIR: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -606,7 +606,7 @@ DESTRUCTIVE: list[GoldenCase] = [
         expected_connections=[
             # TYPE_MISMATCH: text -> scene (storyboard removed, broken pipeline)
             ("in", "text", "img", "scene", "direct"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -728,7 +728,7 @@ EDGE_CASES: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -751,7 +751,7 @@ EDGE_CASES: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -774,7 +774,7 @@ EDGE_CASES: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -797,7 +797,7 @@ EDGE_CASES: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],
@@ -820,7 +820,7 @@ EDGE_CASES: list[GoldenCase] = [
         expected_connections=[
             ("in", "text", "story", "prompt", "direct"),
             ("story", "scenes", "img", "scene", "map"),
-            ("img", "images", "vid", "image", "map"),
+            ("img", "image", "vid", "image", "map"),
             ("vid", "video", "concat", "video", "aggregate"),
             ("concat", "video", "out", "video", "direct"),
         ],

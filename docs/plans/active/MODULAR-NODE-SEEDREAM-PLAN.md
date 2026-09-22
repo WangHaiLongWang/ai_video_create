@@ -5,6 +5,21 @@
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
 > 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)
 
+## 0. 2026-09-22 验证检查点
+
+| 工单/能力 | 状态 | 当前证据 | 下一出口 |
+|---|---|---|---|
+| MOD-001 ModuleDefinition 契约 | 基础完成 | TS/Pydantic + frontend 16 tests | 共享生成源/fixture |
+| MOD-002 内置 Registry/Seedream | 基础完成 | Registry + GET API + backend 29 tests | 前后端单一来源 |
+| MOD-003 NodeInstance reference | 类型存在 | NodeInstanceExtension/Pydantic extension | 接入 Workflow NodeData/API/DB roundtrip |
+| MOD-004 Schema Property Renderer | 部分完成 | ModuleConfigSection 已存在 | 使用远端版本、组件测试/E2E |
+| MOD-005 Execution Resolver | 未接入 | Registry 有 config merge helper | compiler/start/snapshot/handler 接入 |
+| MOD-006 Seedream E2E | 未完成 | Contract/Provider 已有 | Palette → drop → config → Mock run |
+| Module Palette | 组件存在未挂载 | ModulePalette/ModuleCard 文件存在 | App 挂载 + Canvas module DnD |
+| Module 生命周期 | 未实现 | 只有内存只读 GET API | SQLite draft/publish/archive |
+
+专项验证报告：[`frontend-modularity-agent-validation-2026-09-22.md`](../../reports/frontend-modularity-agent-validation-2026-09-22.md)。
+
 ## 1. 决策摘要
 
 当前系统已经支持“节点实例级”的自定义字段和端口，但尚未形成真正的“可复用模块系统”。
@@ -326,12 +341,12 @@ API Key 只来自 Provider Settings/secret reference。
 
 | ID | 工作量 | 任务 | 验收 |
 |---|---:|---|---|
-| MOD-001 | 1d | ModuleDefinition JSON Schema + Pydantic/TS | shared fixtures roundtrip |
-| MOD-002 | 1d | 内置 Module Registry 和 Seedream definition | list API 返回版本化 Seedream |
-| MOD-003 | 1d | NodeInstance 增加 module reference + migration | 旧 workflow 自动映射 builtin module |
-| MOD-004 | 1.5d | Schema-driven Property Renderer 基础 | Seedream 六类字段正确渲染/校验 |
+| MOD-001 | 0.5d 剩余 | 前后端从共享 Schema/fixture 生成 | 消除 port/cardinality 漂移 |
+| MOD-002 | 0.5d 剩余 | 统一内置 Registry/Seedream definition | 前端不再维护重复 builtin |
+| MOD-003 | 1d | NodeData/WorkflowSpec 接入 module reference + migration | API/DB/export roundtrip |
+| MOD-004 | 1d 剩余 | Schema-driven Property Renderer 接远端版本 | Seedream 字段正确渲染/校验 |
 | MOD-005 | 1d | Execution Resolver 合并 effective config | Handler 收到 doubao/model/size/seed |
-| MOD-006 | 1d | Seedream Mock/Contract/API/Playwright | 创建→配置→保存→Mock 执行通过 |
+| MOD-006 | 1d | 挂载 Palette、module drop、Seedream Playwright | 创建→配置→保存→Mock 执行通过 |
 
 ### Phase M1：用户模块设计器（P1，5-7 天）
 

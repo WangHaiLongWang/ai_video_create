@@ -201,7 +201,7 @@ _BUILTIN_TEMPLATES: dict[str, dict[str, Any]] = {
              "sourceHandle": "scenes", "targetHandle": "scene",
              "data": {"mode": "map", "itemKey": "scene_id"}},
             {"id": "e3-4", "source": "n3", "target": "n4", "type": "smoothstep",
-             "sourceHandle": "images", "targetHandle": "image",
+             "sourceHandle": "image", "targetHandle": "image",
              "data": {"mode": "map", "itemKey": "scene_id::variant_id"}},
             {"id": "e4-5", "source": "n4", "target": "n5", "type": "smoothstep",
              "sourceHandle": "video", "targetHandle": "video",

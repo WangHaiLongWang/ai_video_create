@@ -139,7 +139,7 @@ class TestJSONRoundtrip:
                     mode="map",
                 ),
                 ConnectionIntent(
-                    source=PortRef(node="img", port="images"),
+                    source=PortRef(node="img", port="image"),
                     target=PortRef(node="vid", port="image"),
                     mode="map",
                 ),

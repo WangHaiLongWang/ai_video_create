@@ -51,6 +51,7 @@
 - [Wan3 真实 UAT](reports/wan3-uat.md)
 - [FFmpeg 集成报告](reports/ffmpeg-integration.md)
 - [项目门禁审计 2026-09-21](reports/project-audit-2026-09-21.md)
+- [Frontend 模块化与 Agent 验证 2026-09-22](reports/frontend-modularity-agent-validation-2026-09-22.md)
 
 报告是特定环境下的证据，不自动代表当前分支门禁通过。报告必须包含日期、commit、环境、命令和原始结果。
 

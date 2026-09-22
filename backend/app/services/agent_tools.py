@@ -68,7 +68,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
                 PortDefinition(id="scene", type="scene", required=True, label="Scene"),
             ],
             outputs=[
-                PortDefinition(id="images", type="image", required=True, cardinality="many", label="Images"),
+                PortDefinition(id="image", type="image", required=True, label="Image"),
             ],
         ),
         config_schema={

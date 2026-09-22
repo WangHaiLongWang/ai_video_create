@@ -3,12 +3,19 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+def _snake_to_camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(w.capitalize() for w in parts[1:])
+
+
 class Position(BaseModel):
     x: float
     y: float
 
 
 class NodeData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=_snake_to_camel)
+
     label: str
     description: str
     kind: str
@@ -16,6 +23,9 @@ class NodeData(BaseModel):
     outputType: str | None = None
     status: str = "idle"
     config: dict[str, Any] = Field(default_factory=dict)
+    module_id: str | None = None
+    module_version: str | None = None
+    config_overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkflowNode(BaseModel):
