@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package } from '@phosphor-icons/react'
+import { Package, Plus } from '@phosphor-icons/react'
 import type { ModuleDefinition } from '../schemas/module-definition'
 import { BUILTIN_MODULES } from '../schemas/module-definition'
 import { fetchModules } from '../api/modules'
 import { ModuleCard } from './ModuleCard'
+import { useModuleDesignerStore } from '../store/moduleDesignerSlice'
 
 export function ModulePalette() {
   const [modules, setModules] = useState<ModuleDefinition[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { openDesigner } = useModuleDesignerStore()
 
   useEffect(() => {
     let cancelled = false
@@ -34,6 +36,14 @@ export function ModulePalette() {
       })
     return () => { cancelled = true }
   }, [])
+
+  const handleModuleClick = (mod: ModuleDefinition) => {
+    openDesigner(mod.id, mod)
+  }
+
+  const handleCreateModule = () => {
+    openDesigner()
+  }
 
   const grouped = useMemo(() => {
     const groups = new Map<string, ModuleDefinition[]>()
@@ -62,6 +72,13 @@ export function ModulePalette() {
       <div className="module-palette-header">
         <Package size={14} />
         <span>模块库</span>
+        <button
+          className="module-palette-create-btn"
+          onClick={handleCreateModule}
+          title="Create new module"
+        >
+          <Plus size={14} />
+        </button>
       </div>
       {loading && <p className="module-palette-hint">加载中...</p>}
       {error && <p className="module-palette-hint module-palette-error">{error}</p>}
@@ -77,6 +94,7 @@ export function ModulePalette() {
                 key={mod.id}
                 module={mod}
                 onDragStart={onDragStart}
+                onClick={handleModuleClick}
               />
             ))}
           </div>

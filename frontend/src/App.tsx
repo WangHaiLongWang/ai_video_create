@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Canvas } from './components/Canvas'
 import { ExecutionPanel } from './components/ExecutionPanel'
+import { ModuleDesigner } from './components/ModuleDesigner'
 import { ModulePalette } from './components/ModulePalette'
 import { NodePalette } from './components/NodePalette'
 import { PropertyPanel } from './components/PropertyPanel'
@@ -135,6 +136,7 @@ export default function App() {
           <SceneEditor onClose={() => setShowSceneEditor(false)} />
         </Suspense>
       )}
+      <ModuleDesigner />
     </ReactFlowProvider>
   )
 }

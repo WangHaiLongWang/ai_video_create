@@ -16,6 +16,7 @@ from backend.app.services.module_registry import (
     ModuleRegistry,
     get_module_registry,
 )
+from backend.app.services.module_port_validator import PortBindingValidator
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,25 @@ class ExecutionResolver:
                         },
                     )
                 )
+                continue
+
+            # 2b. Port binding validation
+            port_errors = PortBindingValidator().validate_ports(module)
+            if port_errors:
+                for pe in port_errors:
+                    result.errors.append(
+                        ResolutionError(
+                            node_id=node_id,
+                            node_kind=node_kind,
+                            error_type="unbound_module_port",
+                            message=pe.message,
+                            details={
+                                "module_id": module_id,
+                                "field": pe.field,
+                                "error_code": pe.error,
+                            },
+                        )
+                    )
                 continue
 
             # 3. Merge config: defaultConfig + configOverrides

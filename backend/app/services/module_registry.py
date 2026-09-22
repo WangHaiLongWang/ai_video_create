@@ -7,6 +7,7 @@ from typing import Any
 
 from backend.app.schemas.module_definition import ModuleDefinition, ProviderPolicy
 from backend.app.schemas.node_manifest import ExecutionHints
+from backend.app.services.module_port_validator import PortBindingValidator, PortError
 
 
 # ---------------------------------------------------------------------------
@@ -70,13 +71,37 @@ _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$")
 
 
 class ModuleRegistry:
-    """In-memory registry for module definitions."""
+    """Registry for module definitions.
 
-    def __init__(self) -> None:
+    Optionally backed by a :class:`ModuleRepository` for persistent storage.
+    When a repository is provided, list/get queries merge builtin modules with
+    database-stored modules.  ``create_draft``, ``publish``, and ``archive``
+    delegate to the repository.
+    """
+
+    def __init__(self, repository: Any | None = None) -> None:
+        self._repository = repository
         self._modules: dict[str, dict[str, ModuleDefinition]] = {}
         # Load built-in modules
         for module_id, module in BUILTIN_MODULES.items():
             self._modules.setdefault(module_id, {})[module.version] = module
+
+    # ------------------------------------------------------------------
+    # Query helpers (builtin + DB merge)
+    # ------------------------------------------------------------------
+
+    def _all_modules(self) -> dict[str, dict[str, ModuleDefinition]]:
+        """Return combined in-memory + DB module map."""
+        combined: dict[str, dict[str, ModuleDefinition]] = {}
+        # In-memory modules (includes builtins loaded in __init__)
+        for module_id, versions in self._modules.items():
+            combined.setdefault(module_id, {}).update(versions)
+        # DB modules
+        if self._repository is not None:
+            db_modules = self._repository.list_modules()
+            for m in db_modules:
+                combined.setdefault(m.id, {})[m.version] = m
+        return combined
 
     def list_modules(
         self,
@@ -84,8 +109,9 @@ class ModuleRegistry:
         capability: str | None = None,
     ) -> list[ModuleDefinition]:
         """Return modules, optionally filtered by status or capability."""
+        combined = self._all_modules()
         result: list[ModuleDefinition] = []
-        for versions in self._modules.values():
+        for versions in combined.values():
             # Pick the latest version for each module
             latest = max(versions.values(), key=lambda m: m.version)
             if status and latest.status != status:
@@ -99,19 +125,68 @@ class ModuleRegistry:
         self, module_id: str, version: str | None = None
     ) -> ModuleDefinition | None:
         """Get a specific module, optionally at a specific version."""
-        versions = self._modules.get(module_id)
+        combined = self._all_modules()
+        versions = combined.get(module_id)
         if not versions:
             return None
         if version:
             return versions.get(version)
         return max(versions.values(), key=lambda m: m.version)
 
-    def validate_module(self, module_definition: ModuleDefinition) -> list[str]:
+    # ------------------------------------------------------------------
+    # Mutation helpers (delegate to repository)
+    # ------------------------------------------------------------------
+
+    def create_draft(self, definition: ModuleDefinition) -> ModuleDefinition:
+        """Create a new draft module definition.
+
+        Requires a repository to be configured.
+        """
+        if self._repository is None:
+            raise RuntimeError("Repository not configured — cannot persist modules")
+        return self._repository.create_draft(definition)
+
+    def update_draft(
+        self,
+        module_id: str,
+        version: str,
+        definition: ModuleDefinition,
+        expected_version: int,
+    ) -> ModuleDefinition:
+        """Update a draft module with optimistic locking."""
+        if self._repository is None:
+            raise RuntimeError("Repository not configured — cannot persist modules")
+        return self._repository.update_draft(module_id, version, definition, expected_version)
+
+    def publish_draft(
+        self, module_id: str, version: str, expected_version: int
+    ) -> ModuleDefinition:
+        """Publish a draft module via the repository (persistent storage)."""
+        if self._repository is None:
+            raise RuntimeError("Repository not configured — cannot persist modules")
+        return self._repository.publish(module_id, version, expected_version)
+
+    def archive_draft(
+        self, module_id: str, version: str, expected_version: int
+    ) -> ModuleDefinition:
+        """Archive a published module via the repository (persistent storage)."""
+        if self._repository is None:
+            raise RuntimeError("Repository not configured — cannot persist modules")
+        return self._repository.archive(module_id, version, expected_version)
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
+    def validate_module(
+        self, module_definition: ModuleDefinition
+    ) -> list[str | dict[str, str]]:
         """Validate a module definition, returning a list of error messages.
 
+        Includes basic field validation and port binding validation.
         Returns an empty list if the definition is valid.
         """
-        errors: list[str] = []
+        errors: list[str | dict[str, str]] = []
 
         if not module_definition.base_kind:
             errors.append("base_kind is required")
@@ -131,7 +206,37 @@ class ModuleRegistry:
         if not module_definition.category:
             errors.append("category is required")
 
+        # Port binding validation
+        port_errors = PortBindingValidator().validate_ports(module_definition)
+        for pe in port_errors:
+            errors.append(
+                {
+                    "field": pe.field,
+                    "error": pe.error,
+                    "message": pe.message,
+                }
+            )
+
         return errors
+
+    def publish(
+        self, module_definition: ModuleDefinition
+    ) -> tuple[bool, list[str | dict[str, str]]]:
+        """Attempt to publish a module definition.
+
+        Returns (success, errors). Cannot publish if there are any validation
+        errors, including port binding errors.
+        """
+        errors = self.validate_module(module_definition)
+        if errors:
+            return False, errors
+
+        # Set status to published and register
+        module_definition.status = "published"
+        self._modules.setdefault(module_definition.id, {})[
+            module_definition.version
+        ] = module_definition
+        return True, []
 
     def resolve_effective_config(
         self,

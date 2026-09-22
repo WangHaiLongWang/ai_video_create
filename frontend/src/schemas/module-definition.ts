@@ -1,6 +1,32 @@
 import type { PortType } from './node-manifest'
 
 // ---------------------------------------------------------------------------
+// Module category
+// ---------------------------------------------------------------------------
+export type ModuleCategory = 'Input' | 'LLM' | 'Image' | 'Video' | 'Transform' | 'Output'
+
+// ---------------------------------------------------------------------------
+// Module icon
+// ---------------------------------------------------------------------------
+export type ModuleIcon =
+  | 'image-square'
+  | 'video'
+  | 'type'
+  | 'code'
+  | 'chat-circle'
+  | 'lightning'
+  | 'arrow-right'
+  | 'arrows-left-right'
+  | 'export'
+  | 'import'
+  | 'film-strip'
+  | 'music-note'
+  | 'microphone'
+  | 'paint-brush'
+  | 'wand'
+  | 'sparkle'
+
+// ---------------------------------------------------------------------------
 // Module status
 // ---------------------------------------------------------------------------
 export type ModuleStatus = 'draft' | 'published' | 'archived'
@@ -59,6 +85,36 @@ export interface NodeInstanceExtension {
   moduleId?: string
   moduleVersion?: string
   configOverrides?: Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------------
+// Config schema field — used in Module Designer for defining module config
+// ---------------------------------------------------------------------------
+export type ConfigFieldType = 'string' | 'integer' | 'number' | 'boolean' | 'enum'
+
+export interface ConfigSchemaField {
+  key: string
+  type: ConfigFieldType
+  title: string
+  default?: string | number | boolean
+  required: boolean
+  // For enum type
+  enumOptions?: string[]
+  // For string type
+  format?: 'text' | 'textarea'
+  // For number types
+  minimum?: number
+  maximum?: number
+}
+
+// ---------------------------------------------------------------------------
+// Module Designer state
+// ---------------------------------------------------------------------------
+export interface ModuleDesignerState {
+  isOpen: boolean
+  moduleId: string | null  // null = creating new
+  draft: ModuleDefinition | null
+  isDirty: boolean
 }
 
 // ---------------------------------------------------------------------------
