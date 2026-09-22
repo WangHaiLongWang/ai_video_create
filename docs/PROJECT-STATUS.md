@@ -1,8 +1,8 @@
 # ai_video_create 项目状态
 
 > 基线日期：2026-09-22
-> 状态版本：14.0
-> 代码基线：`0ae11bf`
+> 状态版本：15.0
+> 代码基线：`840daea`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
@@ -42,8 +42,8 @@
 | TypeScript | 0 errors | 通过 |
 | Vite build | main 98.41 kB；最大 chunk 172.68 kB | 通过，无 500 kB 警告 |
 | Chromium Playwright | 定向复测 2/2 passed；全套基线仍为 132 passed / 2 failed / 1 skipped | 部分修复，需全套复跑 |
-| Backend full collection | 1 collection error | 失败：当前 venv 缺 Pillow；cryptography 依赖已声明但未安装 |
-| Backend 可运行集 | 1521 passed / 3 failed / 20 skipped | 未全绿：Mock Agent acceptance 失败 |
+| Backend full collection | 1850 passed / 29 skipped | 通过（含 P0-4/5/6 新增 260 测试） |
+| Backend 可运行集 | 1850 passed / 29 skipped / 0 failed | 全绿 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
 | 三平台 CI | workflow 文件存在 | 尚无本次 run 证据 |
@@ -69,14 +69,17 @@
 
 ## 3. 前端实现评估
 
-### 3.0 模块化与 Agent 专项判断（2026-09-22）
+### 3.0 模块化与 Agent 专项判断（2026-09-22，P0 修复后）
 
 - 节点实例级自定义通过：字段、端口、Edge、保存和 Undo 能力完整。
-- ModuleDefinition、Seedream 内置 Registry、GET API 和部分 Schema Property UI 已实现，专项测试为 frontend 36 passed、backend 29 passed。
-- 组件化运行闭环未完成：ModulePalette 未挂载、Canvas 未处理 module DnD、Workflow NodeData 未接 module reference、Execution Resolver 未接入。
-- Agent compiler/validator/repair 专项 308 passed；扩大 Agent 选择为 322 passed / 4 failed，失败均为旧 v1 API。
-- v2 Prompt parser 当前使用固定 template fallback。两个差异需求均生成相同六节点、5 scenes、无 variants，因此“按任意用户需求生成编排”不通过。
-- 前后端 Manifest 存在 `textToImage.image` vs `textToImage.images` 和 cardinality 漂移，列为模块/Agent P0。
+- ModuleDefinition、Seedream 内置 Registry、GET API 和 Schema Property UI 已实现，专项测试为 backend 62 passed（29 registry + 33 resolver）。
+- **P0-1 已修复**：前后端 Manifest port ID/cardinality 统一为 `image` (one)。
+- **P0-2 已修复**：NodeData/WorkflowSpec 保留 moduleId/moduleVersion/configOverrides，API roundtrip 通过。
+- **P0-3 已修复**：ModulePalette 已挂载到 App.tsx，Canvas 支持 `application/reactflow-module` DnD。
+- **P0-4 已修复**：Execution Resolver 接入 compiler/start，执行前验证模块存在性和配置。
+- **P0-5 已修复**：MiMo 结构化 WorkflowIntent parser，支持 scene/variant 提取和 no-video 检测。
+- **P0-6 已修复**：Parser golden cases 160 tests + backend E2E 20 tests，全绿。
+- Agent compiler/validator/repair 专项 286 passed + 47 parser + 180 golden/E2E。
 
 详细证据见 [`reports/frontend-modularity-agent-validation-2026-09-22.md`](reports/frontend-modularity-agent-validation-2026-09-22.md)。
 
