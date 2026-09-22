@@ -16,6 +16,7 @@ from backend.app.domain.graph_validation import (
 )
 from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
+from backend.app.services.execution_resolver import resolve_execution_config
 from backend.app.engine.queue import (
     get_tasks_by_execution,
     get_task,
@@ -87,6 +88,25 @@ def start_execution(workflow_id: str) -> dict:
     # Graph validation before compilation
     nodes, edges = extract_nodes_edges_from_spec(spec)
     raise_if_invalid(nodes, edges)
+
+    # Module resolution — validate all module references and merge configs
+    resolution = resolve_execution_config(spec)
+    if not resolution.success:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Module resolution failed: {len(resolution.errors)} error(s)",
+                "errors": [
+                    {
+                        "node_id": e.node_id,
+                        "node_kind": e.node_kind,
+                        "error_type": e.error_type,
+                        "message": e.message,
+                    }
+                    for e in resolution.errors
+                ],
+            },
+        )
 
     # 编译
     try:

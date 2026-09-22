@@ -148,42 +148,58 @@ def _repair_intent(
     return current_intent, steps, current_errors
 
 
-def _generate_intent_from_prompt(prompt: str) -> WorkflowIntent:
+async def _generate_intent_from_prompt(prompt: str) -> WorkflowIntent:
     """Generate a WorkflowIntent from a natural-language prompt.
 
-    Uses the existing Agent LLM service to generate a WorkflowIntent.
-    Falls back to a simple template-based intent if the LLM is unavailable.
+    Uses the structured WorkflowIntent parser (MiMo-backed) to generate
+    a WorkflowIntent. Falls back to the template-based intent if the
+    parser or provider is unavailable.
     """
     try:
-        from backend.app.services.agent import get_agent_service
-        service = get_agent_service()
-        # The existing agent generates WorkflowSpec -- we build a WorkflowIntent
-        # from the template fallback for now. In future, the agent should
-        # output WorkflowIntent directly.
-        spec = service._template_fallback(prompt, {})
+        from backend.app.services.workflow_intent_parser import parse_workflow_intent
 
-        # Convert WorkflowSpec to WorkflowIntent
-        return _spec_to_intent(spec, prompt)
+        # Try to get a text-capable provider for the parser
+        provider = None
+        try:
+            from backend.app.providers import get_provider
+            from backend.app.config import get_settings
+            configured = get_provider(get_settings().DEFAULT_LLM_PROVIDER.value)
+            if configured and configured.capabilities.text:
+                provider = configured
+        except Exception:
+            pass
+
+        return await parse_workflow_intent(prompt, provider=provider)
     except Exception as exc:
-        logger.warning(f"Agent service unavailable, using default intent: {exc}")
-        return _default_intent(prompt)
+        logger.warning(f"Intent parser failed, falling back to template: {exc}")
+        try:
+            from backend.app.services.agent import get_agent_service
+            service = get_agent_service()
+            spec = service._template_fallback(prompt, {})
+            return _spec_to_intent(spec, prompt)
+        except Exception as exc2:
+            logger.warning(f"Agent service also unavailable, using default intent: {exc2}")
+            return _default_intent(prompt)
 
 
-def _modify_intent_from_prompt(
+async def _modify_intent_from_prompt(
     workflow_id: str, instruction: str
 ) -> WorkflowIntent:
     """Modify an existing workflow via Agent and return a WorkflowIntent."""
     try:
-        from backend.app.repositories.workflows import get_workflow
-        from backend.app.services.agent import get_agent_service
+        from backend.app.services.workflow_intent_parser import parse_workflow_intent
 
-        wf = get_workflow(workflow_id)
-        from backend.app.models import WorkflowSpec
-        spec = WorkflowSpec(**wf["spec"])
+        provider = None
+        try:
+            from backend.app.providers import get_provider
+            from backend.app.config import get_settings
+            configured = get_provider(get_settings().DEFAULT_LLM_PROVIDER.value)
+            if configured and configured.capabilities.text:
+                provider = configured
+        except Exception:
+            pass
 
-        service = get_agent_service()
-        spec = service._template_fallback(instruction, {})
-        return _spec_to_intent(spec, instruction)
+        return await parse_workflow_intent(instruction, provider=provider)
     except Exception as exc:
         logger.warning(f"Modify failed, generating new intent: {exc}")
         return _default_intent(instruction)
@@ -340,7 +356,7 @@ async def generate_preview_v2(request: GeneratePreviewRequest) -> AgentPreviewRe
     - Whether the workflow can be applied
     """
     # 1. Generate intent
-    intent = _generate_intent_from_prompt(request.prompt)
+    intent = await _generate_intent_from_prompt(request.prompt)
 
     # 2. Compile (if compiler available)
     compiled, compile_error = _compile_intent(intent)
@@ -388,7 +404,7 @@ async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewRespon
     Returns a full AgentPreviewResponse, same as generate-preview-v2.
     """
     # 1. Modify intent
-    intent = _modify_intent_from_prompt(request.workflow_id, request.instruction)
+    intent = await _modify_intent_from_prompt(request.workflow_id, request.instruction)
 
     # 2. Compile (if compiler available)
     compiled, compile_error = _compile_intent(intent)
