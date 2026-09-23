@@ -275,3 +275,16 @@ class TestModulesAPI:
             "/api/modules/builtin.seedream.text-to-image/versions/9.9.9"
         )
         assert response.status_code == 404
+
+    def test_clone_module_returns_201(self, client):
+        # Clone the built-in seedream module
+        response = client.post("/api/modules/builtin.seedream.text-to-image/clone")
+        assert response.status_code == 201
+        data = response.json()
+        assert data["id"] == "builtin.seedream.text-to-image-copy"
+        assert data["version"] == "1.0.1"
+        assert data["status"] == "draft"
+
+    def test_clone_nonexistent_returns_404(self, client):
+        response = client.post("/api/modules/nonexistent.module/clone")
+        assert response.status_code == 404

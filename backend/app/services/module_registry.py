@@ -159,7 +159,7 @@ class ModuleRegistry:
         return self._repository.update_draft(module_id, version, definition, expected_version)
 
     def publish_draft(
-        self, module_id: str, version: str, expected_version: int
+        self, module_id: str, version: str, expected_version: int | None = None
     ) -> ModuleDefinition:
         """Publish a draft module via the repository (persistent storage)."""
         if self._repository is None:
@@ -167,12 +167,20 @@ class ModuleRegistry:
         return self._repository.publish(module_id, version, expected_version)
 
     def archive_draft(
-        self, module_id: str, version: str, expected_version: int
+        self, module_id: str, version: str, expected_version: int | None = None
     ) -> ModuleDefinition:
         """Archive a published module via the repository (persistent storage)."""
         if self._repository is None:
             raise RuntimeError("Repository not configured — cannot persist modules")
         return self._repository.archive(module_id, version, expected_version)
+
+    def clone_draft(
+        self, module_id: str, version: str, expected_version: int | None = None
+    ) -> ModuleDefinition:
+        """Clone a module into a new draft with incremented version."""
+        if self._repository is None:
+            raise RuntimeError("Repository not configured — cannot persist modules")
+        return self._repository.clone(module_id, version, expected_version)
 
     # ------------------------------------------------------------------
     # Validation

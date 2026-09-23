@@ -2993,6 +2993,112 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   gap: 3px;
 }
 
+/* Search bar */
+.module-palette-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  margin: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #1a1d18;
+  color: #8b9286;
+}
+
+.module-palette-search svg {
+  flex-shrink: 0;
+  color: #5a6055;
+}
+
+.module-palette-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #cdd1c7;
+  font-size: 11px;
+  outline: none;
+  min-width: 0;
+}
+
+.module-palette-search-input::placeholder {
+  color: #5a6055;
+}
+
+.module-palette-search-clear {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #5a6055;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.module-palette-search-clear:hover {
+  background: #30352a;
+  color: #cdd1c7;
+}
+
+/* Category tabs */
+.module-palette-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px 0 4px;
+  overflow-x: auto;
+}
+
+.module-palette-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #5a6055;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.module-palette-tab:hover {
+  background: #22251f;
+  color: #8b9286;
+}
+
+.module-palette-tab-active {
+  background: #2a2d27;
+  color: #cdd1c7;
+  border-color: var(--line);
+}
+
+.module-palette-tab-my {
+  margin-left: auto;
+}
+
+.module-palette-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 12px;
+  padding: 0 3px;
+  border-radius: 6px;
+  background: #30352a;
+  color: #5a6055;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 /* ==================== ModuleCard ==================== */
 
 .module-card {
@@ -3007,6 +3113,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   cursor: pointer;
   text-align: left;
   transition: border-color 0.15s ease, background 0.15s ease;
+  position: relative;
 }
 
 .module-card:hover {
@@ -3019,6 +3126,42 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+}
+
+.module-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.module-card-status {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.module-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.module-card-action-btn {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: #8b9286;
+  font-size: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.module-card-action-btn:hover {
+  background: #30352a;
+  color: #cdd1c7;
 }
 
 .module-card-label {
@@ -3213,6 +3356,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   padding: 14px 16px;
   border-top: 1px solid #343832;
   background: #1f221e;
+}
+
+.md-footer-spacer {
+  flex: 1;
 }
 
 /* --- Buttons --- */

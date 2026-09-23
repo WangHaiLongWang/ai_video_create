@@ -460,3 +460,70 @@ class TestUpdateNonDraft:
         updated = _make_definition(module_id="nonexistent")
         with pytest.raises(ModuleNotFoundError):
             repo.update_draft("nonexistent", "1.0.0", updated, expected_version=1)
+
+
+# ---------------------------------------------------------------------------
+# 13. Clone
+# ---------------------------------------------------------------------------
+
+
+class TestClone:
+    def test_clone_creates_new_draft_with_incremented_version(self, repo: ModuleRepository):
+        definition = _make_definition()
+        repo.create_draft(definition)
+
+        cloned = repo.clone("test.custom.module", "1.0.0")
+        assert cloned.id == "test.custom.module-copy"
+        assert cloned.version == "1.0.1"
+        assert cloned.status == "draft"
+
+    def test_clone_from_published_module(self, repo: ModuleRepository):
+        definition = _make_definition()
+        repo.create_draft(definition)
+        repo.publish("test.custom.module", "1.0.0", expected_version=1)
+
+        cloned = repo.clone("test.custom.module", "1.0.0")
+        assert cloned.id == "test.custom.module-copy"
+        assert cloned.version == "1.0.1"
+        assert cloned.status == "draft"
+
+    def test_clone_persists_to_db(self, repo: ModuleRepository):
+        definition = _make_definition()
+        repo.create_draft(definition)
+
+        repo.clone("test.custom.module", "1.0.0")
+
+        # Verify the cloned module is in the DB
+        retrieved = repo.get_module("test.custom.module-copy", "1.0.1")
+        assert retrieved is not None
+        assert retrieved.status == "draft"
+
+    def test_clone_nonexistent_raises(self, repo: ModuleRepository):
+        with pytest.raises(ModuleNotFoundError):
+            repo.clone("nonexistent", "1.0.0")
+
+    def test_clone_auto_resolves_expected_version(self, repo: ModuleRepository):
+        definition = _make_definition()
+        repo.create_draft(definition)
+
+        # Clone without specifying expected_version
+        cloned = repo.clone("test.custom.module", "1.0.0")
+        assert cloned.status == "draft"
+        assert cloned.id == "test.custom.module-copy"
+
+    def test_clone_with_wrong_expected_version_raises_conflict(self, repo: ModuleRepository):
+        definition = _make_definition()
+        repo.create_draft(definition)
+
+        # Clone with wrong expected_version should fail
+        with pytest.raises(ConflictError):
+            repo.clone("test.custom.module", "1.0.0", expected_version=99)
+
+    def test_clone_preserves_module_data(self, repo: ModuleRepository):
+        definition = _make_definition(label="Original Module", category="image")
+        repo.create_draft(definition)
+
+        cloned = repo.clone("test.custom.module", "1.0.0")
+        assert cloned.label == "Original Module"
+        assert cloned.category == "image"
+        assert cloned.base_kind == "textToImage"

@@ -19,3 +19,27 @@ export async function fetchModule(moduleId: string, version?: string): Promise<M
   if (!res.ok) throw new Error(`Failed to fetch module: ${res.status}`)
   return res.json()
 }
+
+export async function cloneModule(moduleId: string): Promise<ModuleDefinition> {
+  const res = await fetch(`${API_BASE}/modules/${moduleId}/clone`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(`Failed to clone module: ${res.status}`)
+  return res.json()
+}
+
+export async function publishModule(moduleId: string): Promise<ModuleDefinition> {
+  const res = await fetch(`${API_BASE}/modules/${moduleId}/publish`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(`Failed to publish module: ${res.status}`)
+  return res.json()
+}
+
+export async function archiveModule(moduleId: string): Promise<ModuleDefinition> {
+  const res = await fetch(`${API_BASE}/modules/${moduleId}/archive`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(`Failed to archive module: ${res.status}`)
+  return res.json()
+}

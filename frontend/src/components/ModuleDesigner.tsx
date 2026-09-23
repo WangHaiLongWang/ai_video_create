@@ -12,11 +12,14 @@ import {
   Check,
   X,
   Pencil,
+  Copy,
+  ArchiveBox,
 } from '@phosphor-icons/react'
 import { useModuleDesignerStore, configFieldsToSchema, schemaToConfigFields } from '../store/moduleDesignerSlice'
 import type { ModuleDefinition, ConfigSchemaField, ModuleCategory, ModuleIcon, ModulePort } from '../schemas/module-definition'
 import { NODE_CATALOG } from '../schemas/node-manifest'
 import type { NodeKind } from '../types'
+import { cloneModule, archiveModule } from '../api/modules'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -520,9 +523,11 @@ function PortsSection() {
 // Main Component
 // ---------------------------------------------------------------------------
 export function ModuleDesigner() {
-  const { isOpen, draft, isDirty, closeDesigner, saveDraft, publishDraft } = useModuleDesignerStore()
+  const { isOpen, draft, isDirty, closeDesigner, saveDraft, publishDraft, openDesigner } = useModuleDesignerStore()
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [cloning, setCloning] = useState(false)
+  const [archiving, setArchiving] = useState(false)
 
   if (!isOpen || !draft) return null
 
@@ -555,6 +560,36 @@ export function ModuleDesigner() {
       // Error handled in store
     } finally {
       setPublishing(false)
+    }
+  }
+
+  const handleClone = async () => {
+    if (!draft.id) return
+    setCloning(true)
+    try {
+      const cloned = await cloneModule(draft.id)
+      // Open the cloned module in the designer
+      closeDesigner()
+      openDesigner(cloned.id, cloned)
+    } catch (err) {
+      console.error('Failed to clone module:', err)
+    } finally {
+      setCloning(false)
+    }
+  }
+
+  const handleArchive = async () => {
+    if (!draft.id) return
+    if (!window.confirm('Are you sure you want to archive this module?')) return
+    setArchiving(true)
+    try {
+      const archived = await archiveModule(draft.id)
+      closeDesigner()
+      openDesigner(archived.id, archived)
+    } catch (err) {
+      console.error('Failed to archive module:', err)
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -592,6 +627,29 @@ export function ModuleDesigner() {
           >
             Cancel
           </button>
+          <div className="md-footer-spacer" />
+          {draft.id && (
+            <>
+              <button
+                className="md-btn md-btn-secondary"
+                onClick={handleClone}
+                disabled={cloning}
+                title="Clone module"
+              >
+                <Copy size={12} />
+                {cloning ? 'Cloning...' : 'Clone'}
+              </button>
+              <button
+                className="md-btn md-btn-secondary"
+                onClick={handleArchive}
+                disabled={archiving || draft.status === 'archived'}
+                title="Archive module"
+              >
+                <ArchiveBox size={12} />
+                {archiving ? 'Archiving...' : 'Archive'}
+              </button>
+            </>
+          )}
           <button
             className="md-btn md-btn-primary"
             onClick={handleSave}

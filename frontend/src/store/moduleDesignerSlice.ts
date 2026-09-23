@@ -131,7 +131,8 @@ async function apiSaveModule(draft: ModuleDefinition): Promise<void> {
 }
 
 async function apiPublishModule(moduleId: string): Promise<void> {
-  await fetch(`/api/modules/${moduleId}/publish`, { method: 'POST' })
+  const res = await fetch(`/api/modules/${moduleId}/publish`, { method: 'POST' })
+  if (!res.ok) throw new Error(`Failed to publish: ${res.status}`)
 }
 
 // ---------------------------------------------------------------------------

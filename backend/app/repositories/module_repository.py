@@ -209,9 +209,12 @@ class ModuleRepository:
         self,
         module_id: str,
         version: str,
-        expected_version: int,
+        expected_version: int | None = None,
     ) -> ModuleDefinition:
         """Publish a draft module. Only draft modules can be published.
+
+        If expected_version is None, it is auto-resolved from the current row
+        (convenience for single-user operations like UI publish).
 
         Raises ConflictError if expected_version does not match.
         Raises ValueError if module is not in draft status.
@@ -221,8 +224,10 @@ class ModuleRepository:
         if raw is None:
             raise ModuleNotFoundError(f"Module {module_id}@{version} not found")
 
-        if raw["expected_version"] != expected_version:
-            raise ConflictError(module_id, expected_version, raw["expected_version"])
+        effective_ev = expected_version if expected_version is not None else raw["expected_version"]
+
+        if raw["expected_version"] != effective_ev:
+            raise ConflictError(module_id, effective_ev, raw["expected_version"])
 
         if raw["status"] != "draft":
             raise ValueError(
@@ -231,7 +236,7 @@ class ModuleRepository:
             )
 
         now = self._now_iso()
-        new_expected = expected_version + 1
+        new_expected = effective_ev + 1
         # Update definition_json to reflect new status
         definition = self._row_to_definition(raw)
         definition.status = "published"
@@ -249,9 +254,11 @@ class ModuleRepository:
         self,
         module_id: str,
         version: str,
-        expected_version: int,
+        expected_version: int | None = None,
     ) -> ModuleDefinition:
         """Archive a published module. Only published modules can be archived.
+
+        If expected_version is None, it is auto-resolved from the current row.
 
         Raises ConflictError if expected_version does not match.
         Raises ValueError if module is not in published status.
@@ -261,8 +268,10 @@ class ModuleRepository:
         if raw is None:
             raise ModuleNotFoundError(f"Module {module_id}@{version} not found")
 
-        if raw["expected_version"] != expected_version:
-            raise ConflictError(module_id, expected_version, raw["expected_version"])
+        effective_ev = expected_version if expected_version is not None else raw["expected_version"]
+
+        if raw["expected_version"] != effective_ev:
+            raise ConflictError(module_id, effective_ev, raw["expected_version"])
 
         if raw["status"] != "published":
             raise ValueError(
@@ -271,7 +280,7 @@ class ModuleRepository:
             )
 
         now = self._now_iso()
-        new_expected = expected_version + 1
+        new_expected = effective_ev + 1
         # Update definition_json to reflect new status
         definition = self._row_to_definition(raw)
         definition.status = "archived"
@@ -281,6 +290,66 @@ class ModuleRepository:
             "SET status = 'archived', archived_at = ?, updated_at = ?, expected_version = ?, definition_json = ? "
             "WHERE id = ? AND version = ?",
             (now, now, new_expected, updated_json, module_id, version),
+        )
+        conn.commit()
+        return definition
+
+    def clone(
+        self,
+        module_id: str,
+        version: str,
+        expected_version: int | None = None,
+    ) -> ModuleDefinition:
+        """Clone a published or draft module into a new draft with an incremented version.
+
+        The new draft gets a fresh id (based on the original with '-copy' suffix),
+        version bumped to next patch, status set to 'draft', and expected_version reset to 1.
+
+        If expected_version is None, it is auto-resolved from the current row.
+
+        Raises ConflictError if expected_version does not match.
+        Raises ModuleNotFoundError if the source module does not exist.
+        """
+        conn = get_connection()
+        raw = self._get_raw(module_id, version)
+        if raw is None:
+            raise ModuleNotFoundError(f"Module {module_id}@{version} not found")
+
+        effective_ev = expected_version if expected_version is not None else raw["expected_version"]
+
+        if raw["expected_version"] != effective_ev:
+            raise ConflictError(module_id, effective_ev, raw["expected_version"])
+
+        # Read the source definition
+        definition = self._row_to_definition(raw)
+
+        # Increment version: bump patch (e.g. 1.2.3 -> 1.2.4)
+        parts = definition.version.split(".")
+        patch = int(parts[-1]) + 1
+        parts[-1] = str(patch)
+        new_version = ".".join(parts)
+
+        # Create new id with '-copy' suffix to avoid collisions
+        new_id = f"{module_id}-copy"
+
+        now = self._now_iso()
+        definition.id = new_id
+        definition.version = new_version
+        definition.status = "draft"
+
+        definition_data = definition.model_dump(mode="json", by_alias=True)
+        conn.execute(
+            "INSERT INTO module_definitions "
+            "(id, version, status, base_kind, definition_json, created_at, updated_at, expected_version) "
+            "VALUES (?, ?, 'draft', ?, ?, ?, ?, 1)",
+            (
+                definition.id,
+                definition.version,
+                definition.base_kind,
+                json.dumps(definition_data, ensure_ascii=False),
+                now,
+                now,
+            ),
         )
         conn.commit()
         return definition

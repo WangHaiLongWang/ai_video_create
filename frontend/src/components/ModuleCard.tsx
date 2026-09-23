@@ -1,14 +1,32 @@
-import type { ModuleDefinition } from '../schemas/module-definition'
+import type { ModuleDefinition, ModuleStatus } from '../schemas/module-definition'
+
+const STATUS_COLORS: Record<ModuleStatus, string> = {
+  draft: '#b8a44e',
+  published: '#7dce7d',
+  archived: '#737a6e',
+}
+
+const STATUS_LABELS: Record<ModuleStatus, string> = {
+  draft: 'Draft',
+  published: 'Published',
+  archived: 'Archived',
+}
 
 interface ModuleCardProps {
   module: ModuleDefinition
   onDragStart?: (event: React.DragEvent, mod: ModuleDefinition) => void
   onClick?: (mod: ModuleDefinition) => void
+  onClone?: (mod: ModuleDefinition) => void
 }
 
-export function ModuleCard({ module, onDragStart, onClick }: ModuleCardProps) {
+export function ModuleCard({ module, onDragStart, onClick, onClone }: ModuleCardProps) {
   const inputSummary = module.ports.inputs.map((p) => p.label ?? p.id).join(', ') || '--'
   const outputSummary = module.ports.outputs.map((p) => p.label ?? p.id).join(', ') || '--'
+
+  const handleClone = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onClone?.(module)
+  }
 
   return (
     <button
@@ -19,7 +37,16 @@ export function ModuleCard({ module, onDragStart, onClick }: ModuleCardProps) {
     >
       <div className="module-card-header">
         <span className="module-card-label">{module.label}</span>
-        <span className="module-card-version">v{module.version}</span>
+        <div className="module-card-badges">
+          <span
+            className="module-card-status"
+            style={{ color: STATUS_COLORS[module.status] }}
+            title={`Status: ${STATUS_LABELS[module.status]}`}
+          >
+            {STATUS_LABELS[module.status]}
+          </span>
+          <span className="module-card-version">v{module.version}</span>
+        </div>
       </div>
       {module.description && (
         <p className="module-card-desc">{module.description}</p>
@@ -40,6 +67,17 @@ export function ModuleCard({ module, onDragStart, onClick }: ModuleCardProps) {
         <span className="module-card-arrow">&rarr;</span>
         <span className="module-card-port-out">{outputSummary}</span>
       </div>
+      {onClone && !module.metadata?.builtin && (
+        <div className="module-card-actions">
+          <button
+            className="module-card-action-btn"
+            onClick={handleClone}
+            title="Clone module"
+          >
+            Clone
+          </button>
+        </div>
+      )}
     </button>
   )
 }

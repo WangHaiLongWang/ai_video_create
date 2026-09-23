@@ -24,18 +24,6 @@ class UpdateDraftRequest(BaseModel):
     expected_version: int = Field(..., alias="expectedVersion")
 
 
-class PublishRequest(BaseModel):
-    """Request body for publishing a module."""
-
-    expected_version: int = Field(..., alias="expectedVersion")
-
-
-class ArchiveRequest(BaseModel):
-    """Request body for archiving a module."""
-
-    expected_version: int = Field(..., alias="expectedVersion")
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -103,15 +91,14 @@ async def update_draft(module_id: str, body: UpdateDraftRequest) -> ModuleDefini
 
 
 @router.post("/{module_id}/publish")
-async def publish(module_id: str, body: PublishRequest) -> ModuleDefinition:
-    """Publish a draft module."""
+async def publish(module_id: str) -> ModuleDefinition:
+    """Publish a draft module. expected_version is auto-resolved from DB."""
     registry = get_module_registry()
-    # Need version — look it up
     module = registry.get_module(module_id)
     if not module:
         raise HTTPException(404, f"Module not found: {module_id}")
     try:
-        return registry.publish_draft(module_id, module.version, body.expected_version)
+        return registry.publish_draft(module_id, module.version)
     except Exception as e:
         from backend.app.repositories.module_repository import ConflictError
 
@@ -121,17 +108,36 @@ async def publish(module_id: str, body: PublishRequest) -> ModuleDefinition:
 
 
 @router.post("/{module_id}/archive")
-async def archive(module_id: str, body: ArchiveRequest) -> ModuleDefinition:
-    """Archive a published module."""
+async def archive(module_id: str) -> ModuleDefinition:
+    """Archive a published module. expected_version is auto-resolved from DB."""
     registry = get_module_registry()
     module = registry.get_module(module_id)
     if not module:
         raise HTTPException(404, f"Module not found: {module_id}")
     try:
-        return registry.archive_draft(module_id, module.version, body.expected_version)
+        return registry.archive_draft(module_id, module.version)
     except Exception as e:
         from backend.app.repositories.module_repository import ConflictError
 
         if isinstance(e, ConflictError):
             raise HTTPException(409, str(e))
+        raise HTTPException(400, str(e))
+
+
+@router.post("/{module_id}/clone", status_code=201)
+async def clone_module(module_id: str) -> ModuleDefinition:
+    """Clone a module into a new draft with incremented version."""
+    registry = get_module_registry()
+    module = registry.get_module(module_id)
+    if not module:
+        raise HTTPException(404, f"Module not found: {module_id}")
+    try:
+        return registry.clone_draft(module_id, module.version)
+    except Exception as e:
+        from backend.app.repositories.module_repository import ConflictError, ModuleNotFoundError
+
+        if isinstance(e, ConflictError):
+            raise HTTPException(409, str(e))
+        if isinstance(e, ModuleNotFoundError):
+            raise HTTPException(404, str(e))
         raise HTTPException(400, str(e))
