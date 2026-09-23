@@ -178,9 +178,40 @@ class ModuleRegistry:
         self, module_id: str, version: str, expected_version: int | None = None
     ) -> ModuleDefinition:
         """Clone a module into a new draft with incremented version."""
-        if self._repository is None:
-            raise RuntimeError("Repository not configured — cannot persist modules")
-        return self._repository.clone(module_id, version, expected_version)
+        source = self.get_module(module_id, version)
+        if source is None:
+            from backend.app.repositories.module_repository import ModuleNotFoundError
+            raise ModuleNotFoundError(f"Module not found: {module_id}@{version}")
+
+        # New ID with -copy suffix, increment version: 1.0.0 → 1.0.1
+        new_id = f"{source.id}-copy"
+        parts = source.version.split(".")
+        parts[2] = str(int(parts[2]) + 1)
+        new_version = ".".join(parts)
+
+        cloned = ModuleDefinition(
+            id=new_id,
+            version=new_version,
+            status="draft",
+            base_kind=source.base_kind,
+            category=source.category,
+            label=f"{source.label} (copy)",
+            description=source.description,
+            icon=source.icon,
+            provider_policy=source.provider_policy,
+            config_schema=source.config_schema,
+            default_config=source.default_config,
+            ports=source.ports,
+            execution=source.execution,
+            metadata={**source.metadata, "cloned_from": f"{module_id}@{version}"},
+        )
+
+        if self._repository is not None:
+            return self._repository.create_draft(cloned)
+
+        # In-memory fallback when no repository is configured
+        self._modules[cloned.id] = cloned
+        return cloned
 
     # ------------------------------------------------------------------
     # Validation
