@@ -232,7 +232,21 @@ _EXAMPLES = """
 
 def _build_system_prompt() -> str:
     """Build the full system prompt with examples."""
-    return _SYSTEM_PROMPT + _EXAMPLES
+    base = _SYSTEM_PROMPT + _EXAMPLES
+
+    # Append available modules section
+    try:
+        from backend.app.services.agent_module_tools import (
+            list_modules_for_agent,
+            format_modules_for_system_prompt,
+        )
+        modules = list_modules_for_agent()
+        if modules:
+            base += "\n" + format_modules_for_system_prompt(modules)
+    except Exception:
+        pass  # If module tools fail, just use base prompt
+
+    return base
 
 
 def _extract_scene_count(prompt: str) -> int | None:
@@ -358,6 +372,7 @@ def _dict_to_intent(data: dict, prompt: str) -> WorkflowIntent | None:
             nodes.append(NodeIntent(
                 alias=alias,
                 kind=kind,
+                moduleId=n.get("moduleId"),
                 config=n.get("config", {}),
                 label=n.get("label"),
             ))

@@ -158,6 +158,20 @@ async def _generate_intent_from_prompt(prompt: str) -> WorkflowIntent:
     try:
         from backend.app.services.workflow_intent_parser import parse_workflow_intent
 
+        # Enrich prompt with module context so the parser knows about modules
+        enriched_prompt = prompt
+        try:
+            from backend.app.services.agent_module_tools import (
+                list_modules_for_agent,
+                format_modules_for_system_prompt,
+            )
+            modules = list_modules_for_agent()
+            if modules:
+                module_ctx = format_modules_for_system_prompt(modules)
+                enriched_prompt = f"{prompt}\n\n[可用模块信息]\n{module_ctx}"
+        except Exception:
+            pass  # Module tools not available — proceed without enrichment
+
         # Try to get a text-capable provider for the parser
         provider = None
         try:
@@ -169,7 +183,7 @@ async def _generate_intent_from_prompt(prompt: str) -> WorkflowIntent:
         except Exception:
             pass
 
-        return await parse_workflow_intent(prompt, provider=provider)
+        return await parse_workflow_intent(enriched_prompt, provider=provider)
     except Exception as exc:
         logger.warning(f"Intent parser failed, falling back to template: {exc}")
         try:

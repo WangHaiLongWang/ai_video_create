@@ -8,6 +8,7 @@ from typing import Any
 from backend.app.schemas.module_definition import ModuleDefinition, ProviderPolicy
 from backend.app.schemas.node_manifest import ExecutionHints
 from backend.app.services.module_port_validator import PortBindingValidator, PortError
+from backend.app.services.module_security import validate_module_security
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +257,18 @@ class ModuleRegistry:
                 }
             )
 
+        # Security validation
+        security_violations = validate_module_security(module_definition)
+        for sv in security_violations:
+            errors.append(
+                {
+                    "field": sv.field,
+                    "error": sv.rule,
+                    "message": sv.message,
+                    "severity": sv.severity,
+                }
+            )
+
         return errors
 
     def publish(
@@ -264,10 +277,17 @@ class ModuleRegistry:
         """Attempt to publish a module definition.
 
         Returns (success, errors). Cannot publish if there are any validation
-        errors, including port binding errors.
+        errors with severity "error".  Warnings are included in the response
+        but do not block publishing.
         """
         errors = self.validate_module(module_definition)
-        if errors:
+        # Block only on errors (severity == "error" or no severity field for legacy errors)
+        blocking = [
+            e
+            for e in errors
+            if not isinstance(e, dict) or e.get("severity", "error") == "error"
+        ]
+        if blocking:
             return False, errors
 
         # Set status to published and register
@@ -275,7 +295,7 @@ class ModuleRegistry:
         self._modules.setdefault(module_definition.id, {})[
             module_definition.version
         ] = module_definition
-        return True, []
+        return True, errors
 
     def resolve_effective_config(
         self,

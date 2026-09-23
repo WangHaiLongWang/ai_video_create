@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.app.schemas.module_definition import ModuleDefinition
+from backend.app.services.module_diff import ModuleDiff, compute_module_diff, check_config_compatibility
 from backend.app.services.module_registry import get_module_registry
 
 
@@ -57,6 +58,52 @@ async def get_module_version(module_id: str, version: str) -> ModuleDefinition:
     if not module:
         raise HTTPException(404, f"Module version not found: {module_id}@{version}")
     return module
+
+
+# ---------------------------------------------------------------------------
+# Diff / Compatibility
+# ---------------------------------------------------------------------------
+
+
+class ConfigCompatRequest(BaseModel):
+    """Request body for config compatibility check."""
+
+    old_config: dict = Field(..., alias="oldConfig")
+    old_schema: dict = Field(..., alias="oldSchema")
+    new_schema: dict = Field(..., alias="newSchema")
+
+
+@router.get("/{module_id}/diff")
+async def diff_modules(
+    module_id: str,
+    from_version: str = Query(..., alias="from", description="Source version (semver)"),
+    to_version: str = Query(..., alias="to", description="Target version (semver)"),
+) -> dict:
+    """Get structural diff between two module versions."""
+    registry = get_module_registry()
+    old = registry.get_module(module_id, version=from_version)
+    if not old:
+        raise HTTPException(
+            404, f"Module version not found: {module_id}@{from_version}"
+        )
+    new = registry.get_module(module_id, version=to_version)
+    if not new:
+        raise HTTPException(
+            404, f"Module version not found: {module_id}@{to_version}"
+        )
+    diff = compute_module_diff(old, new)
+    return diff.to_dict()
+
+
+@router.post("/{module_id}/compat-check")
+async def compat_check(
+    module_id: str, body: ConfigCompatRequest
+) -> dict:
+    """Check if existing config overrides are compatible with a new schema."""
+    messages = check_config_compatibility(
+        body.old_config, body.old_schema, body.new_schema
+    )
+    return {"compatible": len(messages) == 0, "messages": messages}
 
 
 @router.post("", status_code=201)
