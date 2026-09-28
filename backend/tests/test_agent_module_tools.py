@@ -200,3 +200,17 @@ class TestSystemPromptIntegration:
 
         restored = WorkflowIntent(**dumped)
         assert restored.nodes[0].module_id == "builtin.seedream.text-to-image"
+
+    def test_workflow_intent_roundtrip_preserves_module_instance(self):
+        from backend.app.schemas.workflow_intent import NodeIntent, WorkflowIntent
+        intent = WorkflowIntent(name="test", nodes=[NodeIntent(
+            alias="img",
+            kind="textToImage",
+            moduleId="builtin.seedream.text-to-image",
+            moduleVersion="1.0.0",
+            configOverrides={"size": "1920x1080"},
+        )])
+        restored = WorkflowIntent.model_validate(intent.model_dump(by_alias=True))
+        node = restored.nodes[0]
+        assert node.module_version == "1.0.0"
+        assert node.config_overrides == {"size": "1920x1080"}

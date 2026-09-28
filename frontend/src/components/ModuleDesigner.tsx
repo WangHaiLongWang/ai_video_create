@@ -523,7 +523,7 @@ function PortsSection() {
 // Main Component
 // ---------------------------------------------------------------------------
 export function ModuleDesigner() {
-  const { isOpen, draft, isDirty, closeDesigner, saveDraft, publishDraft, openDesigner } = useModuleDesignerStore()
+  const { isOpen, draft, isDirty, expectedVersion, error, closeDesigner, saveDraft, publishDraft, openDesigner } = useModuleDesignerStore()
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [cloning, setCloning] = useState(false)
@@ -567,7 +567,7 @@ export function ModuleDesigner() {
     if (!draft.id) return
     setCloning(true)
     try {
-      const cloned = await cloneModule(draft.id)
+      const cloned = await cloneModule(draft.id, draft.version, expectedVersion)
       // Open the cloned module in the designer
       closeDesigner()
       openDesigner(cloned.id, cloned)
@@ -583,7 +583,7 @@ export function ModuleDesigner() {
     if (!window.confirm('Are you sure you want to archive this module?')) return
     setArchiving(true)
     try {
-      const archived = await archiveModule(draft.id)
+      const archived = await archiveModule(draft.id, draft.version, expectedVersion)
       closeDesigner()
       openDesigner(archived.id, archived)
     } catch (err) {
@@ -613,6 +613,12 @@ export function ModuleDesigner() {
         </div>
 
         <div className="md-body">
+          {error && (
+            <div className="md-ports-warning" role="alert">
+              <Warning size={12} />
+              <span>{error}</span>
+            </div>
+          )}
           <BasicInfoSection />
           <ExecutionSection />
           <ProviderPolicySection />

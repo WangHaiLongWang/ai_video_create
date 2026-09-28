@@ -9,6 +9,7 @@ execution starts so that the API can return 400 instead of 500.
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -149,9 +150,9 @@ class ExecutionResolver:
             data = node.get("data", {})
             node_kind = data.get("kind", "unknown")
 
-            module_id = data.get("moduleId")
-            module_version = data.get("moduleVersion")
-            config_overrides = data.get("configOverrides", {})
+            module_id = data.get("moduleId") or data.get("module_id")
+            module_version = data.get("moduleVersion") or data.get("module_version")
+            config_overrides = data.get("configOverrides", data.get("config_overrides", {}))
 
             if not module_id:
                 # No module reference — pass through existing config
@@ -241,7 +242,9 @@ class ExecutionResolver:
             # 3. Merge config: defaultConfig + configOverrides
             try:
                 effective_config = self._registry.resolve_effective_config(
-                    module_id, instance_overrides=config_overrides or None
+                    module_id,
+                    instance_overrides=config_overrides or None,
+                    version=module_version,
                 )
             except KeyError as exc:
                 # Should not happen since we just verified module exists
@@ -305,3 +308,48 @@ class ExecutionResolver:
 def resolve_execution_config(spec: dict) -> ResolutionResult:
     """One-shot helper: resolve a workflow spec using the global registry."""
     return ExecutionResolver().resolve_workflow(spec)
+
+
+def materialize_execution_spec(
+    spec: dict,
+    resolver: ExecutionResolver | None = None,
+) -> tuple[dict, ResolutionResult]:
+    """Return an immutable execution-ready copy with effective node configs.
+
+    Module definitions remain referenced by exact id/version for auditability,
+    while ``data.config`` is replaced with the resolver's effective config so
+    the compiler, queue and handler all consume the same values.  The editable
+    workflow input is never mutated.
+    """
+    active_resolver = resolver or ExecutionResolver()
+    result = active_resolver.resolve_workflow(spec)
+    materialized = deepcopy(spec)
+    if not result.success:
+        return materialized, result
+
+    resolved_by_id = {node.node_id: node for node in result.nodes}
+    for node in materialized.get("nodes", []):
+        resolved = resolved_by_id.get(node.get("id"))
+        if resolved is None:
+            continue
+        data = node.setdefault("data", {})
+        data["config"] = deepcopy(resolved.resolved_config)
+        if resolved.module_id:
+            data["moduleId"] = resolved.module_id
+            data["moduleVersion"] = resolved.module_version
+
+    metadata = materialized.setdefault("metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+        materialized["metadata"] = metadata
+    metadata["modulesResolved"] = True
+    metadata["resolvedModules"] = [
+        {
+            "nodeId": node.node_id,
+            "moduleId": node.module_id,
+            "moduleVersion": node.module_version,
+        }
+        for node in result.nodes
+        if node.module_id
+    ]
+    return materialized, result

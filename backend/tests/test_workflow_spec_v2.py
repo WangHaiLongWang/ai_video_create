@@ -115,6 +115,30 @@ class TestV2SpecValidation:
         assert wf.metadata is not None
         assert wf.metadata["tags"] == ["test"]
 
+    def test_module_and_custom_node_data_roundtrip_by_alias(self):
+        node = {
+            **NODE_C,
+            "data": {
+                **NODE_C["data"],
+                "moduleId": "builtin.seedream.text-to-image",
+                "moduleVersion": "1.0.0",
+                "configOverrides": {"size": "1024x1024"},
+                "fieldSchema": [{"id": "seed", "label": "Seed", "type": "number"}],
+                "ports": {
+                    "inputs": [{"id": "scene", "type": "scene", "required": True, "cardinality": "one"}],
+                    "outputs": [{"id": "image", "type": "image", "required": False, "cardinality": "one"}],
+                },
+            },
+        }
+        dumped = WorkflowSpec(**_make_v2_spec([node], [])).model_dump(by_alias=True)
+        data = dumped["nodes"][0]["data"]
+
+        assert data["moduleId"] == "builtin.seedream.text-to-image"
+        assert data["moduleVersion"] == "1.0.0"
+        assert data["configOverrides"] == {"size": "1024x1024"}
+        assert data["fieldSchema"][0]["id"] == "seed"
+        assert data["ports"]["outputs"][0]["id"] == "image"
+
     def test_v2_edge_data_preserved(self):
         spec = _make_v2_spec(
             [NODE_A, NODE_B],

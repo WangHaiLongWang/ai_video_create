@@ -15,6 +15,7 @@ from backend.app.services.execution_resolver import (
     NodeResolution,
     _validate_config_schema,
     resolve_execution_config,
+    materialize_execution_spec,
 )
 
 
@@ -678,6 +679,72 @@ class TestResolveExecutionConfig:
         result = resolve_execution_config(spec)
         assert result.success is True
         assert len(result.nodes) == 1
+
+
+class TestMaterializeExecutionSpec:
+    """Effective module config must reach the compiler without mutating draft."""
+
+    def test_materializes_defaults_and_overrides(self):
+        registry = _make_registry(_seedream_module())
+        resolver = ExecutionResolver(registry)
+        original = _make_spec([
+            _make_node(
+                "n1",
+                "textToImage",
+                module_id="builtin.seedream.text-to-image",
+                module_version="1.0.0",
+                config={"legacy": "draft-only"},
+                config_overrides={"size": "1920x1080", "seed": 42},
+            ),
+        ])
+
+        materialized, result = materialize_execution_spec(original, resolver)
+
+        assert result.success is True
+        config = materialized["nodes"][0]["data"]["config"]
+        assert config["provider"] == "doubao"
+        assert config["size"] == "1920x1080"
+        assert config["seed"] == 42
+        assert "legacy" not in config
+        assert materialized["metadata"]["modulesResolved"] is True
+        assert original["nodes"][0]["data"]["config"] == {"legacy": "draft-only"}
+
+    def test_compiler_receives_effective_config(self):
+        from backend.app.engine.compiler import compile_workflow
+
+        registry = _make_registry(_seedream_module())
+        resolver = ExecutionResolver(registry)
+        node = _make_node(
+            "n1",
+            "textToImage",
+            module_id="builtin.seedream.text-to-image",
+            module_version="1.0.0",
+            config_overrides={"size": "1024x1024", "seed": 7},
+        )
+        # Keep this a non-map compiler assertion; map behavior is covered by
+        # compiler/scheduler integration tests.
+        node["data"]["configOverrides"]["mapOver"] = False
+        materialized, result = materialize_execution_spec(
+            _make_spec([node]), resolver
+        )
+
+        assert result.success is True
+        plan = compile_workflow(materialized)
+        assert plan.tasks[0].config["provider"] == "doubao"
+        assert plan.tasks[0].config["size"] == "1024x1024"
+        assert plan.tasks[0].config["seed"] == 7
+
+    def test_invalid_module_returns_unmodified_copy(self):
+        registry = _make_registry(_seedream_module())
+        resolver = ExecutionResolver(registry)
+        original = _make_spec([
+            _make_node("n1", "textToImage", module_id="missing.module"),
+        ])
+
+        materialized, result = materialize_execution_spec(original, resolver)
+
+        assert result.success is False
+        assert materialized == original
 
 
 # ---------------------------------------------------------------------------

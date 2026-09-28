@@ -7,6 +7,7 @@
 | [Doubao UAT 2026-09-21](doubao-uat-2026-09-21.md) | Key/目录通过，媒体模型未激活 | 激活模型或配置 Endpoint ID 后复测 |
 | [项目门禁审计 2026-09-21](project-audit-2026-09-21.md) | Frontend 295 通过；Chromium 2 failed/1 skipped；Backend 3 failed + 依赖阻断 | 当前基线 |
 | [Frontend 模块化与 Agent 验证 2026-09-22](frontend-modularity-agent-validation-2026-09-22.md) | 节点实例自定义通过；模块化/Prompt 编排部分通过 | 当前专项基线 |
+| [Workflow 组件化审计 2026-09-23](workflow-componentization-audit-2026-09-23.md) | 模块骨架完成，执行/Agent 主链存在 P0 断点 | 当前最新专项基线 |
 
 ## 证据要求
 

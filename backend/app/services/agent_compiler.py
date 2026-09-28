@@ -82,12 +82,29 @@ def compile_intent(intent: WorkflowIntent) -> dict[str, Any]:
         alias_to_id[node_intent.alias] = node_id
 
         manifest = _NODE_CATALOG_V2.get(node_intent.kind)
+        module = None
+        if node_intent.module_id:
+            from backend.app.services.module_registry import get_module_registry
+
+            module = get_module_registry().get_module(
+                node_intent.module_id, node_intent.module_version
+            )
+            if module is None:
+                version = f"@{node_intent.module_version}" if node_intent.module_version else ""
+                raise ValueError(f"Module not found: {node_intent.module_id}{version}")
+            if module.base_kind != node_intent.kind:
+                raise ValueError(
+                    f"Module '{module.id}' baseKind '{module.base_kind}' does not match "
+                    f"node kind '{node_intent.kind}'"
+                )
 
         # Resolve label and description from manifest or intent overrides
-        label = node_intent.label or (manifest.label if manifest else node_intent.kind)
+        label = node_intent.label or (
+            module.label if module else (manifest.label if manifest else node_intent.kind)
+        )
         description = (
             node_intent.description
-            or (manifest.description if manifest else "")
+            or (module.description if module else (manifest.description if manifest else ""))
         )
 
         # Ports from manifest
@@ -95,7 +112,14 @@ def compile_intent(intent: WorkflowIntent) -> dict[str, Any]:
         input_type: str | None = None
         output_type: str | None = None
 
-        if manifest:
+        if module:
+            ports = {
+                "inputs": [dict(p) for p in module.ports.get("inputs", [])],
+                "outputs": [dict(p) for p in module.ports.get("outputs", [])],
+            }
+            input_type = ports["inputs"][0].get("type") if ports["inputs"] else None
+            output_type = ports["outputs"][0].get("type") if ports["outputs"] else None
+        elif manifest:
             ports = {
                 "inputs": [
                     {
@@ -122,12 +146,13 @@ def compile_intent(intent: WorkflowIntent) -> dict[str, Any]:
             output_type = manifest.ports.outputs[0].type if manifest.ports.outputs else None
 
         # Merge config: intent overrides take precedence over defaults
-        config: dict[str, Any] = {}
-        if manifest and manifest.config_schema:
+        config: dict[str, Any] = dict(module.default_config) if module else {}
+        if not module and manifest and manifest.config_schema:
             for key, schema in manifest.config_schema.items():
                 if isinstance(schema, dict) and "default" in schema:
                     config[key] = schema["default"]
         config.update(node_intent.config)
+        config.update(node_intent.config_overrides)
 
         node = {
             "id": node_id,
@@ -144,6 +169,12 @@ def compile_intent(intent: WorkflowIntent) -> dict[str, Any]:
                 "ports": ports,
             },
         }
+        if module:
+            node["data"].update({
+                "moduleId": module.id,
+                "moduleVersion": node_intent.module_version or module.version,
+                "configOverrides": dict(node_intent.config_overrides or node_intent.config),
+            })
         nodes.append(node)
 
     # --- 2. Create React Flow edges ---

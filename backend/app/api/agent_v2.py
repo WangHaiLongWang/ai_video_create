@@ -112,7 +112,7 @@ def _repair_intent(
 
         errors_before = list(current_errors)
         try:
-            repaired = repair_intent(current_intent, current_errors)
+            result = repair_intent(current_intent, max_repairs=1)
         except Exception as exc:
             logger.warning(f"repair_intent failed on attempt {attempt}: {exc}")
             steps.append(RepairStep(
@@ -123,17 +123,10 @@ def _repair_intent(
             ))
             break
 
-        # Validate the repaired intent
-        val = validate_intent(repaired)
-        new_errors = val.data.get("errors", []) if val.success is False else val.data.get("errors", [])
+        repaired = result.repaired_intent
+        new_errors = result.errors
 
-        repairs_applied: list[str] = []
-        # Heuristic: compare error codes before/after
-        codes_before = {e.get("code") for e in errors_before}
-        codes_after = {e.get("code") for e in new_errors}
-        fixed_codes = codes_before - codes_after
-        if fixed_codes:
-            repairs_applied = sorted(fixed_codes)
+        repairs_applied = list(result.repairs)
 
         steps.append(RepairStep(
             attempt=attempt,
@@ -146,6 +139,38 @@ def _repair_intent(
         current_errors = new_errors
 
     return current_intent, steps, current_errors
+
+
+def _compiled_gate_errors(compiled: dict | None, compile_error: str | None) -> list[dict]:
+    """Validate graph and module resolution before a preview can be applied."""
+    if compiled is None:
+        return [{"code": "COMPILE_FAILED", "message": compile_error or "Compilation failed"}]
+
+    errors: list[dict] = []
+    nodes, edges = extract_nodes_edges_from_spec(compiled)
+    for error in validate_graph(nodes, edges):
+        errors.append({
+            "code": error.code,
+            "message": error.message,
+            **({"nodeId": error.node_id} if error.node_id else {}),
+            **({"edgeId": error.edge_id} if error.edge_id else {}),
+            **({"portId": error.port_id} if error.port_id else {}),
+        })
+
+    try:
+        from backend.app.services.execution_resolver import resolve_execution_config
+
+        resolution = resolve_execution_config(compiled)
+        for error in resolution.errors:
+            errors.append({
+                "code": f"MODULE_{error.error_type.upper()}",
+                "message": error.message,
+                "nodeId": error.node_id,
+                "details": error.details,
+            })
+    except Exception as exc:
+        errors.append({"code": "MODULE_RESOLUTION_FAILED", "message": str(exc)})
+    return errors
 
 
 async def _generate_intent_from_prompt(prompt: str) -> WorkflowIntent:
@@ -200,6 +225,15 @@ async def _modify_intent_from_prompt(
     workflow_id: str, instruction: str
 ) -> WorkflowIntent:
     """Modify an existing workflow via Agent and return a WorkflowIntent."""
+    existing_intent: WorkflowIntent | None = None
+    try:
+        from backend.app.repositories.workflows import get_workflow
+
+        existing = get_workflow(workflow_id)
+        existing_intent = _spec_to_intent(existing["spec"], existing.get("name", workflow_id))
+    except Exception:
+        pass
+
     try:
         from backend.app.services.workflow_intent_parser import parse_workflow_intent
 
@@ -213,10 +247,23 @@ async def _modify_intent_from_prompt(
         except Exception:
             pass
 
-        return await parse_workflow_intent(instruction, provider=provider)
+        if existing_intent is None:
+            return await parse_workflow_intent(instruction, provider=provider)
+        if provider is None:
+            # Preserve the existing topology when structured modification is
+            # unavailable. Returning a fresh template is destructive.
+            return existing_intent.model_copy(update={
+                "description": instruction,
+                "warnings": [*existing_intent.warnings, "Modification parser unavailable; topology preserved"],
+            })
+        context = existing_intent.model_dump(by_alias=True)
+        return await parse_workflow_intent(
+            f"Modify this existing WorkflowIntent: {context}\nInstruction: {instruction}",
+            provider=provider,
+        )
     except Exception as exc:
         logger.warning(f"Modify failed, generating new intent: {exc}")
-        return _default_intent(instruction)
+        return existing_intent or _default_intent(instruction)
 
 
 def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
@@ -231,8 +278,11 @@ def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
     alias_counter: dict[str, int] = {}
     nodes: list[NodeIntent] = []
 
-    for wf_node in spec.nodes:
-        kind = wf_node.data.kind
+    spec_nodes = spec.get("nodes", []) if isinstance(spec, dict) else spec.nodes
+    spec_edges = spec.get("edges", []) if isinstance(spec, dict) else spec.edges
+    for wf_node in spec_nodes:
+        data = wf_node.get("data", {}) if isinstance(wf_node, dict) else wf_node.data
+        kind = data.get("kind") if isinstance(data, dict) else data.kind
         count = alias_counter.get(kind, 0)
         alias_counter[kind] = count + 1
         alias = f"{kind}{count}" if count > 0 else kind
@@ -240,27 +290,38 @@ def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
         nodes.append(NodeIntent(
             alias=alias,
             kind=kind,
-            config=wf_node.data.config,
-            label=wf_node.data.label,
+            config=data.get("config", {}) if isinstance(data, dict) else data.config,
+            label=data.get("label") if isinstance(data, dict) else data.label,
+            moduleId=data.get("moduleId") if isinstance(data, dict) else getattr(data, "module_id", None),
+            moduleVersion=data.get("moduleVersion") if isinstance(data, dict) else getattr(data, "module_version", None),
+            configOverrides=data.get("configOverrides", {}) if isinstance(data, dict) else getattr(data, "config_overrides", {}),
         ))
-        kind_to_alias[wf_node.id] = alias
+        node_id = wf_node.get("id") if isinstance(wf_node, dict) else wf_node.id
+        kind_to_alias[node_id] = alias
 
     # Build connections from edges
     connections: list[ConnectionIntent] = []
-    for edge in spec.edges:
-        src_alias = kind_to_alias.get(edge.source, edge.source)
-        tgt_alias = kind_to_alias.get(edge.target, edge.target)
+    for edge in spec_edges:
+        source = edge.get("source") if isinstance(edge, dict) else edge.source
+        target = edge.get("target") if isinstance(edge, dict) else edge.target
+        src_alias = kind_to_alias.get(source, source)
+        tgt_alias = kind_to_alias.get(target, target)
 
         # Determine port names based on source/target kinds
         src_port = "text"  # default
         tgt_port = "prompt"  # default
 
         # Try to find the node kinds for better port inference
-        for n in spec.nodes:
-            if n.id == edge.source:
-                src_port = _output_port_for_kind(n.data.kind)
-            if n.id == edge.target:
-                tgt_port = _input_port_for_kind(n.data.kind)
+        for n in spec_nodes:
+            n_id = n.get("id") if isinstance(n, dict) else n.id
+            n_data = n.get("data", {}) if isinstance(n, dict) else n.data
+            n_kind = n_data.get("kind") if isinstance(n_data, dict) else n_data.kind
+            if n_id == source:
+                src_port = edge.get("sourceHandle") if isinstance(edge, dict) else getattr(edge, "source_handle", None)
+                src_port = src_port or _output_port_for_kind(n_kind)
+            if n_id == target:
+                tgt_port = edge.get("targetHandle") if isinstance(edge, dict) else getattr(edge, "target_handle", None)
+                tgt_port = tgt_port or _input_port_for_kind(n_kind)
 
         connections.append(ConnectionIntent(
             source=PortRef(node=src_alias, port=src_port),
@@ -269,9 +330,12 @@ def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
 
     # Infer scene count from storyboard config
     scene_count = None
-    for node in spec.nodes:
-        if node.data.kind == "storyboard":
-            scenes = node.data.config.get("scenes")
+    for node in spec_nodes:
+        data = node.get("data", {}) if isinstance(node, dict) else node.data
+        kind = data.get("kind") if isinstance(data, dict) else data.kind
+        if kind == "storyboard":
+            config = data.get("config", {}) if isinstance(data, dict) else data.config
+            scenes = config.get("scenes")
             if isinstance(scenes, int):
                 scene_count = scenes
 
@@ -390,9 +454,10 @@ async def generate_preview_v2(request: GeneratePreviewRequest) -> AgentPreviewRe
         errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
         warnings.extend(val.data.get("warnings", []))
 
-    # Re-compile after repair if needed
-    if errors and compiled is not None:
-        compiled, _ = _compile_intent(intent)
+    # Always compile the final intent.  The previous code only recompiled
+    # while errors remained, returning the stale pre-repair graph on success.
+    compiled, compile_error = _compile_intent(intent)
+    errors.extend(_compiled_gate_errors(compiled, compile_error))
 
     # 5. Cost estimate
     cost = _build_cost_estimate(intent)
@@ -438,9 +503,8 @@ async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewRespon
         errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
         warnings.extend(val.data.get("warnings", []))
 
-    # Re-compile after repair if needed
-    if errors and compiled is not None:
-        compiled, _ = _compile_intent(intent)
+    compiled, compile_error = _compile_intent(intent)
+    errors.extend(_compiled_gate_errors(compiled, compile_error))
 
     # 5. Cost estimate
     cost = _build_cost_estimate(intent)
@@ -493,7 +557,15 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
                 error=f"Failed to compile intent: {compile_error or exc}",
             )
 
-    # Graph-level validation on the compiled workflow
+    # Graph/module/resolver validation on the compiled workflow
+    gate_errors = _compiled_gate_errors(compiled, compile_error)
+    if gate_errors:
+        return AgentApplyResponse(
+            success=False,
+            error=f"Validation failed with {len(gate_errors)} error(s): {gate_errors[0].get('message', '')}",
+        )
+
+    # Keep the HTTP 422 graph contract for callers that depend on it.
     nodes, edges = extract_nodes_edges_from_spec(compiled)
     graph_errors = validate_graph(nodes, edges)
     if graph_errors:

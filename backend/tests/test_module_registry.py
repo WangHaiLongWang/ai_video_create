@@ -65,6 +65,19 @@ class TestModuleRegistry:
         registry = ModuleRegistry()
         assert registry.get_module("builtin.seedream.text-to-image", version="9.9.9") is None
 
+    def test_latest_version_uses_semver_order(self):
+        registry = ModuleRegistry()
+        base = BUILTIN_MODULES["builtin.seedream.text-to-image"]
+        for version in ("1.9.0", "1.10.0", "2.0.0-beta.1"):
+            module = base.model_copy(update={"id": "test.semver", "version": version})
+            registry._modules.setdefault(module.id, {})[version] = module
+        assert registry.get_module("test.semver").version == "2.0.0-beta.1"
+
+    def test_in_memory_clone_keeps_version_map_shape(self):
+        registry = ModuleRegistry()
+        clone = registry.clone_draft("builtin.seedream.text-to-image", "1.0.0")
+        assert registry.get_module(clone.id, clone.version) == clone
+
 
 # ---------------------------------------------------------------------------
 # Validation tests
@@ -169,6 +182,16 @@ class TestResolveEffectiveConfig:
         with pytest.raises(KeyError):
             registry.resolve_effective_config("nonexistent.module")
 
+    def test_resolve_config_uses_exact_version(self):
+        registry = ModuleRegistry()
+        base = BUILTIN_MODULES["builtin.seedream.text-to-image"]
+        registry._modules["test.versioned"] = {
+            "1.0.0": base.model_copy(update={"id": "test.versioned", "version": "1.0.0", "default_config": {"size": "small"}}),
+            "2.0.0": base.model_copy(update={"id": "test.versioned", "version": "2.0.0", "default_config": {"size": "large"}}),
+        }
+        config = registry.resolve_effective_config("test.versioned", {"seed": 7}, version="1.0.0")
+        assert config == {"size": "small", "seed": 7}
+
 
 # ---------------------------------------------------------------------------
 # Seedream built-in module data tests
@@ -223,8 +246,17 @@ class TestModulesAPI:
     """Integration tests for the /api/modules endpoints."""
 
     @pytest.fixture
-    def client(self):
-        return TestClient(app)
+    def client(self, tmp_path, monkeypatch):
+        import backend.app.db.connection as connection
+        import backend.app.services.module_registry as registry_module
+
+        connection.close_connection()
+        monkeypatch.setattr(connection, "_DB_PATH", tmp_path / "modules-api.db")
+        registry_module._registry = None
+        with TestClient(app) as test_client:
+            yield test_client
+        connection.close_connection()
+        registry_module._registry = None
 
     def test_list_modules_returns_200(self, client):
         response = client.get("/api/modules")
@@ -288,3 +320,34 @@ class TestModulesAPI:
     def test_clone_nonexistent_returns_404(self, client):
         response = client.post("/api/modules/nonexistent.module/clone")
         assert response.status_code == 404
+
+    def test_publish_honors_expected_version(self, client):
+        clone = client.post("/api/modules/builtin.seedream.text-to-image/clone").json()
+        response = client.post(
+            f"/api/modules/{clone['id']}/publish",
+            json={"version": clone["version"], "expectedVersion": 99},
+        )
+        assert response.status_code == 409
+
+    def test_publish_rejects_invalid_provider_policy(self, client):
+        definition = {
+            "id": "test.invalid-policy",
+            "version": "1.0.0",
+            "status": "draft",
+            "baseKind": "textToImage",
+            "category": "image",
+            "label": "Invalid policy",
+            "providerPolicy": {
+                "capability": "image",
+                "allowed": ["doubao"],
+                "default": "openai",
+                "locked": True,
+            },
+        }
+        assert client.post("/api/modules", json=definition).status_code == 201
+        response = client.post(
+            "/api/modules/test.invalid-policy/publish",
+            json={"version": "1.0.0", "expectedVersion": 1},
+        )
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "MODULE_VALIDATION_FAILED"

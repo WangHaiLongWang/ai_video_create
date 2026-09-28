@@ -59,6 +59,8 @@ export interface ModuleDefinition {
   id: string               // e.g. "builtin.seedream.text-to-image"
   version: string          // semver
   status: ModuleStatus
+  /** Optimistic-lock token returned by the module API. */
+  expectedVersion?: number
   baseKind: string         // matches existing NodeKind
   category: string
   label: string
@@ -115,6 +117,8 @@ export interface ModuleDesignerState {
   moduleId: string | null  // null = creating new
   draft: ModuleDefinition | null
   isDirty: boolean
+  expectedVersion: number
+  error: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -126,7 +130,7 @@ export const BUILTIN_MODULES: ModuleDefinition[] = [
     version: '1.0.0',
     status: 'published',
     baseKind: 'textToImage',
-    category: 'image',
+    category: 'Image',
     label: 'Seedream 文生图',
     description: '使用火山方舟 Seedream 生成图片',
     icon: 'image-square',

@@ -88,6 +88,47 @@ class TestGeneratePreviewV2:
         )
         assert response.status_code == 422
 
+    def test_preview_recompiles_repaired_intent(self, monkeypatch):
+        from backend.app.schemas.workflow_intent import (
+            ConnectionIntent, NodeIntent, PortRef, WorkflowIntent,
+        )
+        connection = ConnectionIntent(
+            source=PortRef(node="input", port="text"),
+            target=PortRef(node="story", port="prompt"),
+        )
+        broken = WorkflowIntent(
+            name="repair",
+            nodes=[
+                NodeIntent(alias="input", kind="textInput"),
+                NodeIntent(alias="story", kind="storyboard"),
+            ],
+            connections=[connection, connection.model_copy(deep=True)],
+        )
+
+        async def fake_generate(_prompt):
+            return broken
+
+        monkeypatch.setattr("backend.app.api.agent_v2._generate_intent_from_prompt", fake_generate)
+        data = client.post("/api/agent/generate-preview-v2", json={"prompt": "repair"}).json()
+        assert data["can_apply"] is True
+        assert len(data["intent"]["connections"]) == 1
+        assert len(data["compiled_workflow"]["edges"]) == 1
+
+    def test_missing_module_blocks_apply(self, monkeypatch):
+        from backend.app.schemas.workflow_intent import NodeIntent, WorkflowIntent
+        broken = WorkflowIntent(name="module", nodes=[NodeIntent(
+            alias="image", kind="textToImage", moduleId="missing.module",
+            moduleVersion="1.0.0",
+        )])
+
+        async def fake_generate(_prompt):
+            return broken
+
+        monkeypatch.setattr("backend.app.api.agent_v2._generate_intent_from_prompt", fake_generate)
+        data = client.post("/api/agent/generate-preview-v2", json={"prompt": "module"}).json()
+        assert data["can_apply"] is False
+        assert any(e["code"] == "COMPILE_FAILED" for e in data["validation_errors"])
+
 
 # ---------------------------------------------------------------------------
 # POST /api/agent/modify-preview-v2
@@ -119,6 +160,21 @@ class TestModifyPreviewV2:
         assert "intent" in data
         assert "cost_estimate" in data
         assert "can_apply" in data
+
+    def test_modify_without_parser_preserves_existing_topology(self, monkeypatch):
+        monkeypatch.setattr("backend.app.providers.get_provider", lambda _name: None)
+        intent = TestApplyV2()._make_valid_intent()
+        created = client.post("/api/agent/apply-v2", json={"intent": intent}).json()
+        response = client.post("/api/agent/modify-preview-v2", json={
+            "workflow_id": created["workflow_id"],
+            "instruction": "rename this workflow",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert [n["kind"] for n in data["intent"]["nodes"]] == [
+            n["kind"] for n in intent["nodes"]
+        ]
+        assert len(data["intent"]["connections"]) == len(intent["connections"])
 
 
 # ---------------------------------------------------------------------------

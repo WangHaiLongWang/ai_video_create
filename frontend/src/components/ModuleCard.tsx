@@ -29,11 +29,19 @@ export function ModuleCard({ module, onDragStart, onClick, onClone }: ModuleCard
   }
 
   return (
-    <button
+    <div
       className="module-card"
+      role="button"
+      tabIndex={0}
       draggable
       onDragStart={(e) => onDragStart?.(e, module)}
       onClick={() => onClick?.(module)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.(module)
+        }
+      }}
     >
       <div className="module-card-header">
         <span className="module-card-label">{module.label}</span>
@@ -78,6 +86,6 @@ export function ModuleCard({ module, onDragStart, onClick, onClone }: ModuleCard
           </button>
         </div>
       )}
-    </button>
+    </div>
   )
 }

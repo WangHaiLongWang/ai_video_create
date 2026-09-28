@@ -23,6 +23,7 @@ class ModuleDefinition(BaseModel):
     id: str  # e.g. "builtin.seedream.text-to-image"
     version: str  # semver
     status: Literal["draft", "published", "archived"] = "draft"
+    expected_version: int = Field(default=1, alias="expectedVersion", ge=1)
     base_kind: str = Field(alias="baseKind")  # must match existing NodeKind
     category: str  # "input", "transform", "image", "video", "output"
     label: str

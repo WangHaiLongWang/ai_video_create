@@ -1,15 +1,15 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-09-22
-> 状态版本：15.0
-> 代码基线：`840daea`
+> 基线日期：2026-09-23
+> 状态版本：17.0
+> 代码基线：`27f8573`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
 
 ## 1. 结论
 
-项目已进入内部 Beta / RC 前收敛阶段。React Flow 编辑、Workflow Agent v2、Scene 编辑导出、Mock 执行器、安全组件和多 Provider 架构的主体功能已经形成；RC 中的两项 Chromium 交互失败已在当前 HEAD 修复，但后端依赖环境和旧 Agent v1 acceptance 仍未闭环。
+项目已进入“模块化骨架完成、生产闭环收敛”阶段。React Flow 编辑、Module Palette/Designer、Workflow Agent v2、Scene 编辑导出、Mock 执行器和多 Provider 架构主体已形成，但模块执行快照、Agent repair/apply gate、模块持久化 wiring 和完整 E2E 仍未闭环。
 
 本轮校准纠正了旧状态中的三项错误：
 
@@ -21,16 +21,16 @@
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
-| 架构骨架 | 92% | API/Engine/Provider/Repository/Scene/Agent 分层清晰，契约仍有双实现 |
-| React Flow 编辑器 | 94% | 连接、字段/端口、Edge、viewport 和浏览器主矩阵基本完成 |
-| 前端产品闭环 | 94% | 两项交互失败已修复；全套 E2E 仍需重新运行并取消 roundtrip skip |
-| Mock 执行闭环 | 88% | 执行器能力成熟，但旧 Agent v1 acceptance 有 3 项失败 |
-| Workflow Agent | 89% | v2 preview/apply 浏览器用例通过；真实 MiMo 与完整运行仍待验收 |
-| Scene/Prompt 产品层 | 88% | Editor/Import/Export/Draft/Preview 已有；后端联调 roundtrip 未形成浏览器证据 |
-| 安全与秘密管理 | 83% | 中间件、扫描、审计、AES-GCM 代码和测试存在；cryptography 依赖未声明/未安装 |
-| Provider 与媒体 | 79% | Qwen/Wan3 有历史 UAT；Doubao 合约完成但账号模型未激活 |
-| 发布工程 | 73% | 依赖声明已部分修复；仍无 Playwright CI、integration 吞错和同 SHA 证据 |
-| 综合产品完成度 | **约 89%** | 内部 Beta，可演示；未达到 RC |
+| 架构骨架 | 90% | 模块/Agent/执行层代码增多，单一契约和 wiring 仍不稳定 |
+| React Flow 编辑器 | 94% | 实例级字段/端口/Edge 成熟，模块端口语义未完全接入 |
+| 节点组件化 | 68% | Registry/API/Materializer/Frontend 模块实例化已推进，纵向 E2E 待收口 |
+| Mock 执行闭环 | 86% | Materializer 已让模块 defaults/overrides 进入 snapshot/Task，浏览器纵向 E2E 待补 |
+| Workflow Agent | 78% | module-aware compiler、repair、四层 preview gate 已实现，真实 Prompt/Modify E2E 待验收 |
+| Scene/Prompt 产品层 | 88% | Editor/Import/Export/Draft/Preview 已有 |
+| 安全与秘密管理 | 83% | 安全代码存在，依赖环境和发布证据仍需修复 |
+| Provider 与媒体 | 79% | Qwen/Wan3 有历史 UAT；Doubao External Blocked |
+| 发布工程 | 70% | Playwright/CI/依赖和同 SHA 证据尚未完成 |
+| 综合产品完成度 | **约 78%** | 第一轮 P0 已完成，仍不能标记组件化 Workflow 完成 |
 
 ## 2. 当前可重复测试基线
 
@@ -38,12 +38,12 @@
 
 | 验证项 | 当前结果 | 状态 |
 |---|---:|---|
-| Frontend Vitest | 18 files / 311 passed | 通过 |
+| Frontend Vitest | 22 files / 342 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
 | Vite build | main 98.41 kB；最大 chunk 172.68 kB | 通过，无 500 kB 警告 |
 | Chromium Playwright | 定向复测 2/2 passed；全套基线仍为 132 passed / 2 failed / 1 skipped | 部分修复，需全套复跑 |
-| Backend full collection | 1850 passed / 29 skipped | 通过（含 P0-4/5/6 新增 260 测试） |
-| Backend 可运行集 | 1850 passed / 29 skipped / 0 failed | 全绿 |
+| Backend module/agent/execution 定向集 | 723 passed / 1 warning | 通过 |
+| Backend full collection | 当前环境需重新复核 | 干净 venv 的 Pillow/cryptography 安装仍需验证 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
 | 三平台 CI | workflow 文件存在 | 尚无本次 run 证据 |
@@ -69,19 +69,23 @@
 
 ## 3. 前端实现评估
 
-### 3.0 模块化与 Agent 专项判断（2026-09-22，P0 修复后）
+### 3.0 组件化/Agent 最新判定
 
-- 节点实例级自定义通过：字段、端口、Edge、保存和 Undo 能力完整。
-- ModuleDefinition、Seedream 内置 Registry、GET API 和 Schema Property UI 已实现，专项测试为 backend 62 passed（29 registry + 33 resolver）。
-- **P0-1 已修复**：前后端 Manifest port ID/cardinality 统一为 `image` (one)。
-- **P0-2 已修复**：NodeData/WorkflowSpec 保留 moduleId/moduleVersion/configOverrides，API roundtrip 通过。
-- **P0-3 已修复**：ModulePalette 已挂载到 App.tsx，Canvas 支持 `application/reactflow-module` DnD。
-- **P0-4 已修复**：Execution Resolver 接入 compiler/start，执行前验证模块存在性和配置。
-- **P0-5 已修复**：MiMo 结构化 WorkflowIntent parser，支持 scene/variant 提取和 no-video 检测。
-- **P0-6 已修复**：Parser golden cases 160 tests + backend E2E 20 tests，全绿。
-- Agent compiler/validator/repair 专项 286 passed + 47 parser + 180 golden/E2E。
+- 节点实例级自定义：通过。
+- ModuleDefinition/Registry/Designer：代码和单测基础通过，但不能代表端到端组件化。
+- Module 执行：P0；Resolver 未可靠回写 Compiler/Scheduler。
+- Agent：编排基础通过；自然语言到 module-aware 可执行 Workflow 仍未通过。
+- 最新审计：[`reports/workflow-componentization-audit-2026-09-23.md`](reports/workflow-componentization-audit-2026-09-23.md)。
 
-详细证据见 [`reports/frontend-modularity-agent-validation-2026-09-22.md`](reports/frontend-modularity-agent-validation-2026-09-22.md)。
+第一轮 P0 开发已完成：ExecutionMaterializer、Workflow create/import roundtrip、Registry/Repository、Module API 乐观锁、Frontend module create/drop/property、Agent module-aware compiler、RepairResult 和四层 preview gate。定向 Backend module/agent/execution 回归 723 passed；Frontend 22 files / 342 tests passed，typecheck/build 通过。
+
+剩余关闭项：完整 Module Playwright、扩展端口 Binding Designer、Prompt/Modify 浏览器联调、CI 和 Seedream Mock 纵向验收。Draft expectedVersion 已由后端返回并被前端消费，仍需浏览器验证重开编辑冲突。
+
+### 3.0.1 2026-09-22 历史实现说明
+
+9 月 22 日已完成 Manifest 对齐、module reference 字段、Palette/DnD、Resolver 和 structured parser 的代码骨架及分层测试；9 月 23 日纵向审计发现这些实现仍存在 wiring/契约断点，因此相关条目重新打开，不能再以“P0 已关闭”标记。
+
+历史验证见 [`reports/frontend-modularity-agent-validation-2026-09-22.md`](reports/frontend-modularity-agent-validation-2026-09-22.md)，当前结论以 9 月 23 日审计为准。
 
 ### 3.1 已通过浏览器验证
 

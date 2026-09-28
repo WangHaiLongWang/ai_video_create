@@ -31,6 +31,7 @@ from backend.app.engine.queue import (
 from backend.app.engine.worker import WorkerPool
 from backend.app.handlers.contracts import NodeResult, NodeError
 from backend.app.services.event_bus import emit_event
+from backend.app.services.execution_resolver import materialize_execution_spec
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +126,24 @@ class Scheduler:
         # 确保 spec 包含 id
         spec.setdefault("id", workflow_id)
 
-        # 3. 编译工作流
+        # 3. Resolve module definitions into an immutable execution snapshot.
+        materialized_spec, resolution = materialize_execution_spec(spec)
+        if not resolution.success:
+            raise SchedulerError(
+                f"Workflow {workflow_id} module resolution failed: "
+                f"{resolution.error_summary}"
+            )
+        spec = materialized_spec
+        conn.execute(
+            "UPDATE executions SET workflow_snapshot = ? WHERE id = ?",
+            (json.dumps(spec, ensure_ascii=False), execution_id_val),
+        )
+        conn.commit()
+
+        # 4. Compile only the resolved snapshot.
         plan = compile_workflow(spec)
 
-        # 4. 更新 execution 状态为 running
+        # 5. 更新 execution 状态为 running
         conn.execute(
             "UPDATE executions SET status = 'running', started_at = datetime('now') "
             "WHERE id = ? AND status = 'pending'",
@@ -136,7 +151,7 @@ class Scheduler:
         )
         conn.commit()
 
-        # 5. 入队所有 tasks
+        # 6. 入队所有 tasks
         task_dicts = [
             {
                 "id": t.id,
@@ -156,10 +171,10 @@ class Scheduler:
             f"Execution {execution_id_val} 已启动，共 {len(plan.tasks)} 个任务"
         )
 
-        # 6. 触发首批可执行任务
+        # 7. 触发首批可执行任务
         ready_ids = await self.schedule_next_tasks(execution_id_val)
 
-        # 7. 如果有 WorkerPool，确保它在运行
+        # 8. 如果有 WorkerPool，确保它在运行
         # （WorkerPool 会自行轮询 claim_task，不需要额外操作）
 
         return ready_ids

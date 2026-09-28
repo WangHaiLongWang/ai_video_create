@@ -71,6 +71,27 @@ _register_builtin(
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$")
 
 
+def semver_sort_key(version: str) -> tuple:
+    """Sort valid SemVer versions numerically, with releases after prereleases."""
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?", version)
+    if not match:
+        return (-1, -1, -1, -1, ())
+    base = tuple(int(match.group(i)) for i in range(1, 4))
+    pre = match.group(4)
+    if pre is None:
+        return (*base, 1, ())
+    ids = tuple((0, int(x)) if x.isdigit() else (1, x) for x in pre.split('.'))
+    return (*base, 0, ids)
+
+
+class ModuleValidationError(ValueError):
+    """Raised when a draft fails the publication validation gate."""
+
+    def __init__(self, errors: list[str | dict[str, str]]) -> None:
+        self.errors = errors
+        super().__init__("Module validation failed")
+
+
 class ModuleRegistry:
     """Registry for module definitions.
 
@@ -99,7 +120,7 @@ class ModuleRegistry:
             combined.setdefault(module_id, {}).update(versions)
         # DB modules
         if self._repository is not None:
-            db_modules = self._repository.list_modules()
+            db_modules = self._repository.list_all_modules()
             for m in db_modules:
                 combined.setdefault(m.id, {})[m.version] = m
         return combined
@@ -113,12 +134,15 @@ class ModuleRegistry:
         combined = self._all_modules()
         result: list[ModuleDefinition] = []
         for versions in combined.values():
-            # Pick the latest version for each module
-            latest = max(versions.values(), key=lambda m: m.version)
-            if status and latest.status != status:
+            candidates = [
+                module
+                for module in versions.values()
+                if (not status or module.status == status)
+                and (not capability or module.provider_policy.capability == capability)
+            ]
+            if not candidates:
                 continue
-            if capability and latest.provider_policy.capability != capability:
-                continue
+            latest = max(candidates, key=lambda m: semver_sort_key(m.version))
             result.append(latest)
         return result
 
@@ -132,7 +156,7 @@ class ModuleRegistry:
             return None
         if version:
             return versions.get(version)
-        return max(versions.values(), key=lambda m: m.version)
+        return max(versions.values(), key=lambda m: semver_sort_key(m.version))
 
     # ------------------------------------------------------------------
     # Mutation helpers (delegate to repository)
@@ -165,6 +189,19 @@ class ModuleRegistry:
         """Publish a draft module via the repository (persistent storage)."""
         if self._repository is None:
             raise RuntimeError("Repository not configured — cannot persist modules")
+        definition = self._repository.get_module(module_id, version)
+        if definition is None:
+            from backend.app.repositories.module_repository import ModuleNotFoundError
+            raise ModuleNotFoundError(f"Module not found: {module_id}@{version}")
+        errors = self.validate_module(definition)
+        blocking = [
+            error
+            for error in errors
+            if not isinstance(error, dict)
+            or error.get("severity", "error") == "error"
+        ]
+        if blocking:
+            raise ModuleValidationError(errors)
         return self._repository.publish(module_id, version, expected_version)
 
     def archive_draft(
@@ -183,6 +220,11 @@ class ModuleRegistry:
         if source is None:
             from backend.app.repositories.module_repository import ModuleNotFoundError
             raise ModuleNotFoundError(f"Module not found: {module_id}@{version}")
+        if (
+            self._repository is not None
+            and self._repository.get_module(module_id, version) is not None
+        ):
+            return self._repository.clone(module_id, version, expected_version)
 
         # New ID with -copy suffix, increment version: 1.0.0 → 1.0.1
         new_id = f"{source.id}-copy"
@@ -211,7 +253,7 @@ class ModuleRegistry:
             return self._repository.create_draft(cloned)
 
         # In-memory fallback when no repository is configured
-        self._modules[cloned.id] = cloned
+        self._modules.setdefault(cloned.id, {})[cloned.version] = cloned
         return cloned
 
     # ------------------------------------------------------------------
@@ -245,6 +287,36 @@ class ModuleRegistry:
 
         if not module_definition.category:
             errors.append("category is required")
+
+        policy = module_definition.provider_policy
+        if len(policy.allowed) != len(set(policy.allowed)):
+            errors.append(
+                {
+                    "field": "providerPolicy.allowed",
+                    "error": "DUPLICATE_ALLOWED_PROVIDER",
+                    "message": "providerPolicy.allowed must not contain duplicates",
+                }
+            )
+        if policy.default and policy.allowed and policy.default not in policy.allowed:
+            errors.append(
+                {
+                    "field": "providerPolicy.default",
+                    "error": "DEFAULT_PROVIDER_NOT_ALLOWED",
+                    "message": "providerPolicy.default must be included in providerPolicy.allowed",
+                }
+            )
+        configured_provider = module_definition.default_config.get("provider")
+        if policy.locked and configured_provider and configured_provider not in policy.allowed:
+            errors.append(
+                {
+                    "field": "defaultConfig.provider",
+                    "error": "CONFIG_PROVIDER_NOT_ALLOWED",
+                    "message": (
+                        "defaultConfig.provider is not permitted by the locked "
+                        "provider policy"
+                    ),
+                }
+            )
 
         # Port binding validation
         port_errors = PortBindingValidator().validate_ports(module_definition)
@@ -301,14 +373,16 @@ class ModuleRegistry:
         self,
         module_id: str,
         instance_overrides: dict[str, Any] | None = None,
+        version: str | None = None,
     ) -> dict[str, Any]:
         """Merge module defaultConfig with instance-level overrides.
 
         Returns the resulting config dict.
         """
-        module = self.get_module(module_id)
+        module = self.get_module(module_id, version=version)
         if module is None:
-            raise KeyError(f"Module not found: {module_id}")
+            suffix = f"@{version}" if version else ""
+            raise KeyError(f"Module not found: {module_id}{suffix}")
 
         merged = dict(module.default_config)
         if instance_overrides:
@@ -326,5 +400,6 @@ _registry: ModuleRegistry | None = None
 def get_module_registry() -> ModuleRegistry:
     global _registry
     if _registry is None:
-        _registry = ModuleRegistry()
+        from backend.app.repositories.module_repository import ModuleRepository
+        _registry = ModuleRegistry(repository=ModuleRepository())
     return _registry

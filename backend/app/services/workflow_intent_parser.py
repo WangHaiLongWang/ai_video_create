@@ -373,6 +373,8 @@ def _dict_to_intent(data: dict, prompt: str) -> WorkflowIntent | None:
                 alias=alias,
                 kind=kind,
                 moduleId=n.get("moduleId"),
+                moduleVersion=n.get("moduleVersion"),
+                configOverrides=n.get("configOverrides", {}),
                 config=n.get("config", {}),
                 label=n.get("label"),
             ))
@@ -404,7 +406,7 @@ def _dict_to_intent(data: dict, prompt: str) -> WorkflowIntent | None:
         scene_count = data.get("scene_count")
         variant_count = data.get("variant_count")
 
-        return WorkflowIntent(
+        intent = WorkflowIntent(
             name=data.get("name", prompt[:50] if prompt else "Generated Workflow"),
             description=data.get("description"),
             nodes=nodes,
@@ -413,9 +415,34 @@ def _dict_to_intent(data: dict, prompt: str) -> WorkflowIntent | None:
             variant_count=variant_count,
             warnings=[],
         )
+        return _normalize_image_only_intent(intent)
     except Exception as exc:
         logger.warning(f"Failed to build WorkflowIntent from parsed data: {exc}")
         return None
+
+
+def _normalize_image_only_intent(intent: WorkflowIntent) -> WorkflowIntent:
+    """Remove the video-only output sink from image-only workflows.
+
+    Providers sometimes follow the older example and connect ``image`` to
+    ``output.video``.  That graph can never pass the typed-port validator.
+    Images are valid terminal assets, so the image generator itself is the
+    terminal node until a polymorphic asset-output module is introduced.
+    """
+    kinds = {node.kind for node in intent.nodes}
+    if "textToImage" not in kinds or "imageToVideo" in kinds:
+        return intent
+    output_aliases = {node.alias for node in intent.nodes if node.kind == "output"}
+    if not output_aliases:
+        return intent
+    return intent.model_copy(update={
+        "nodes": [node for node in intent.nodes if node.alias not in output_aliases],
+        "connections": [
+            conn for conn in intent.connections
+            if conn.source.node not in output_aliases and conn.target.node not in output_aliases
+        ],
+        "warnings": [*intent.warnings, "Image assets are emitted by the terminal textToImage node"],
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -469,14 +496,10 @@ def _template_fallback(prompt: str) -> WorkflowIntent:
             ),
         ])
     else:
-        # For image-only: just output the images
-        nodes.append(NodeIntent(alias="output", kind="output"))
-        connections.append(
-            ConnectionIntent(
-                source=PortRef(node="textToImage", port="image"),
-                target=PortRef(node="output", port="video"),
-            )
-        )
+        # Image assets are terminal outputs themselves.  The built-in output
+        # node accepts video only, so adding it here creates TYPE_MISMATCH.
+        # A future polymorphic asset-output module can make this explicit.
+        pass
 
     return WorkflowIntent(
         name=prompt[:50] if prompt else "Generated Workflow",

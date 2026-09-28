@@ -23,6 +23,8 @@ class NodeData(BaseModel):
     outputType: str | None = None
     status: str = "idle"
     config: dict[str, Any] = Field(default_factory=dict)
+    field_schema: list[dict[str, Any]] = Field(default_factory=list)
+    ports: dict[str, list[dict[str, Any]]] | None = None
     module_id: str | None = None
     module_version: str | None = None
     config_overrides: dict[str, Any] = Field(default_factory=dict)
@@ -142,4 +144,3 @@ class TemplateDetail(BaseModel):
     description: str
     tags: list[str] = Field(default_factory=list)
     spec: WorkflowSpec
-

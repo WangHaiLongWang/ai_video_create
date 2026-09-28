@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowsClockwise, ArrowUp, ArrowDown, Check, Copy, Pencil, Plus, Trash, Sparkle, SquaresFour, Package } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
@@ -6,6 +6,7 @@ import { FieldEditorDialog } from './FieldEditorDialog'
 import { PortEditor } from './PortEditor'
 import { EdgeInspector } from './EdgeInspector'
 import { BUILTIN_MODULES } from '../schemas/module-definition'
+import { fetchModule } from '../api/modules'
 import type { FieldDefinition, FieldType } from '../types'
 import type { ModuleDefinition, NodeInstanceExtension } from '../schemas/module-definition'
 
@@ -116,6 +117,34 @@ export function PropertyPanel() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingField, setEditingField] = useState<FieldDefinition | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ fieldId: string; fieldLabel: string } | null>(null)
+  const moduleId = node?.data.moduleId
+  const moduleVersion = node?.data.moduleVersion
+  const [resolvedModule, setResolvedModule] = useState<ModuleDefinition | null>(null)
+  const [moduleError, setModuleError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!moduleId) {
+      setResolvedModule(null)
+      setModuleError(null)
+      return
+    }
+    const fallback = BUILTIN_MODULES.find(
+      (item) => item.id === moduleId && (!moduleVersion || item.version === moduleVersion),
+    ) ?? null
+    setResolvedModule(fallback)
+    setModuleError(null)
+    fetchModule(moduleId, moduleVersion)
+      .then((definition) => {
+        if (!cancelled) setResolvedModule(definition)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled && !fallback) {
+          setModuleError(err instanceof Error ? err.message : 'Failed to load module definition')
+        }
+      })
+    return () => { cancelled = true }
+  }, [moduleId, moduleVersion])
 
   function handleAddField() {
     setEditingField(null)
@@ -201,8 +230,10 @@ export function PropertyPanel() {
           {(() => {
             const nodeExt = node.data as unknown as NodeInstanceExtension
             if (!nodeExt.moduleId) return null
-            const mod = BUILTIN_MODULES.find((m) => m.id === nodeExt.moduleId)
-            if (!mod) return null
+            const mod = resolvedModule
+            if (!mod) {
+              return moduleError ? <div className="module-palette-error" role="alert">{moduleError}</div> : null
+            }
             const overrides = nodeExt.configOverrides ?? {}
             const effectiveConfig: Record<string, unknown> = { ...mod.defaultConfig, ...overrides }
             return (

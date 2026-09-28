@@ -48,6 +48,50 @@ class TestStartExecution:
         resp = client.post("/api/executions/nonexistent/start")
         assert resp.status_code == 404
 
+    def test_module_effective_config_reaches_queued_task(self):
+        spec = {
+            "schemaVersion": "2.0",
+            "manifestVersion": "1.0",
+            "id": "exec-module-test",
+            "name": "模块执行配置测试",
+            "nodes": [
+                {
+                    "id": "input-1", "type": "studio", "position": {"x": 0, "y": 0},
+                    "data": {"label": "输入", "description": "", "kind": "textInput", "status": "idle", "config": {"prompt": "test"}},
+                },
+                {
+                    "id": "story-1", "type": "studio", "position": {"x": 200, "y": 0},
+                    "data": {"label": "分镜", "description": "", "kind": "storyboard", "status": "idle", "config": {"scenes": 1}},
+                },
+                {
+                    "id": "seedream-1", "type": "studio", "position": {"x": 400, "y": 0},
+                    "data": {
+                        "label": "Seedream", "description": "", "kind": "textToImage", "status": "idle",
+                        "config": {},
+                        "moduleId": "builtin.seedream.text-to-image",
+                        "moduleVersion": "1.0.0",
+                        "configOverrides": {"size": "1024x1024", "seed": 99},
+                    },
+                },
+            ],
+            "edges": [
+                {"id": "e1", "source": "input-1", "sourceHandle": "text", "target": "story-1", "targetHandle": "prompt"},
+                {"id": "e2", "source": "story-1", "sourceHandle": "scenes", "target": "seedream-1", "targetHandle": "scene"},
+            ],
+        }
+        create = client.post("/api/workflows", json=spec)
+        assert create.status_code == 201, create.text
+
+        started = client.post("/api/executions/exec-module-test/start")
+        assert started.status_code == 201, started.text
+        tasks = client.get(f"/api/executions/{started.json()['id']}/tasks").json()
+        image_tasks = [task for task in tasks if task["node_id"] == "seedream-1"]
+
+        assert image_tasks
+        assert image_tasks[0]["config"]["provider"] == "doubao"
+        assert image_tasks[0]["config"]["size"] == "1024x1024"
+        assert image_tasks[0]["config"]["seed"] == 99
+
 
 class TestGetExecution:
     def test_get_execution(self):

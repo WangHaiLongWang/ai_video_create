@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.schemas.module_definition import ModuleDefinition
 from backend.app.services.module_diff import ModuleDiff, compute_module_diff, check_config_compatibility
@@ -21,8 +21,19 @@ router = APIRouter(prefix="/api/modules", tags=["modules"])
 class UpdateDraftRequest(BaseModel):
     """Request body for updating a draft module."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     definition: ModuleDefinition
     expected_version: int = Field(..., alias="expectedVersion")
+
+
+class ModuleMutationRequest(BaseModel):
+    """Optimistic-lock token and optional exact version for lifecycle writes."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    version: str | None = None
+    expected_version: int | None = Field(default=None, alias="expectedVersion")
 
 
 # ---------------------------------------------------------------------------
@@ -138,31 +149,44 @@ async def update_draft(module_id: str, body: UpdateDraftRequest) -> ModuleDefini
 
 
 @router.post("/{module_id}/publish")
-async def publish(module_id: str) -> ModuleDefinition:
+async def publish(
+    module_id: str, body: ModuleMutationRequest | None = None
+) -> ModuleDefinition:
     """Publish a draft module. expected_version is auto-resolved from DB."""
     registry = get_module_registry()
-    module = registry.get_module(module_id)
+    module = registry.get_module(module_id, version=body.version if body else None)
     if not module:
         raise HTTPException(404, f"Module not found: {module_id}")
     try:
-        return registry.publish_draft(module_id, module.version)
+        return registry.publish_draft(
+            module_id, module.version, body.expected_version if body else None
+        )
     except Exception as e:
         from backend.app.repositories.module_repository import ConflictError
+        from backend.app.services.module_registry import ModuleValidationError
 
         if isinstance(e, ConflictError):
             raise HTTPException(409, str(e))
+        if isinstance(e, ModuleValidationError):
+            raise HTTPException(
+                422, {"code": "MODULE_VALIDATION_FAILED", "errors": e.errors}
+            )
         raise HTTPException(400, str(e))
 
 
 @router.post("/{module_id}/archive")
-async def archive(module_id: str) -> ModuleDefinition:
+async def archive(
+    module_id: str, body: ModuleMutationRequest | None = None
+) -> ModuleDefinition:
     """Archive a published module. expected_version is auto-resolved from DB."""
     registry = get_module_registry()
-    module = registry.get_module(module_id)
+    module = registry.get_module(module_id, version=body.version if body else None)
     if not module:
         raise HTTPException(404, f"Module not found: {module_id}")
     try:
-        return registry.archive_draft(module_id, module.version)
+        return registry.archive_draft(
+            module_id, module.version, body.expected_version if body else None
+        )
     except Exception as e:
         from backend.app.repositories.module_repository import ConflictError
 
@@ -172,14 +196,18 @@ async def archive(module_id: str) -> ModuleDefinition:
 
 
 @router.post("/{module_id}/clone", status_code=201)
-async def clone_module(module_id: str) -> ModuleDefinition:
+async def clone_module(
+    module_id: str, body: ModuleMutationRequest | None = None
+) -> ModuleDefinition:
     """Clone a module into a new draft with incremented version."""
     registry = get_module_registry()
-    module = registry.get_module(module_id)
+    module = registry.get_module(module_id, version=body.version if body else None)
     if not module:
         raise HTTPException(404, f"Module not found: {module_id}")
     try:
-        return registry.clone_draft(module_id, module.version)
+        return registry.clone_draft(
+            module_id, module.version, body.expected_version if body else None
+        )
     except Exception as e:
         from backend.app.repositories.module_repository import ConflictError, ModuleNotFoundError
 

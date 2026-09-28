@@ -68,9 +68,10 @@ def api_list_workflows() -> list[dict]:
 
 @router.post("", response_model=WorkflowSummary, status_code=201)
 def api_create_workflow(spec: WorkflowSpec) -> dict:
-    nodes, edges = extract_nodes_edges_from_spec(spec.model_dump())
+    dumped = spec.model_dump(by_alias=True)
+    nodes, edges = extract_nodes_edges_from_spec(dumped)
     raise_if_invalid(nodes, edges)
-    return create_workflow(spec.model_dump())
+    return create_workflow(dumped)
 
 
 @router.get("/{workflow_id}", response_model=WorkflowDetail)
@@ -136,7 +137,7 @@ def api_export_workflow(workflow_id: str) -> dict:
 
 @router.post("/import", response_model=WorkflowSummary, status_code=201)
 def api_import_workflow(spec: WorkflowSpec) -> dict:
-    raw = spec.model_dump()
+    raw = spec.model_dump(by_alias=True)
     nodes, edges = extract_nodes_edges_from_spec(raw)
     raise_if_invalid(nodes, edges)
 

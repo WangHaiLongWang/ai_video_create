@@ -702,3 +702,9 @@ Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider pol
 - 前后端 `textToImage` 端口 ID/cardinality 漂移是 P0，必须早于模块 E2E 和 Agent parser 修复。
 
 专项报告见 [`../../reports/frontend-modularity-agent-validation-2026-09-22.md`](../../reports/frontend-modularity-agent-validation-2026-09-22.md)。
+
+### 2026-09-23 升级判定
+
+虽然 MOD-101～205 已提交，但 Subagent 复核和专项回归确认 10 个模块/Agent tools 测试失败，并存在 ExecutionResolver 不回写 Compiler、Designer API 不匹配、Agent Compiler 丢 module reference、RepairResult 契约错误等 P0。当前模块化成熟度下调为约 50%–55%。
+
+后续任务按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 的 Phase M0-R → M1-R → M2-R 执行；禁止继续以“文件/类已存在”作为完成标准，必须用 create→publish→drag→configure→save→reload→run 纵向证据关闭工单。

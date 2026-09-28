@@ -209,6 +209,25 @@ class TestCompilePreservesConfig:
         assert "scenes" in config  # default from manifest
         assert "style" in config
 
+    def test_compile_preserves_exact_module_reference_and_overrides(self):
+        intent = WorkflowIntent(
+            name="Seedream",
+            nodes=[NodeIntent(
+                alias="image",
+                kind="textToImage",
+                moduleId="builtin.seedream.text-to-image",
+                moduleVersion="1.0.0",
+                configOverrides={"size": "1920x1080", "variantCount": 2},
+            )],
+        )
+        data = compile_intent(intent)["nodes"][0]["data"]
+        assert data["moduleId"] == "builtin.seedream.text-to-image"
+        assert data["moduleVersion"] == "1.0.0"
+        assert data["configOverrides"] == {"size": "1920x1080", "variantCount": 2}
+        assert data["config"]["provider"] == "doubao"
+        assert data["config"]["size"] == "1920x1080"
+        assert data["ports"]["outputs"][0]["id"] == "image"
+
 
 class TestCompilePorts:
     def test_compile_ports_from_manifest(self):

@@ -36,6 +36,14 @@ class NodeIntent(BaseModel):
     alias: str = Field(..., description="Unique alias for this node, e.g. 'story'")
     kind: str = Field(..., description="Node kind from NODE_CATALOG")
     module_id: Optional[str] = Field(None, alias="moduleId", description="Module ID to use instead of base kind")
+    module_version: Optional[str] = Field(
+        None, alias="moduleVersion", description="Exact published module version"
+    )
+    config_overrides: dict = Field(
+        default_factory=dict,
+        alias="configOverrides",
+        description="Instance-level overrides applied on top of module defaults",
+    )
     config: dict = Field(default_factory=dict, description="Node configuration overrides")
     label: Optional[str] = Field(None, description="Display label override")
     description: Optional[str] = Field(None, description="Description override")

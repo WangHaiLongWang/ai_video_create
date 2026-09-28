@@ -1,5 +1,17 @@
 import { create } from 'zustand'
-import type { ModuleDefinition, ModuleDesignerState, ConfigSchemaField } from '../schemas/module-definition'
+import type { ModuleDefinition, ModuleDesignerState, ConfigSchemaField, ModulePort } from '../schemas/module-definition'
+import { createModule, publishModule, updateModule } from '../api/modules'
+import { NODE_CATALOG } from '../schemas/node-manifest'
+import type { NodeKind } from '../types'
+
+function getPortsForKind(baseKind: string): { inputs: ModulePort[]; outputs: ModulePort[] } {
+  const manifest = NODE_CATALOG[baseKind as NodeKind]
+  if (!manifest) return { inputs: [], outputs: [] }
+  return {
+    inputs: manifest.ports.inputs.map((port) => ({ ...port })),
+    outputs: manifest.ports.outputs.map((port) => ({ ...port })),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helper: auto-generate module ID from label
@@ -36,10 +48,7 @@ function createEmptyDraft(): ModuleDefinition {
       properties: {},
     },
     defaultConfig: {},
-    ports: {
-      inputs: [],
-      outputs: [],
-    },
+    ports: getPortsForKind('textToImage'),
     metadata: {},
   }
 }
@@ -118,24 +127,6 @@ interface ModuleDesignerActions {
 type ModuleDesignerStore = ModuleDesignerState & ModuleDesignerActions
 
 // ---------------------------------------------------------------------------
-// API helpers (lazy imports to avoid circular deps)
-// ---------------------------------------------------------------------------
-async function apiSaveModule(draft: ModuleDefinition): Promise<void> {
-  const method = draft.id ? 'PUT' : 'POST'
-  const url = draft.id ? `/api/modules/${draft.id}` : '/api/modules'
-  await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft),
-  })
-}
-
-async function apiPublishModule(moduleId: string): Promise<void> {
-  const res = await fetch(`/api/modules/${moduleId}/publish`, { method: 'POST' })
-  if (!res.ok) throw new Error(`Failed to publish: ${res.status}`)
-}
-
-// ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => ({
@@ -143,16 +134,25 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
   moduleId: null,
   draft: null,
   isDirty: false,
+  expectedVersion: 1,
+  error: null,
 
   openDesigner: (moduleId?: string, module?: ModuleDefinition) => {
     if (module) {
-      set({ isOpen: true, moduleId: module.id, draft: { ...module }, isDirty: false })
+      set({
+        isOpen: true,
+        moduleId: module.id,
+        draft: { ...module },
+        isDirty: false,
+        expectedVersion: module.expectedVersion ?? 1,
+        error: null,
+      })
     } else {
       const draft = createEmptyDraft()
       if (moduleId) {
         draft.id = moduleId
       }
-      set({ isOpen: true, moduleId: null, draft, isDirty: false })
+      set({ isOpen: true, moduleId: null, draft, isDirty: false, expectedVersion: 1, error: null })
     }
   },
 
@@ -161,22 +161,34 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
     if (!draft) return
     const newDraft = { ...draft, ...partial }
 
+    if (partial.baseKind !== undefined && partial.baseKind !== draft.baseKind) {
+      newDraft.ports = getPortsForKind(partial.baseKind)
+    }
+
     // Auto-update ID from label if creating new
     if (partial.label !== undefined && get().moduleId === null) {
       newDraft.id = generateModuleId(partial.label, newDraft.category)
     }
 
-    set({ draft: newDraft, isDirty: true })
+    set({ draft: newDraft, isDirty: true, error: null })
   },
 
   saveDraft: async () => {
-    const { draft } = get()
+    const { draft, moduleId, expectedVersion } = get()
     if (!draft) return
     try {
-      await apiSaveModule(draft)
-      set({ isDirty: false })
+      const saved = moduleId === null
+        ? await createModule(draft)
+        : await updateModule(draft, expectedVersion)
+      set({
+        moduleId: saved.id,
+        draft: saved,
+        isDirty: false,
+        expectedVersion: saved.expectedVersion ?? (moduleId === null ? 1 : expectedVersion + 1),
+        error: null,
+      })
     } catch (err) {
-      console.error('Failed to save module:', err)
+      set({ error: err instanceof Error ? err.message : 'Failed to save module' })
       throw err
     }
   },
@@ -189,16 +201,23 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
       if (get().isDirty) {
         await get().saveDraft()
       }
-      await apiPublishModule(draft.id)
-      set({ draft: draft ? { ...draft, status: 'published' } : null, isDirty: false })
+      const current = get().draft
+      if (!current) return
+      const published = await publishModule(current.id, current.version, get().expectedVersion)
+      set({
+        draft: published,
+        expectedVersion: published.expectedVersion ?? get().expectedVersion + 1,
+        isDirty: false,
+        error: null,
+      })
     } catch (err) {
-      console.error('Failed to publish module:', err)
+      set({ error: err instanceof Error ? err.message : 'Failed to publish module' })
       throw err
     }
   },
 
   closeDesigner: () => {
-    set({ isOpen: false, moduleId: null, draft: null, isDirty: false })
+    set({ isOpen: false, moduleId: null, draft: null, isDirty: false, expectedVersion: 1, error: null })
   },
 
   addConfigField: (field) => {

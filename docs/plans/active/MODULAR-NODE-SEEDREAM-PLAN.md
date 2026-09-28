@@ -1,7 +1,7 @@
 # 可复用模块化节点与 Seedream 推进计划
 
 > 状态：Active
-> 日期：2026-09-22
+> 日期：2026-09-23
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
 > 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)
 
@@ -19,6 +19,23 @@
 | Module 生命周期 | 未实现 | 只有内存只读 GET API | SQLite draft/publish/archive |
 
 专项验证报告：[`frontend-modularity-agent-validation-2026-09-22.md`](../../reports/frontend-modularity-agent-validation-2026-09-22.md)。
+
+### 2026-09-23 Subagent 复核
+
+代码已推进到 MOD-101～MOD-205。Subagent 审计最初发现 10 个失败和多条 wiring 断点；第一轮 P0 开发后定向 Backend module/agent/execution 723 passed，Frontend 342 passed。当前成熟度：模块契约/存储约 88%，前端模块体验约 82%，Agent 模块编排约 72%，真实执行闭环约 65%。
+
+已确认的 P0：
+
+1. ExecutionResolver 产生 resolved config，但 start 随后仍 `compile_workflow(spec)`，Task/Handler 使用旧 config；Scheduler 恢复路径绕过 Resolver。
+2. 全局 Registry 未稳定注入 Repository；clone 内存回退破坏 version map，导致 Agent module tools 10 项失败。
+3. Module Designer create/update API、body 与后端 route/expected_version 不一致，保存闭环不可用。
+4. Publish 没有统一执行 schema/security/port binding/provider policy gate。
+5. Agent Compiler 丢弃 moduleId/moduleVersion/configOverrides。
+6. Agent repair wrapper 参数和 RepairResult 契约错误；修复成功后可能返回旧 compiled graph。
+7. Preview `can_apply` 未同时覆盖 compile、graph、module dependency 和 resolver。
+8. image-only fallback 生成 `image → output.video` 类型冲突。
+9. PropertyPanel 只识别静态 builtin，模块 drop 未完整实例化 module ports；Module Designer 端口仍只读。
+10. Workflow roundtrip、required schema、SemVer/capability/module_usage 仍有缺口。
 
 ## 1. 决策摘要
 
@@ -348,6 +365,23 @@ API Key 只来自 Provider Settings/secret reference。
 | MOD-005 | 1d | Execution Resolver 合并 effective config | Handler 收到 doubao/model/size/seed |
 | MOD-006 | 1d | 挂载 Palette、module drop、Seedream Playwright | 创建→配置→保存→Mock 执行通过 |
 
+### Phase M0-R：P0 主链修复（第一轮完成，剩余 2-4 天）
+
+| ID | Owner | 任务 | 验收 |
+|---|---|---|---|
+| MOD-P0-01 | Backend | Registry 注入 Repository；修复 clone version map；SemVer 排序 | 模块/Agent tools 全绿 |
+| MOD-P0-02 | Fullstack | 对齐 create/update/publish/clone API、body、expected_version、409 和错误 UI | Designer 能真实保存并发布 |
+| MOD-P0-03 | Backend | Publish 强制 schema/security/port binding/provider policy 校验 | 非法模块不可发布 |
+| MOD-P0-04 | Backend | ExecutionMaterializer 将精确版本、defaults、overrides 写入 immutable snapshot；API/Scheduler 共用 | Task.config 与 Handler 收到 effective config |
+| MOD-P0-05 | Agent | Compiler 保留 moduleId/moduleVersion/configOverrides 和 module ports | compiled spec 不丢模块信息 |
+| MOD-P0-06 | Agent | 修复 RepairResult 契约、修复后强制重编译、四层 can_apply gate | preview/apply 不返回旧图 |
+| MOD-P0-07 | Agent | 修复 image-only output 端口和 modify 增量语义 | 图片流程合法，modify 有 diff |
+| MOD-P0-08 | Contract | 从共享 manifest fixture 生成前后端端口契约 | `image/images` 和 cardinality 漂移归零 |
+
+第一轮已完成：MOD-P0-01/02/04/05/06 和基础 MOD-P0-08。新增 Materializer 纵向测试证明模块 defaults + overrides 会进入 Compiler/Task；Agent repair 后重新编译并执行 graph/module resolver gate。
+
+剩余：MOD-P0-03 全路径发布校验复核、MOD-P0-07 image-only 输出产品决策、模块纵向 Playwright、CI 和真实 Prompt/Modify 验收。expectedVersion API/前端消费已完成，需浏览器冲突验收。
+
 ### Phase M1：用户模块设计器（P1，5-7 天）
 
 | ID | 工作量 | 任务 | 验收 |
@@ -357,6 +391,17 @@ API Key 只来自 Provider Settings/secret reference。
 | MOD-103 | 1d | 核心端口覆盖 + binding validator | 无 binding 不可发布 |
 | MOD-104 | 1d | Palette 分类/搜索/My Modules | published 模块可拖入 |
 | MOD-105 | 1d | clone/publish/archive UI | 生命周期 E2E |
+
+### Phase M1-R：前端组件化闭环（2 人 5-7 天）
+
+| ID | Owner | 任务 | 验收 |
+|---|---|---|---|
+| FE-MOD-001 | Frontend | Module Catalog id@version cache，远端为真源 | Canvas/Panel/Agent 共用定义 |
+| FE-MOD-002 | Frontend | `createModuleNode(def, position)` 实例化 ports/defaults/version/badge/degraded | module drop 数据完整 |
+| FE-MOD-003 | Frontend | module-aware connect/full/reconnect validator | effective ports 决定连线 |
+| FE-MOD-004 | Frontend | Designer 扩展端口/binding、required/enum/range/semver 校验 | 发布预检完整 |
+| FE-MOD-005 | Frontend | field/port rename migration、copy/paste、server roundtrip | create/update/import/export 深相等 |
+| FE-MOD-006 | Frontend | 合并 Node/Module Palette 为 LibraryPanel，修分类、去重、嵌套 button、错误态 | 无布局和 a11y warning |
 
 ### Phase M2：升级、Agent 与治理（P1，4-6 天）
 
@@ -368,7 +413,50 @@ API Key 只来自 Provider Settings/secret reference。
 | MOD-204 | 1d | secret/SSRF/size/JSON 安全限制 | 安全测试全绿 |
 | MOD-205 | 1d | 性能与 100 模块 Palette 基准 | 搜索/加载满足指标 |
 
+### Phase M2-R：Agent 模块编排闭环（2 人 5-8 天）
+
+| ID | Owner | 任务 | 验收 |
+|---|---|---|---|
+| AG-P0-001 | Agent | 确定性抽取 scenes/variants/duration/resolution/provider/no-video | 约束写入正确节点配置 |
+| AG-P0-002 | Agent | published module discovery/selection，返回选择理由 | draft/archive/unknown 拒绝 |
+| AG-P0-003 | Agent | module-aware Intent/Compiler/Validator/Repair | module ref、端口、config 保真 |
+| AG-P0-004 | Agent | Intent + Graph + Module + Resolver 四层 Preview/Apply gate | 四层全绿才 can_apply |
+| AG-P0-005 | Agent | 基于 existing workflow 的 modify/diff/destructive confirm | 修改不是重建 |
+| AG-P0-006 | QA | 30+ 真实 parser cases、6 module integration、4 Playwright | 不直接测试 fallback 代替 parser |
+
 预计：2 人 3 周；单人 4-5 周。M0 可独立交付 Seedream 模块价值。
+
+### 团队任务安排与依赖
+
+建议最小团队：Backend/Architecture 1 人、Frontend 1 人、Agent/QA 0.5-1 人。
+
+| Sprint | Backend/Architecture | Frontend | Agent/QA | 出口 |
+|---|---|---|---|---|
+| S1（2-3 天） | MOD-P0-01/03/04/08 | MOD-P0-02、FE-MOD-001 | AG-P0-001、专项回归 | Registry/API/Materializer/repair 契约全绿 |
+| S2（3-4 天） | module usage、roundtrip、publish gate | FE-MOD-002/003/004/005/006 | AG-P0-002/003/004 | create→publish→drag→save/reload 保真 |
+| S3（2-3 天） | Execution snapshot/Task/Handler 证据 | Seedream UI/asset preview | AG-P0-005/006 + Playwright | Seedream Mock prompt→run 全链通过 |
+| S4（1-2 天） | CI/observability/rollback | a11y/错误态 | external UAT/报告 | required checks 和验收证据归档 |
+
+依赖图：
+
+```text
+MOD-P0-01 Registry
+  ├─ MOD-P0-02 API/Designer
+  ├─ AG-P0-002 Module discovery
+  └─ MOD-P0-04 Materializer
+
+MOD-P0-08 Shared manifest
+  ├─ FE-MOD-002 Module instance
+  ├─ FE-MOD-003 Graph validation
+  └─ AG-P0-003 Module-aware compiler
+
+MOD-P0-04 + AG-P0-003
+  → AG-P0-004 Four-layer gate
+  → Seedream Mock E2E
+  → External UAT
+```
+
+并行原则：S1 可三泳道并行；S2 必须等待 Registry/API/Manifest 契约冻结；真实 Seedream UAT 不阻塞 Mock 组件化闭环。
 
 ## 10. 测试与验收矩阵
 

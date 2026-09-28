@@ -36,16 +36,14 @@ export function ModulePalette() {
     setLoading(true)
 
     // Fetch published modules (builtins + remote)
-    Promise.all([
-      fetchModules('published').catch(() => []),
-      fetchModules('draft').catch(() => []),
-    ])
+    setError(null)
+    Promise.all([fetchModules('published'), fetchModules('draft')])
       .then(([published, drafts]) => {
         if (!cancelled) {
           // Merge built-in modules with remote published, deduplicating by id
           const byId = new Map<string, ModuleDefinition>()
-          for (const mod of BUILTIN_MODULES) byId.set(mod.id, mod)
-          for (const mod of published) byId.set(mod.id, mod)
+          for (const mod of BUILTIN_MODULES) byId.set(`${mod.id}@${mod.version}`, mod)
+          for (const mod of published) byId.set(`${mod.id}@${mod.version}`, mod)
           setModules(Array.from(byId.values()))
 
           // User modules = drafts + published that aren't builtins
@@ -65,9 +63,10 @@ export function ModulePalette() {
           setUserModules(Array.from(userByDraftId.values()))
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!cancelled) {
           setModules(BUILTIN_MODULES)
+          setError(err instanceof Error ? err.message : 'Failed to load modules')
         }
       })
       .finally(() => {
@@ -93,8 +92,8 @@ export function ModulePalette() {
         fetchModules('draft').catch(() => []),
       ])
       const byId = new Map<string, ModuleDefinition>()
-      for (const m of BUILTIN_MODULES) byId.set(m.id, m)
-      for (const m of published) byId.set(m.id, m)
+      for (const m of BUILTIN_MODULES) byId.set(`${m.id}@${m.version}`, m)
+      for (const m of published) byId.set(`${m.id}@${m.version}`, m)
       setModules(Array.from(byId.values()))
 
       const builtinIds = new Set(BUILTIN_MODULES.map((m) => m.id))
@@ -107,7 +106,7 @@ export function ModulePalette() {
       }
       setUserModules(Array.from(userByDraftId.values()))
     } catch (err) {
-      console.error('Failed to clone module:', err)
+      setError(err instanceof Error ? err.message : 'Failed to clone module')
     }
   }
 
@@ -130,7 +129,11 @@ export function ModulePalette() {
   // Grouped modules by category
   // ---------------------------------------------------------------------------
   const allFilteredModules = useMemo(() => {
-    return [...modules, ...userModules].filter(searchFilter)
+    const unique = new Map<string, ModuleDefinition>()
+    for (const mod of [...modules, ...userModules]) {
+      unique.set(`${mod.id}@${mod.version}`, mod)
+    }
+    return Array.from(unique.values()).filter(searchFilter)
   }, [modules, userModules, searchQuery])
 
   const categoryCounts = useMemo(() => {
@@ -151,7 +154,7 @@ export function ModulePalette() {
       ? userModules.filter(searchFilter)
       : activeCategory === 'All'
         ? allFilteredModules
-        : allFilteredModules.filter((m) => m.category === activeCategory)
+        : allFilteredModules.filter((m) => m.category.toLowerCase() === activeCategory.toLowerCase())
 
     for (const mod of filtered) {
       const list = groups.get(mod.category) ?? []
@@ -162,14 +165,7 @@ export function ModulePalette() {
   }, [allFilteredModules, userModules, activeCategory, searchFilter])
 
   const onDragStart = (event: React.DragEvent, mod: ModuleDefinition) => {
-    event.dataTransfer.setData('application/reactflow-module', JSON.stringify({
-      moduleId: mod.id,
-      moduleVersion: mod.version,
-      baseKind: mod.baseKind,
-      label: mod.label,
-      description: mod.description ?? '',
-      configOverrides: {},
-    }))
+    event.dataTransfer.setData('application/reactflow-module', JSON.stringify(mod))
     event.dataTransfer.effectAllowed = 'move'
   }
 
@@ -259,7 +255,7 @@ export function ModulePalette() {
             ) : (
               userModules.filter(searchFilter).map((mod) => (
                 <ModuleCard
-                  key={mod.id}
+                  key={`${mod.id}@${mod.version}`}
                   module={mod}
                   onDragStart={onDragStart}
                   onClick={handleModuleClick}
@@ -276,7 +272,7 @@ export function ModulePalette() {
             <div className="module-palette-list">
               {mods.map((mod) => (
                 <ModuleCard
-                  key={mod.id}
+                  key={`${mod.id}@${mod.version}`}
                   module={mod}
                   onDragStart={onDragStart}
                   onClick={handleModuleClick}

@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 from backend.app.db.connection import get_connection
 from backend.app.schemas.module_definition import ModuleDefinition
+
+
+def _semver_sort_key(version: str) -> tuple:
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?", version)
+    if not match:
+        return (-1, -1, -1, -1, ())
+    base = tuple(int(match.group(i)) for i in range(1, 4))
+    pre = match.group(4)
+    if pre is None:
+        return (*base, 1, ())
+    ids = tuple((0, int(x)) if x.isdigit() else (1, x) for x in pre.split('.'))
+    return (*base, 0, ids)
 
 
 class ConflictError(Exception):
@@ -84,6 +97,7 @@ class ModuleRepository:
         """Deserialize a database row into a ModuleDefinition."""
         definition_json = row["definition_json"]
         data = json.loads(definition_json)
+        data["expectedVersion"] = row["expected_version"]
         return ModuleDefinition.model_validate(data)
 
     def _get_raw(self, module_id: str, version: str) -> dict | None:
@@ -102,23 +116,24 @@ class ModuleRepository:
     def create_draft(self, definition: ModuleDefinition) -> ModuleDefinition:
         """Persist a new draft module definition."""
         now = self._now_iso()
-        definition_data = definition.model_dump(mode="json", by_alias=True)
+        draft = definition.model_copy(update={"status": "draft", "expected_version": 1})
+        definition_data = draft.model_dump(mode="json", by_alias=True)
         conn = get_connection()
         conn.execute(
             "INSERT INTO module_definitions "
             "(id, version, status, base_kind, definition_json, created_at, updated_at, expected_version) "
             "VALUES (?, ?, 'draft', ?, ?, ?, ?, 1)",
             (
-                definition.id,
-                definition.version,
-                definition.base_kind,
+                draft.id,
+                draft.version,
+                draft.base_kind,
                 json.dumps(definition_data, ensure_ascii=False),
                 now,
                 now,
             ),
         )
         conn.commit()
-        return definition.model_copy(update={"status": "draft"})
+        return draft
 
     def get_module(self, module_id: str, version: str) -> ModuleDefinition | None:
         """Retrieve a specific module version."""
@@ -136,6 +151,22 @@ class ModuleRepository:
 
         Returns the latest version of each module matching the filters.
         """
+        modules = self.list_all_modules(status=status, capability=capability)
+        latest_by_id: dict[str, ModuleDefinition] = {}
+        for module in modules:
+            current = latest_by_id.get(module.id)
+            if current is None or _semver_sort_key(module.version) > _semver_sort_key(
+                current.version
+            ):
+                latest_by_id[module.id] = module
+        return list(latest_by_id.values())
+
+    def list_all_modules(
+        self,
+        status: str | None = None,
+        capability: str | None = None,
+    ) -> list[ModuleDefinition]:
+        """Return every persisted module version matching the filters."""
         conn = get_connection()
         conditions: list[str] = []
         params: list[Any] = []
@@ -149,18 +180,11 @@ class ModuleRepository:
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-        # Group by id, pick latest version
         rows = conn.execute(
-            f"SELECT id, MAX(version) as max_version FROM module_definitions {where} GROUP BY id",
+            f"SELECT * FROM module_definitions {where}",
             params,
         ).fetchall()
-
-        result: list[ModuleDefinition] = []
-        for row in rows:
-            raw = self._get_raw(row["id"], row["max_version"])
-            if raw:
-                result.append(self._row_to_definition(raw))
-        return result
+        return [self._row_to_definition(row) for row in rows]
 
     def update_draft(
         self,
@@ -186,6 +210,12 @@ class ModuleRepository:
                 f"Cannot update module {module_id}@{version} with status '{raw['status']}': "
                 "only draft modules can be updated"
             )
+        if definition.id != module_id or definition.version != version:
+            raise ValueError("Definition id and version must match the requested draft")
+
+        definition = definition.model_copy(
+            update={"status": "draft", "expected_version": expected_version + 1}
+        )
 
         now = self._now_iso()
         new_expected = expected_version + 1
@@ -240,6 +270,7 @@ class ModuleRepository:
         # Update definition_json to reflect new status
         definition = self._row_to_definition(raw)
         definition.status = "published"
+        definition.expected_version = new_expected
         updated_json = json.dumps(definition.model_dump(mode="json", by_alias=True), ensure_ascii=False)
         conn.execute(
             "UPDATE module_definitions "
@@ -284,6 +315,7 @@ class ModuleRepository:
         # Update definition_json to reflect new status
         definition = self._row_to_definition(raw)
         definition.status = "archived"
+        definition.expected_version = new_expected
         updated_json = json.dumps(definition.model_dump(mode="json", by_alias=True), ensure_ascii=False)
         conn.execute(
             "UPDATE module_definitions "
@@ -336,6 +368,7 @@ class ModuleRepository:
         definition.id = new_id
         definition.version = new_version
         definition.status = "draft"
+        definition.expected_version = 1
 
         definition_data = definition.model_dump(mode="json", by_alias=True)
         conn.execute(

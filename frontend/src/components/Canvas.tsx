@@ -23,7 +23,8 @@ import '@xyflow/react/dist/base.css'
 import type { ConnectionLineComponentProps } from '@xyflow/react/dist/esm/types/edges'
 import { StudioNodeView } from '../StudioNode'
 import { useStudioStore } from '../store'
-import { createNode } from '../workflow'
+import { createModuleNode, createNode } from '../workflow'
+import type { ModuleDefinition } from '../schemas/module-definition'
 import { validateConnection as validateConnectionNew } from '../schemas/graph-validation'
 import { NODE_CATALOG } from '../schemas/node-manifest'
 import type { NodeKind, EnhancedEdge, StudioNode } from '../types'
@@ -329,20 +330,8 @@ function CanvasInner() {
     const moduleData = event.dataTransfer.getData('application/reactflow-module')
     if (moduleData) {
       try {
-        const parsed = JSON.parse(moduleData) as {
-          moduleId: string
-          moduleVersion: string
-          baseKind: string
-          label: string
-          description: string
-          configOverrides?: Record<string, unknown>
-        }
-        const node = createNode(parsed.baseKind as NodeKind, position.x, position.y)
-        node.data.moduleId = parsed.moduleId
-        node.data.moduleVersion = parsed.moduleVersion
-        node.data.configOverrides = parsed.configOverrides ?? {}
-        node.data.label = parsed.label
-        node.data.description = parsed.description
+        const parsed = JSON.parse(moduleData) as ModuleDefinition
+        const node = createModuleNode(parsed, position.x, position.y)
         setWorkflow({ ...workflow, nodes: [...workflow.nodes, node] })
         return
       } catch {

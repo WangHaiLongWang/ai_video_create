@@ -96,7 +96,7 @@ describe('ModulePalette', () => {
     await waitForBuiltin(container)
 
     expect(screen.getByText('All')).toBeDefined()
-    expect(screen.getByText('Image')).toBeDefined()
+    expect(screen.getByRole('button', { name: /^Image/ })).toBeDefined()
     expect(screen.getByText('Video')).toBeDefined()
     expect(screen.getByText('My Modules')).toBeDefined()
   })
@@ -157,7 +157,7 @@ describe('ModulePalette', () => {
     await waitForBuiltin(container)
 
     // Find the module card button containing Seedream
-    const cardButtons = container.querySelectorAll('button.module-card')
+    const cardButtons = container.querySelectorAll('[role="button"].module-card')
     expect(cardButtons.length).toBeGreaterThan(0)
     fireEvent.click(cardButtons[0])
 

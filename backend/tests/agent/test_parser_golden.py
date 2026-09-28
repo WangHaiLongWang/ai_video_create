@@ -60,12 +60,12 @@ class TestParser01SimpleImage:
 
     def test_node_count(self):
         intent = _template_fallback("只生成一张图片")
-        assert len(intent.nodes) == 4  # textInput, storyboard, textToImage, output
+        assert len(intent.nodes) == 3  # textInput, storyboard, textToImage
 
     def test_node_kinds(self):
         intent = _template_fallback("只生成一张图片")
         kinds = {n.kind for n in intent.nodes}
-        assert kinds == {"textInput", "storyboard", "textToImage", "output"}
+        assert kinds == {"textInput", "storyboard", "textToImage"}
 
     def test_no_video_nodes(self):
         intent = _template_fallback("只生成一张图片")
@@ -186,20 +186,20 @@ class TestParser05ExplicitNoVideo:
 
     def test_node_count(self):
         intent = _template_fallback("只生成图片，不要视频")
-        # textInput, storyboard, textToImage, output
-        assert len(intent.nodes) == 4
+        # textInput, storyboard, textToImage; image is the terminal asset
+        assert len(intent.nodes) == 3
 
-    def test_connections_end_at_output(self):
+    def test_connections_end_at_image_generator(self):
         intent = _template_fallback("只生成图片，不要视频")
-        output_node = [n for n in intent.nodes if n.kind == "output"][0]
-        incoming = [c for c in intent.connections if c.target.node == output_node.alias]
+        image_node = [n for n in intent.nodes if n.kind == "textToImage"][0]
+        incoming = [c for c in intent.connections if c.target.node == image_node.alias]
         assert len(incoming) == 1
-        # Output receives from textToImage
+        # textToImage receives scenes and emits terminal image assets.
         src_kind = None
         for n in intent.nodes:
             if n.alias == incoming[0].source.node:
                 src_kind = n.kind
-        assert src_kind == "textToImage"
+        assert src_kind == "storyboard"
 
 
 # ---------------------------------------------------------------------------
@@ -616,4 +616,4 @@ class TestStructuralInvariants:
         assert intent.nodes[0].kind == "textInput"
 
     def test_last_node_is_output(self, intent):
-        assert intent.nodes[-1].kind == "output"
+        assert intent.nodes[-1].kind in {"output", "textToImage"}

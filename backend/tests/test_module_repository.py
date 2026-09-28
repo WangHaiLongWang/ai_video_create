@@ -16,7 +16,11 @@ from backend.app.repositories.module_repository import (
 )
 from backend.app.schemas.module_definition import ModuleDefinition, ProviderPolicy
 from backend.app.schemas.node_manifest import ExecutionHints
-from backend.app.services.module_registry import ModuleRegistry, BUILTIN_MODULES
+from backend.app.services.module_registry import (
+    BUILTIN_MODULES,
+    ModuleRegistry,
+    ModuleValidationError,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +97,7 @@ class TestCreateAndRetrieve:
         result = repo.create_draft(definition)
         assert result.id == "test.custom.module"
         assert result.version == "1.0.0"
+        assert result.expected_version == 1
 
         retrieved = repo.get_module("test.custom.module", "1.0.0")
         assert retrieved is not None
@@ -167,6 +172,7 @@ class TestUpdateDraft:
         updated = _make_definition(label="Updated Label")
         result = repo.update_draft("test.custom.module", "1.0.0", updated, expected_version=1)
         assert result.label == "Updated Label"
+        assert result.expected_version == 2
 
         retrieved = repo.get_module("test.custom.module", "1.0.0")
         assert retrieved is not None
@@ -369,6 +375,31 @@ class TestListCapabilityFilter:
 
         video_mods = repo.list_modules(capability="textToVideo")
         assert any(m.id == "vid.mod" for m in video_mods)
+
+
+class TestSemanticVersionOrdering:
+    def test_list_modules_uses_numeric_semver_order(self, repo: ModuleRepository):
+        repo.create_draft(_make_definition(module_id="versioned.mod", version="1.9.0"))
+        repo.create_draft(_make_definition(module_id="versioned.mod", version="1.10.0"))
+        modules = {module.id: module for module in repo.list_modules()}
+        assert modules["versioned.mod"].version == "1.10.0"
+
+
+class TestPersistentPublishGate:
+    def test_publish_draft_rejects_invalid_provider_policy(self, repo: ModuleRepository):
+        definition = _make_definition()
+        definition.provider_policy = ProviderPolicy(
+            capability="image", allowed=["doubao"], default="openai", locked=True
+        )
+        repo.create_draft(definition)
+        registry = ModuleRegistry(repository=repo)
+        with pytest.raises(ModuleValidationError) as exc_info:
+            registry.publish_draft(definition.id, definition.version, expected_version=1)
+        assert any(
+            isinstance(error, dict) and error.get("error") == "DEFAULT_PROVIDER_NOT_ALLOWED"
+            for error in exc_info.value.errors
+        )
+        assert repo.get_module(definition.id, definition.version).status == "draft"
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import type { CatalogNodeData, NodeKind, StudioNode, WorkflowSpec } from './types'
 import type { WorkflowSpecV2 } from './schemas/workflow-spec'
 import { NODE_CATALOG } from './schemas/node-manifest'
+import type { ModuleDefinition } from './schemas/module-definition'
 
 export const nodeCatalog: Record<NodeKind, CatalogNodeData> = {
   textInput: {
@@ -81,6 +82,33 @@ export function createNode(kind: NodeKind, x: number, y: number, id?: string): S
       ports,
     },
   }
+}
+
+/** Create a canvas instance from an immutable module definition. */
+export function createModuleNode(
+  definition: ModuleDefinition,
+  x: number,
+  y: number,
+  id?: string,
+): StudioNode {
+  const node = createNode(definition.baseKind as NodeKind, x, y, id)
+  const defaultConfig = { ...(definition.defaultConfig ?? {}) }
+  node.data = {
+    ...node.data,
+    label: definition.label,
+    description: definition.description ?? '',
+    moduleId: definition.id,
+    moduleVersion: definition.version,
+    config: { ...node.data.config, ...defaultConfig } as Record<string, string | number | boolean>,
+    configOverrides: {},
+    inputType: definition.ports.inputs[0]?.type,
+    outputType: definition.ports.outputs[0]?.type,
+    ports: {
+      inputs: definition.ports.inputs.map((port) => ({ ...port, label: port.label ?? port.id })),
+      outputs: definition.ports.outputs.map((port) => ({ ...port, label: port.label ?? port.id })),
+    },
+  }
+  return node
 }
 
 export function createPromptToVideoWorkflow(prompt?: string): WorkflowSpecV2 {
