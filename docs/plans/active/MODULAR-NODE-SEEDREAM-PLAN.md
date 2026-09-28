@@ -1,7 +1,7 @@
 # 可复用模块化节点与 Seedream 推进计划
 
 > 状态：Active
-> 日期：2026-09-23
+> 日期：2026-09-28
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
 > 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)
 
@@ -36,6 +36,23 @@
 8. image-only fallback 生成 `image → output.video` 类型冲突。
 9. PropertyPanel 只识别静态 builtin，模块 drop 未完整实例化 module ports；Module Designer 端口仍只读。
 10. Workflow roundtrip、required schema、SemVer/capability/module_usage 仍有缺口。
+
+### 2026-09-28 第二轮纵向验收
+
+| 链路 | 结果 | 证据 |
+|---|---|---|
+| Seedream Palette → Canvas drop | 通过 | Chromium modules E2E |
+| moduleId/version/ports/default config | 通过 | localStorage 与 UI 断言 |
+| config override → reload | 通过 | variantCount override 保真 |
+| Designer create/save/publish contract | 通过 | versioned API route mock |
+| Workflow module_usage | 通过 | create/update/remove/duplicate/import/delete |
+| Repository capability filter | 通过 | providerPolicy.capability |
+| Structured Agent parser | 通过 | image-only、2×2×5s、Seedream module ref |
+| unknown/draft module gate | 通过 | preview can_apply=false |
+| 第二轮 Backend 定向集 | 通过 | 173 passed |
+| Agent 定向集 | 通过 | 93 passed |
+
+第二轮还修复了 Canvas drop 坐标重复偏移和 ModulePalette 独立 Grid 行导致的画布压缩问题。
 
 ## 1. 决策摘要
 
@@ -423,6 +440,18 @@ API Key 只来自 Provider Settings/secret reference。
 | AG-P0-004 | Agent | Intent + Graph + Module + Resolver 四层 Preview/Apply gate | 四层全绿才 can_apply |
 | AG-P0-005 | Agent | 基于 existing workflow 的 modify/diff/destructive confirm | 修改不是重建 |
 | AG-P0-006 | QA | 30+ 真实 parser cases、6 module integration、4 Playwright | 不直接测试 fallback 代替 parser |
+
+### Phase M3：下一步真实联调与高级自定义（当前计划，2 人 5-7 天）
+
+| ID | Owner | 任务 | 验收 |
+|---|---|---|---|
+| MOD-R3-001 | Frontend | Module Designer 增加扩展端口与 binding 编辑 | 无 binding 不可发布，合法 binding 可执行 |
+| MOD-R3-002 | Frontend/Contract | 图校验使用每节点 effective module ports，不只用固定 NODE_CATALOG | connect/reconnect/start 结果一致 |
+| MOD-R3-003 | Fullstack | Playwright 使用真实 Mock FastAPI 完成模块 create→publish→drag→save→reload→run | 不依赖 route mock，Task/Asset 可查询 |
+| MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 |
+| MOD-R3-005 | QA | 修复 Vitest 并行 EMFILE 和 `--threads false` DOM 污染 | 默认 `npm test` 连续运行稳定全绿 |
+| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 |
+| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 |
 
 预计：2 人 3 周；单人 4-5 周。M0 可独立交付 Seedream 模块价值。
 

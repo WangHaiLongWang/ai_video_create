@@ -201,6 +201,27 @@ class ExecutionResolver:
                     )
                 continue
 
+            # Only immutable published definitions are executable. Drafts
+            # remain editable, and archived versions reject new previews.
+            if module.status != "published":
+                result.errors.append(
+                    ResolutionError(
+                        node_id=node_id,
+                        node_kind=node_kind,
+                        error_type="module_not_published",
+                        message=(
+                            f"Module '{module_id}@{module.version}' is "
+                            f"'{module.status}', expected 'published'"
+                        ),
+                        details={
+                            "module_id": module_id,
+                            "module_version": module.version,
+                            "status": module.status,
+                        },
+                    )
+                )
+                continue
+
             # 2. baseKind match
             if module.base_kind != node_kind:
                 result.errors.append(

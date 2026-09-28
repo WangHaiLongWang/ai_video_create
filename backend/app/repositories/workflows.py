@@ -16,6 +16,30 @@ class WorkflowNotFoundError(Exception):
     """工作流不存在。"""
 
 
+def _sync_module_usage(conn, workflow_id: str, spec: dict) -> None:
+    """Replace a workflow's usage rows with module references from its spec."""
+    conn.execute("DELETE FROM module_usage WHERE workflow_id = ?", (workflow_id,))
+    rows: list[tuple[str, str, str, str]] = []
+    for node in spec.get("nodes", []):
+        if not isinstance(node, dict):
+            continue
+        data = node.get("data")
+        if not isinstance(data, dict):
+            continue
+        module_id = data.get("moduleId") or data.get("module_id")
+        node_id = node.get("id")
+        if not module_id or not node_id:
+            continue
+        module_version = data.get("moduleVersion") or data.get("module_version") or ""
+        rows.append((workflow_id, str(node_id), str(module_id), str(module_version)))
+    if rows:
+        conn.executemany(
+            "INSERT INTO module_usage "
+            "(workflow_id, node_id, module_id, module_version) VALUES (?, ?, ?, ?)",
+            rows,
+        )
+
+
 def list_workflows() -> list[dict]:
     """返回工作流摘要列表（不含完整 spec）。"""
     conn = get_connection()
@@ -50,6 +74,7 @@ def create_workflow(spec: dict, name: str | None = None, description: str = "") 
         "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
         (wf_id, wf_name, description, spec.get("schemaVersion", "1.0"), json.dumps(spec, ensure_ascii=False), now, now),
     )
+    _sync_module_usage(conn, wf_id, spec)
     conn.commit()
     return {"id": wf_id, "name": wf_name, "version": 1, "created_at": now, "updated_at": now}
 
@@ -71,6 +96,7 @@ def update_workflow(workflow_id: str, spec: dict, expected_version: int) -> dict
         "UPDATE workflows SET spec_json = ?, version = ?, name = ?, updated_at = ? WHERE id = ?",
         (json.dumps(spec, ensure_ascii=False), new_version, new_name, now, workflow_id),
     )
+    _sync_module_usage(conn, workflow_id, spec)
     conn.commit()
     return {"id": workflow_id, "name": new_name, "version": new_version, "created_at": row["created_at"], "updated_at": now}
 
@@ -79,6 +105,7 @@ def delete_workflow(workflow_id: str) -> None:
     """删除工作流。"""
     conn = get_connection()
     cursor = conn.execute("DELETE FROM workflows WHERE id = ?", (workflow_id,))
+    conn.execute("DELETE FROM module_usage WHERE workflow_id = ?", (workflow_id,))
     conn.commit()
     if cursor.rowcount == 0:
         raise WorkflowNotFoundError(f"工作流 {workflow_id} 不存在")

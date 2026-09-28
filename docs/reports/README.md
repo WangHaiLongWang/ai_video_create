@@ -8,6 +8,7 @@
 | [项目门禁审计 2026-09-21](project-audit-2026-09-21.md) | Frontend 295 通过；Chromium 2 failed/1 skipped；Backend 3 failed + 依赖阻断 | 当前基线 |
 | [Frontend 模块化与 Agent 验证 2026-09-22](frontend-modularity-agent-validation-2026-09-22.md) | 节点实例自定义通过；模块化/Prompt 编排部分通过 | 当前专项基线 |
 | [Workflow 组件化审计 2026-09-23](workflow-componentization-audit-2026-09-23.md) | 模块骨架完成，执行/Agent 主链存在 P0 断点 | 当前最新专项基线 |
+| [模块化第二轮纵向验收 2026-09-28](module-round2-validation-2026-09-28.md) | Module E2E、module_usage、Agent Parser/gate 通过 | 当前最新纵向证据 |
 
 ## 证据要求
 

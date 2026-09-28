@@ -91,6 +91,10 @@ def _make_registry(*modules: ModuleDefinition) -> ModuleRegistry:
     # Override internal modules with custom ones
     registry._modules.clear()
     for mod in modules:
+        # Resolver fixtures represent executable catalog entries. ModuleDefinition
+        # defaults to draft for authoring, but execution only accepts published
+        # immutable versions.
+        mod = mod.model_copy(update={"status": "published"})
         registry._modules.setdefault(mod.id, {})[mod.version] = mod
     return registry
 

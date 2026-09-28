@@ -238,12 +238,13 @@ class TestTemplateFallback:
         assert "videoConcat" in kinds
         assert "output" in kinds
 
-    def test_no_video_has_four_nodes(self):
+    def test_no_video_uses_image_generator_as_terminal_node(self):
         intent = _template_fallback("只生成一张图片，不要视频")
-        assert len(intent.nodes) == 4
+        assert len(intent.nodes) == 3
         kinds = [n.kind for n in intent.nodes]
         assert "imageToVideo" not in kinds
         assert "videoConcat" not in kinds
+        assert "output" not in kinds
 
     def test_scene_count_from_prompt(self):
         intent = _template_fallback("生成三个场景")

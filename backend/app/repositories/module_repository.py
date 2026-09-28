@@ -174,17 +174,20 @@ class ModuleRepository:
         if status:
             conditions.append("status = ?")
             params.append(status)
-        if capability:
-            conditions.append("base_kind = ?")
-            params.append(capability)
-
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
         rows = conn.execute(
             f"SELECT * FROM module_definitions {where}",
             params,
         ).fetchall()
-        return [self._row_to_definition(row) for row in rows]
+        modules = [self._row_to_definition(row) for row in rows]
+        if capability:
+            modules = [
+                module
+                for module in modules
+                if module.provider_policy.capability == capability
+            ]
+        return modules
 
     def update_draft(
         self,

@@ -283,6 +283,36 @@ class TestModulesAPI:
         data = response.json()
         assert all(m["providerPolicy"]["capability"] == "image" for m in data)
 
+    def test_capability_filter_uses_provider_policy_for_persisted_modules(self, client):
+        common = {
+            "version": "1.0.0",
+            "status": "draft",
+            "baseKind": "textToImage",
+            "category": "custom",
+            "providerPolicy": {"allowed": [], "default": None},
+        }
+        image_module = {
+            **common,
+            "id": "test.capability.image",
+            "label": "Image capability",
+            "providerPolicy": {**common["providerPolicy"], "capability": "image"},
+        }
+        video_module = {
+            **common,
+            "id": "test.capability.video",
+            "label": "Video capability",
+            "providerPolicy": {**common["providerPolicy"], "capability": "video"},
+        }
+        assert client.post("/api/modules", json=image_module).status_code == 201
+        assert client.post("/api/modules", json=video_module).status_code == 201
+
+        ids = {
+            module["id"]
+            for module in client.get("/api/modules?capability=video").json()
+        }
+        assert "test.capability.video" in ids
+        assert "test.capability.image" not in ids
+
     def test_get_module_by_id(self, client):
         response = client.get("/api/modules/builtin.seedream.text-to-image")
         assert response.status_code == 200

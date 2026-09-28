@@ -643,18 +643,19 @@ v1.0 发布目标：
 
 ## 14. 下一 Sprint 可直接领取的任务
 
-本 Sprint 以“关闭 RC P0 门禁并生成可追溯证据”为唯一主目标；详细拆解见 [`RC-CLOSURE-PLAN.md`](RC-CLOSURE-PLAN.md)：
+本 Sprint 以“模块化真实联调与发布证据”为目标；模块基础 P0 与第二轮纵向验收已完成，后续按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) Phase M3 执行：
 
 | 顺序 | 工单 | 交付 | 验收 |
 |---:|---|---|---|
-| 1 | RC-001 | 声明 cryptography，干净 venv 安装依赖 | backend full collection 不再阻断 |
-| 2 | RC-002 | 修复/迁移旧 Agent v1 acceptance | 1521+ 回归集全绿 |
-| 3 | RC-003 | 修复两项 Chromium 失败并取消 roundtrip skip | 135/135 全绿 |
-| 4 | RC-004 | CI 启动 FastAPI + Vite 后执行 Playwright | 浏览器报告可归档 |
-| 5 | RC-005 | 删除 integration `|| true` | 必选失败阻断 CI |
-| 6 | RC-006 | 三平台同 SHA 验证和 release checklist | RC 证据可追溯 |
+| 1 | MOD-R3-001 | Designer 扩展端口与 binding 编辑 | 无 binding 不可发布，合法 binding 可运行 |
+| 2 | MOD-R3-002 | 前端 module-aware 图校验 | Canvas/store/backend 对 effective ports 结论一致 |
+| 3 | MOD-R3-003 | 真实 Mock Backend 模块 Playwright | create→publish→drag→save→reload→run |
+| 4 | MOD-R3-004 | Agent Modify Preview 浏览器联调 | module/version/config diff 可见且不重建 |
+| 5 | MOD-R3-005 | Vitest 文件句柄与 cleanup 隔离 | 默认 npm test 连续运行稳定全绿 |
+| 6 | MOD-R3-006 | Playwright CI 与三平台同 SHA 证据 | Actions URL/report/trace 归档 |
+| 7 | MOD-R3-007 | Seedream 最小真实 UAT | 模型激活后 1 scene/1 variant 成功 |
 
-Sprint 出口：前端 295+ 单测、typecheck、build、后端完整 pytest、Chromium E2E 和三平台 required checks 全绿；在这些证据完成前不标记 RC。
+Sprint 出口：模块真实 Mock Backend 浏览器链路全绿、模块端口 binding 可编辑可执行、测试隔离稳定、同 SHA CI 证据完整；真实 Seedream 未激活时保持 Optional/External Blocked。
 
 ## 15. 计划维护
 
@@ -708,3 +709,7 @@ Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider pol
 虽然 MOD-101～205 已提交，但 Subagent 复核和专项回归确认 10 个模块/Agent tools 测试失败，并存在 ExecutionResolver 不回写 Compiler、Designer API 不匹配、Agent Compiler 丢 module reference、RepairResult 契约错误等 P0。当前模块化成熟度下调为约 50%–55%。
 
 后续任务按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 的 Phase M0-R → M1-R → M2-R 执行；禁止继续以“文件/类已存在”作为完成标准，必须用 create→publish→drag→configure→save→reload→run 纵向证据关闭工单。
+
+### 2026-09-28 第二轮验收与下一阶段
+
+第二轮已完成 Seedream 前端模块纵向 E2E、module_usage 持久化和 structured Agent Parser/module gate。下一阶段切换为 Phase M3：扩展端口 Binding Designer、module-aware 前端图校验、真实 Mock Backend Playwright、Modify E2E、测试隔离、同 SHA CI 和 Seedream External UAT。

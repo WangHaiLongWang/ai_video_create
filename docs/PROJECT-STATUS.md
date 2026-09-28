@@ -1,15 +1,15 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-09-23
-> 状态版本：17.0
-> 代码基线：`27f8573`
+> 基线日期：2026-09-28
+> 状态版本：18.0
+> 代码基线：`70daa1d` + 第二轮纵向验收工作区
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
 
 ## 1. 结论
 
-项目已进入“模块化骨架完成、生产闭环收敛”阶段。React Flow 编辑、Module Palette/Designer、Workflow Agent v2、Scene 编辑导出、Mock 执行器和多 Provider 架构主体已形成，但模块执行快照、Agent repair/apply gate、模块持久化 wiring 和完整 E2E 仍未闭环。
+项目已进入“模块化主链可用、真实联调与高级自定义收敛”阶段。Module Palette/Designer、精确版本引用、Execution Materializer、Agent module-aware compiler、module_usage 和 Seedream 前端纵向 E2E 已完成基础验收；剩余重点是模块端口 Binding Designer、前端 module-aware 图校验、真实 Mock Backend 浏览器链路、测试隔离和真实 Provider UAT。
 
 本轮校准纠正了旧状态中的三项错误：
 
@@ -23,14 +23,14 @@
 |---|---:|---|
 | 架构骨架 | 90% | 模块/Agent/执行层代码增多，单一契约和 wiring 仍不稳定 |
 | React Flow 编辑器 | 94% | 实例级字段/端口/Edge 成熟，模块端口语义未完全接入 |
-| 节点组件化 | 68% | Registry/API/Materializer/Frontend 模块实例化已推进，纵向 E2E 待收口 |
-| Mock 执行闭环 | 86% | Materializer 已让模块 defaults/overrides 进入 snapshot/Task，浏览器纵向 E2E 待补 |
-| Workflow Agent | 78% | module-aware compiler、repair、四层 preview gate 已实现，真实 Prompt/Modify E2E 待验收 |
+| 节点组件化 | 80% | Registry/API/Materializer/module_usage/Frontend E2E 已推进，高级端口和真实后端 E2E 待补 |
+| Mock 执行闭环 | 90% | defaults/overrides 已进入 snapshot/Task，需浏览器连接真实 Mock Backend |
+| Workflow Agent | 84% | structured parser、module-aware compiler/gate 已有第二轮测试，Modify 浏览器联调待验收 |
 | Scene/Prompt 产品层 | 88% | Editor/Import/Export/Draft/Preview 已有 |
 | 安全与秘密管理 | 83% | 安全代码存在，依赖环境和发布证据仍需修复 |
 | Provider 与媒体 | 79% | Qwen/Wan3 有历史 UAT；Doubao External Blocked |
-| 发布工程 | 70% | Playwright/CI/依赖和同 SHA 证据尚未完成 |
-| 综合产品完成度 | **约 78%** | 第一轮 P0 已完成，仍不能标记组件化 Workflow 完成 |
+| 发布工程 | 78% | Playwright CI job 已有，仍缺同 SHA 运行证据与测试隔离修复 |
+| 综合产品完成度 | **约 84%** | 第二轮纵向验收通过，仍未达到生产发布门槛 |
 
 ## 2. 当前可重复测试基线
 
@@ -41,12 +41,15 @@
 | Frontend Vitest | 22 files / 342 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
 | Vite build | main 98.41 kB；最大 chunk 172.68 kB | 通过，无 500 kB 警告 |
-| Chromium Playwright | 定向复测 2/2 passed；全套基线仍为 132 passed / 2 failed / 1 skipped | 部分修复，需全套复跑 |
-| Backend module/agent/execution 定向集 | 723 passed / 1 warning | 通过 |
+| Chromium modules E2E | 3/3 passed；App+modules 14/14 passed | 通过，使用 API Mock |
+| Backend 第二轮纵向集 | 173 passed / 1 warning | 通过 |
+| Agent structured parser/module gate | 93 passed / 1 warning | 通过 |
 | Backend full collection | 当前环境需重新复核 | 干净 venv 的 Pillow/cryptography 安装仍需验证 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
-| 三平台 CI | workflow 文件存在 | 尚无本次 run 证据 |
+| Playwright CI | Mock FastAPI + Vite + Chromium job 已配置 | 尚无本次 run URL/同 SHA 证据 |
+
+说明：第二轮 Windows 并行复测出现 `EMFILE`，串行模式暴露 Testing Library cleanup 污染；这属于测试隔离门禁，已进入 Phase M3。第二轮生产改动由定向 unit、typecheck、build 和 modules Playwright 3/3 覆盖。
 
 ### 2.1 浏览器失败
 
@@ -79,7 +82,9 @@
 
 第一轮 P0 开发已完成：ExecutionMaterializer、Workflow create/import roundtrip、Registry/Repository、Module API 乐观锁、Frontend module create/drop/property、Agent module-aware compiler、RepairResult 和四层 preview gate。定向 Backend module/agent/execution 回归 723 passed；Frontend 22 files / 342 tests passed，typecheck/build 通过。
 
-剩余关闭项：完整 Module Playwright、扩展端口 Binding Designer、Prompt/Modify 浏览器联调、CI 和 Seedream Mock 纵向验收。Draft expectedVersion 已由后端返回并被前端消费，仍需浏览器验证重开编辑冲突。
+第二轮新增：Workflow create/update/import/duplicate/delete 同步 module_usage；capability 过滤按 Provider Policy；Seedream 模块展示→拖入→override→刷新保真和 Designer create/save/publish 浏览器通过；Agent image-only、2 scenes×2 variants×5s、Seedream module ref、unknown/draft module gate 通过。
+
+剩余关闭项：扩展端口 Binding Designer、module-aware 前端连接校验、真实 Mock Backend 浏览器联调、Modify E2E、Vitest EMFILE/串行污染治理、同 SHA CI 证据和真实 Seedream UAT。
 
 ### 3.0.1 2026-09-22 历史实现说明
 

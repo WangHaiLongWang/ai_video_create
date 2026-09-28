@@ -320,10 +320,12 @@ function CanvasInner() {
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault()
 
-    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    // screenToFlowPosition expects viewport/client coordinates and performs the
+    // React Flow wrapper offset internally. Subtracting the wrapper bounds here
+    // places dropped nodes underneath the left palette.
     const position = reactFlowInstance.screenToFlowPosition({
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
+      x: event.clientX,
+      y: event.clientY,
     })
 
     // Check for module drop first

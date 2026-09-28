@@ -83,6 +83,31 @@ def _parse_cn_number(text: str) -> int | None:
     return result if result > 0 else None
 
 
+def _parse_unicode_number(text: str) -> int | None:
+    """Parse the common Chinese numerals used in real workflow prompts."""
+    if text.isdigit():
+        return int(text)
+    digits = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3,
+              "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+    if text in digits:
+        return digits[text]
+    total = 0
+    current = 0
+    for char in text:
+        if char in digits:
+            current = digits[char]
+        elif char == "十":
+            total += (current or 1) * 10
+            current = 0
+        elif char == "百":
+            total += (current or 1) * 100
+            current = 0
+        else:
+            return None
+    total += current
+    return total or None
+
+
 # ---------------------------------------------------------------------------
 # Available node kinds and port definitions (from the unified manifest)
 # ---------------------------------------------------------------------------
@@ -258,6 +283,17 @@ def _extract_scene_count(prompt: str) -> int | None:
     - "N个片段"
     - "N scenes"
     """
+    # Handle real Unicode user input before the legacy mojibake-compatible
+    # patterns retained below for old fixtures.
+    chinese_number = r"[\d零〇一二两三四五六七八九十百]+"
+    for pattern in (
+        rf"({chinese_number})\s*个(?:场景|镜头|片段)",
+        r"(\d+)\s*scenes?",
+    ):
+        match = re.search(pattern, prompt, re.IGNORECASE)
+        if match:
+            return _parse_unicode_number(match.group(1))
+
     # Patterns that capture either Arabic digits or Chinese numeral characters
     patterns = [
         r"([\d零〇一二两三四五六七八九十百壹贰叁肆伍陆柒捌玖拾佰]+)\s*个场景",
@@ -283,6 +319,15 @@ def _extract_variant_count(prompt: str) -> int | None:
     - "每个场景N张图"
     - "每个场景N个变体"
     """
+    chinese_number = r"[\d零〇一二两三四五六七八九十百]+"
+    for pattern in (
+        rf"每(?:个)?场景\s*({chinese_number})\s*(?:张图(?:片)?|个变体)",
+        rf"每张图\s*({chinese_number})\s*(?:张|个变体)",
+    ):
+        match = re.search(pattern, prompt, re.IGNORECASE)
+        if match:
+            return _parse_unicode_number(match.group(1))
+
     cn_digits = r"[\d零〇一二两三四五六七八九十百壹贰叁肆伍陆柒捌玖拾佰]+"
     patterns = [
         rf"每张图\s*({cn_digits})\s*张",
@@ -303,6 +348,12 @@ def _extract_variant_count(prompt: str) -> int | None:
 def _wants_no_video(prompt: str) -> bool:
     """Check if the prompt explicitly says no video generation."""
     no_video_patterns = [
+        "不要视频",
+        "无需视频",
+        "只生成图片",
+        "只生成一张图",
+        "不生成视频",
+        "不要合成",
         "不要视频",
         "不要合成",
         "只生成图片",
@@ -413,9 +464,11 @@ def _dict_to_intent(data: dict, prompt: str) -> WorkflowIntent | None:
             connections=connections,
             scene_count=scene_count,
             variant_count=variant_count,
+            duration=data.get("duration"),
+            resolution=data.get("resolution"),
             warnings=[],
         )
-        return _normalize_image_only_intent(intent)
+        return _normalize_image_only_intent(_apply_intent_constraints(intent))
     except Exception as exc:
         logger.warning(f"Failed to build WorkflowIntent from parsed data: {exc}")
         return None
@@ -443,6 +496,24 @@ def _normalize_image_only_intent(intent: WorkflowIntent) -> WorkflowIntent:
         ],
         "warnings": [*intent.warnings, "Image assets are emitted by the terminal textToImage node"],
     })
+
+
+def _apply_intent_constraints(intent: WorkflowIntent) -> WorkflowIntent:
+    """Copy planning constraints into the configs consumed at execution."""
+    nodes: list[NodeIntent] = []
+    for node in intent.nodes:
+        config = dict(node.config)
+        if node.kind == "storyboard" and intent.scene_count is not None:
+            config["scenes"] = intent.scene_count
+        elif node.kind == "textToImage" and intent.variant_count is not None:
+            config["variantCount"] = intent.variant_count
+        elif node.kind == "imageToVideo":
+            if intent.duration is not None:
+                config["duration"] = intent.duration
+            if intent.resolution is not None:
+                config["resolution"] = intent.resolution
+        nodes.append(node.model_copy(update={"config": config}))
+    return intent.model_copy(update={"nodes": nodes})
 
 
 # ---------------------------------------------------------------------------

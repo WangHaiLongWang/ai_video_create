@@ -69,6 +69,7 @@ def _make_definition(
     base_kind: str = "textToImage",
     category: str = "image",
     label: str = "Test Module",
+    capability: str = "image",
 ) -> ModuleDefinition:
     """Helper to create a ModuleDefinition for testing."""
     return ModuleDefinition(
@@ -79,7 +80,7 @@ def _make_definition(
         category=category,
         label=label,
         providerPolicy=ProviderPolicy(
-            capability="image",
+            capability=capability,
             allowed=["test-provider"],
             default="test-provider",
         ),
@@ -365,16 +366,17 @@ class TestConcurrentUpdates:
 
 
 class TestListCapabilityFilter:
-    def test_list_by_base_kind(self, repo: ModuleRepository):
+    def test_list_by_provider_capability(self, repo: ModuleRepository):
         repo.create_draft(_make_definition(module_id="img.mod", base_kind="textToImage"))
-        repo.create_draft(_make_definition(module_id="vid.mod", base_kind="textToVideo", category="video"))
+        repo.create_draft(_make_definition(module_id="vid.mod", base_kind="textToImage", category="video", capability="video"))
 
-        image_mods = repo.list_modules(capability="textToImage")
+        image_mods = repo.list_modules(capability="image")
         assert any(m.id == "img.mod" for m in image_mods)
         assert not any(m.id == "vid.mod" for m in image_mods)
 
-        video_mods = repo.list_modules(capability="textToVideo")
+        video_mods = repo.list_modules(capability="video")
         assert any(m.id == "vid.mod" for m in video_mods)
+        assert not any(m.id == "img.mod" for m in video_mods)
 
 
 class TestSemanticVersionOrdering:

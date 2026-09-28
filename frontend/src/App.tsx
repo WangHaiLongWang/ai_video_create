@@ -125,8 +125,10 @@ export default function App() {
       <Toast />
       <div className="app-shell">
         <TopBar onToggleSceneEditor={() => setShowSceneEditor((v) => !v)} />
-        <NodePalette />
-        <ModulePalette />
+        <div className="library-sidebar">
+          <NodePalette />
+          <ModulePalette />
+        </div>
         <Canvas />
         <PropertyPanel />
         <ExecutionPanel />
