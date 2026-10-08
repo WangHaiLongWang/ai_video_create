@@ -448,7 +448,7 @@ API Key 只来自 Provider Settings/secret reference。
 | MOD-R3-001 | Frontend | Module Designer 增加扩展端口与 binding 编辑 | 无 binding 不可发布，合法 binding 可执行 | ✅ 完成 |
 | MOD-R3-002 | Frontend/Contract | 图校验使用每节点 effective module ports，不只用固定 NODE_CATALOG | connect/reconnect/start 结果一致 | ✅ 完成 |
 | MOD-R3-003 | Fullstack | Playwright 使用真实 Mock FastAPI 完成模块 create→publish→drag→save→reload→run | 不依赖 route mock，Task/Asset 可查询 | ✅ 完成 |
-| MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 | ⏳ 待办 |
+| MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 | ✅ 完成 |
 | MOD-R3-005 | QA | 修复 Vitest 并行 EMFILE 和 `--threads false` DOM 污染 | 默认 `npm test` 连续运行稳定全绿 | ✅ 完成 |
 | MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 | ⏳ 待办 |
 | MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 | ⏳ 外部阻断 |
@@ -459,6 +459,7 @@ API Key 只来自 Provider Settings/secret reference。
 - MOD-R3-002：`getNodeEffectivePorts` + `UNKNOWN_HANDLE` + 拖拽期环检查 + 后端 `_effective_ports`；前后端结论一致，契约漂移（`imageToVideo` 基数、`scene` 输入、输出 `required`）以 FE `node-manifest.ts` 为权威对齐并加 parity 测试；后端 62 passed。
 - MOD-R3-003：Playwright 双服务（Mock FastAPI + Vite）+ `AI_VIDEO_DB_PATH` 隔离 DB + doubao-pinned 模块 mock 回退 + handler 补 `assets` 落库；`modules.spec.ts` 5/5 零 route mock，Task/Asset 可查询。
 - MOD-R3-005：显式 `afterEach(cleanup)` + `maxThreads: 2`；默认命令连续两次与串行模式均 375 passed。
+- MOD-R3-004：`AgentPreviewResponse` 增 `patch`/`diff`/`destructive`/`module_diffs`；`NodeIntent.node_id` 透传 + `compile_intent` 优先原 id + `_restore_original_ids`，`apply-v2` 对已有 workflow 改为增量 patch 应用；`PatchPreview` 复活为 modify 主视图，新增 `ModuleDiffs` 区块与破坏性 `alertdialog` 二次确认（与验证失败横幅分离）；MockProvider 对 modify prompt 返回保留拓扑的确定性响应。新增 `agent-modify.spec.ts` 3 项真实 Mock FastAPI 浏览器验收（零 route mock）：增量 diff + module/version/config diff 可见、apply 后服务端节点/连线 id 保留、destructive 取消为 no-op / 确认才删除。
 
 预计：2 人 3 周；单人 4-5 周。M0 可独立交付 Seedream 模块价值。
 

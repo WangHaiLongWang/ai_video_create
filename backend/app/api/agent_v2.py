@@ -11,6 +11,7 @@ cost estimation, and repair information -- rather than raw WorkflowSpec JSON.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Optional
 
@@ -60,6 +61,16 @@ class ModifyPreviewRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _load_existing_spec(workflow_id: str) -> dict | None:
+    """Load an existing workflow's spec dict, or None when it does not exist."""
+    try:
+        from backend.app.repositories.workflows import get_workflow
+
+        return get_workflow(workflow_id)["spec"]
+    except Exception:
+        return None
+
 
 def _build_cost_estimate(intent: WorkflowIntent) -> CostEstimate:
     """Run estimate_calls and convert to a CostEstimate model."""
@@ -257,13 +268,55 @@ async def _modify_intent_from_prompt(
                 "warnings": [*existing_intent.warnings, "Modification parser unavailable; topology preserved"],
             })
         context = existing_intent.model_dump(by_alias=True)
-        return await parse_workflow_intent(
-            f"Modify this existing WorkflowIntent: {context}\nInstruction: {instruction}",
+        # Embed as JSON (not Python repr) so providers can parse the topology.
+        context_text = json.dumps(context, ensure_ascii=False, default=str)
+        modified = await parse_workflow_intent(
+            f"Modify this existing WorkflowIntent: {context_text}\nInstruction: {instruction}",
             provider=provider,
         )
+        # The parser builds fresh NodeIntents without original ids — re-attach
+        # them so compilation keeps the node identity of untouched nodes.
+        return _restore_original_ids(modified, existing_intent)
     except Exception as exc:
         logger.warning(f"Modify failed, generating new intent: {exc}")
         return existing_intent or _default_intent(instruction)
+
+
+def _restore_original_ids(
+    new_intent: WorkflowIntent, existing_intent: WorkflowIntent
+) -> WorkflowIntent:
+    """Re-attach original node ids from the existing intent to a parsed intent.
+
+    Matching is by alias first (the modify prompt echoes the aliases), then by
+    kind order for nodes whose alias was rewritten by the model.  Nodes that
+    match nothing (genuinely new) keep ``nodeId=None`` and receive a
+    deterministic id at compile time.
+    """
+    alias_to_id: dict[str, str] = {
+        node.alias: node.node_id for node in existing_intent.nodes if node.node_id
+    }
+    kind_remaining: dict[str, list[str]] = {}
+    for node in existing_intent.nodes:
+        if node.node_id:
+            kind_remaining.setdefault(node.kind, []).append(node.node_id)
+
+    restored: list[NodeIntent] = []
+    for node in new_intent.nodes:
+        if node.node_id:
+            restored.append(node)
+            continue
+        original_id = alias_to_id.get(node.alias)
+        if original_id is None:
+            candidates = kind_remaining.get(node.kind) or []
+            original_id = candidates.pop(0) if candidates else None
+        else:
+            candidates = kind_remaining.get(node.kind) or []
+            if original_id in candidates:
+                candidates.remove(original_id)
+        restored.append(
+            node if original_id is None else node.model_copy(update={"node_id": original_id})
+        )
+    return new_intent.model_copy(update={"nodes": restored})
 
 
 def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
@@ -287,16 +340,19 @@ def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
         alias_counter[kind] = count + 1
         alias = f"{kind}{count}" if count > 0 else kind
 
+        node_id = wf_node.get("id") if isinstance(wf_node, dict) else wf_node.id
         nodes.append(NodeIntent(
             alias=alias,
             kind=kind,
+            # Carry the original id through compilation so modify keeps
+            # node identity ("修改不重建") instead of regenerating ids.
+            nodeId=node_id,
             config=data.get("config", {}) if isinstance(data, dict) else data.config,
             label=data.get("label") if isinstance(data, dict) else data.label,
-            moduleId=data.get("moduleId") if isinstance(data, dict) else getattr(data, "module_id", None),
-            moduleVersion=data.get("moduleVersion") if isinstance(data, dict) else getattr(data, "module_version", None),
-            configOverrides=data.get("configOverrides", {}) if isinstance(data, dict) else getattr(data, "config_overrides", {}),
+            moduleId=(data.get("moduleId", data.get("module_id")) if isinstance(data, dict) else getattr(data, "module_id", None)),
+            moduleVersion=(data.get("moduleVersion", data.get("module_version")) if isinstance(data, dict) else getattr(data, "module_version", None)),
+            configOverrides=(data.get("configOverrides", data.get("config_overrides", {})) if isinstance(data, dict) else getattr(data, "config_overrides", {})),
         ))
-        node_id = wf_node.get("id") if isinstance(wf_node, dict) else wf_node.id
         kind_to_alias[node_id] = alias
 
     # Build connections from edges
@@ -323,9 +379,12 @@ def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
                 tgt_port = edge.get("targetHandle") if isinstance(edge, dict) else getattr(edge, "target_handle", None)
                 tgt_port = tgt_port or _input_port_for_kind(n_kind)
 
+        edge_data = edge.get("data", {}) if isinstance(edge, dict) else getattr(edge, "data", {}) or {}
+        mode = (edge_data.get("mode") if isinstance(edge_data, dict) else None) or "direct"
         connections.append(ConnectionIntent(
             source=PortRef(node=src_alias, port=src_port),
             target=PortRef(node=tgt_alias, port=tgt_port),
+            mode=mode,
         ))
 
     # Infer scene count from storyboard config
@@ -480,7 +539,9 @@ async def generate_preview_v2(request: GeneratePreviewRequest) -> AgentPreviewRe
 async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewResponse:
     """Modify an existing workflow via natural-language instruction.
 
-    Returns a full AgentPreviewResponse, same as generate-preview-v2.
+    Returns a full AgentPreviewResponse, same as generate-preview-v2, plus the
+    incremental change vs the existing workflow: ``patch`` / ``diff`` /
+    ``destructive`` / ``module_diffs``.
     """
     # 1. Modify intent
     intent = await _modify_intent_from_prompt(request.workflow_id, request.instruction)
@@ -510,6 +571,27 @@ async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewRespon
     cost = _build_cost_estimate(intent)
     warnings.extend(cost.warnings)
 
+    # 6. Incremental diff vs the existing workflow (MOD-R3-004)
+    from backend.app.services.agent_diff import (
+        check_destructive,
+        compute_graph_patch,
+        compute_module_diffs,
+        generate_diff,
+        is_destructive,
+    )
+
+    patch = None
+    diff_text = None
+    destructive = False
+    module_diffs: list[dict] = []
+    existing_spec = _load_existing_spec(request.workflow_id)
+    if existing_spec is not None and compiled is not None:
+        patch = compute_graph_patch(existing_spec, compiled)
+        diff_text = generate_diff(existing_spec, patch)
+        destructive = is_destructive(patch)
+        module_diffs = compute_module_diffs(existing_spec, compiled)
+        warnings.extend(check_destructive(patch))
+
     can_apply = len(errors) == 0
 
     return AgentPreviewResponse(
@@ -520,6 +602,10 @@ async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewRespon
         cost_estimate=cost,
         warnings=warnings,
         can_apply=can_apply,
+        patch=patch,
+        diff=diff_text,
+        destructive=destructive,
+        module_diffs=module_diffs,
     )
 
 
@@ -588,8 +674,32 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
                 raise HTTPException(404, f"Workflow '{request.workflow_id}' not found")
 
             expected_version = request.expected_version or wf["version"]
+
+            # Incremental apply (修改不重建): patch the existing spec instead
+            # of replacing it wholesale, so untouched nodes/edges keep their
+            # ids and canvas metadata.
+            from backend.app.services.agent_diff import (
+                apply_graph_patch,
+                compute_graph_patch,
+            )
+
+            existing_spec = wf["spec"]
             try:
-                result = update_workflow(request.workflow_id, compiled, expected_version)
+                patch = compute_graph_patch(existing_spec, compiled)
+                patched = apply_graph_patch(existing_spec, patch, compiled=compiled)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc))
+
+            patched["name"] = compiled.get("name") or patched.get("name")
+            if compiled.get("description") is not None:
+                patched["description"] = compiled["description"]
+
+            # Validate the patched graph before saving
+            patched_nodes, patched_edges = extract_nodes_edges_from_spec(patched)
+            raise_if_invalid(patched_nodes, patched_edges)
+
+            try:
+                result = update_workflow(request.workflow_id, patched, expected_version)
             except OptimisticLockError as exc:
                 raise HTTPException(409, str(exc))
 

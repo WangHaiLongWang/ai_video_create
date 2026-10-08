@@ -35,6 +35,11 @@ class NodeIntent(BaseModel):
 
     alias: str = Field(..., description="Unique alias for this node, e.g. 'story'")
     kind: str = Field(..., description="Node kind from NODE_CATALOG")
+    node_id: Optional[str] = Field(
+        None,
+        alias="nodeId",
+        description="Original WorkflowSpec node id — preserved on modify so compilation does not rebuild the graph",
+    )
     module_id: Optional[str] = Field(None, alias="moduleId", description="Module ID to use instead of base kind")
     module_version: Optional[str] = Field(
         None, alias="moduleVersion", description="Exact published module version"

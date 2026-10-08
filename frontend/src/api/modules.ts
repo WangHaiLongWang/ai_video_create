@@ -122,3 +122,51 @@ export async function archiveModule(moduleId: string, version?: string, expected
   })
   return parseResponse(res, 'Failed to archive module')
 }
+
+// ---------------------------------------------------------------------------
+// Diff / Compatibility (MOD-201)
+// ---------------------------------------------------------------------------
+
+/** Structural diff between two module versions (camelCase serialization). */
+export interface ModuleDiff {
+  versionFrom: string
+  versionTo: string
+  breaking: boolean
+  addedFields: Array<Record<string, unknown>>
+  removedFields: string[]
+  changedFields: Array<Record<string, unknown>>
+  addedPorts: Array<Record<string, unknown>>
+  removedPorts: string[]
+  changedPorts: Array<Record<string, unknown>>
+  providerChanges?: Record<string, unknown> | null
+  labelChanged?: boolean
+  descriptionChanged?: boolean
+  estimatedCallDiff?: Record<string, unknown> | null
+}
+
+export async function fetchModuleDiff(moduleId: string, from: string, to: string): Promise<ModuleDiff> {
+  const params = new URLSearchParams({ from, to })
+  const res = await fetch(`${API_BASE}/modules/${moduleId}/diff?${params}`)
+  return parseResponse(res, 'Failed to fetch module diff')
+}
+
+export interface ModuleCompatResult {
+  compatible: boolean
+  messages: string[]
+}
+
+export async function checkModuleCompat(
+  moduleId: string,
+  body: {
+    oldConfig: Record<string, unknown>
+    oldSchema: Record<string, unknown>
+    newSchema: Record<string, unknown>
+  },
+): Promise<ModuleCompatResult> {
+  const res = await fetch(`${API_BASE}/modules/${moduleId}/compat-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseResponse(res, 'Failed to check module compatibility')
+}

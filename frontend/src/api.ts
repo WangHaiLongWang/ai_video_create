@@ -196,6 +196,17 @@ export interface GraphPatch {
   remove_edges: string[]
 }
 
+/** Per-node module change entry from modify-preview (MOD-R3-004). */
+export interface ModuleDiffEntry {
+  nodeId: string
+  moduleId: string
+  from?: string | null
+  to?: string | null
+  type: 'added' | 'removed' | 'upgraded' | 'reconfigured'
+  /** upgraded → ModuleDiff camelCase; reconfigured → { changedKeys, from, to } */
+  details?: Record<string, unknown>
+}
+
 // --- v1 preview response (legacy) ---
 
 export interface AgentPreviewResponse {
@@ -229,6 +240,12 @@ export interface ConnectionIntent {
 export interface NodeIntent {
   alias: string
   kind: string
+  /** Module ID to use instead of base kind (backend alias `moduleId`). */
+  moduleId?: string
+  /** Exact published module version (backend alias `moduleVersion`). */
+  moduleVersion?: string
+  /** Instance-level overrides applied on top of module defaults (backend alias `configOverrides`). */
+  configOverrides?: Record<string, unknown>
   config?: Record<string, unknown>
   label?: string
   description?: string
@@ -283,6 +300,15 @@ export interface AgentPreviewResponse_v2 {
   cost_estimate: CostEstimate | null
   warnings: string[]
   can_apply: boolean
+  // --- Modify-preview diff fields (MOD-R3-004) ---
+  /** Incremental change vs the existing workflow; null/absent for generate. */
+  patch?: GraphPatch | null
+  /** Human-readable diff text. */
+  diff?: string | null
+  /** True when the patch removes nodes or edges. */
+  destructive?: boolean
+  /** Per changed module: added/removed/upgraded/reconfigured. */
+  module_diffs?: ModuleDiffEntry[]
 }
 
 export interface AgentApplyResponse {

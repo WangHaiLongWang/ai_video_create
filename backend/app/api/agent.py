@@ -14,31 +14,14 @@ from backend.app.models import (
     GraphPatch,
 )
 from backend.app.services.agent import get_agent_service
+from backend.app.services.agent_diff import (
+    check_destructive as _check_destructive,
+    generate_diff as _generate_diff,
+)
 from backend.app.repositories.workflows import get_workflow, update_workflow
 from backend.app.db.connection import get_connection
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
-
-
-def _generate_diff(spec: WorkflowSpec, patch: GraphPatch) -> str:
-    """Generate a human-readable diff summary for a GraphPatch."""
-    lines: list[str] = []
-    if patch.add_nodes:
-        lines.append(f"+ 新增 {len(patch.add_nodes)} 个节点: "
-                     f"{', '.join(n.data.label for n in patch.add_nodes)}")
-    if patch.remove_nodes:
-        lines.append(f"- 删除 {len(patch.remove_nodes)} 个节点: "
-                     f"{', '.join(patch.remove_nodes)}")
-    if patch.update_nodes:
-        lines.append(f"~ 更新 {len(patch.update_nodes)} 个节点: "
-                     f"{', '.join(u.id for u in patch.update_nodes)}")
-    if patch.add_edges:
-        lines.append(f"+ 新增 {len(patch.add_edges)} 条连线")
-    if patch.remove_edges:
-        lines.append(f"- 删除 {len(patch.remove_edges)} 条连线")
-    if not lines:
-        lines.append("(无变更)")
-    return "\n".join(lines)
 
 
 def _validate_patched_spec(spec: WorkflowSpec, patch: GraphPatch) -> None:
@@ -62,16 +45,6 @@ def _validate_patched_spec(spec: WorkflowSpec, patch: GraphPatch) -> None:
     nodes_dicts = [n.model_dump() for n in new_nodes]
     edges_dicts = [e.model_dump() for e in new_edges]
     raise_if_invalid(nodes_dicts, edges_dicts)
-
-
-def _check_destructive(patch: GraphPatch) -> list[str]:
-    """Return warnings for destructive operations in a patch."""
-    warnings: list[str] = []
-    if patch.remove_nodes:
-        warnings.append(f"将删除 {len(patch.remove_nodes)} 个节点")
-    if patch.remove_edges:
-        warnings.append(f"将删除 {len(patch.remove_edges)} 条连线")
-    return warnings
 
 
 @router.post("/generate", response_model=WorkflowSpec)

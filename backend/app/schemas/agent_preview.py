@@ -6,6 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from backend.app.models import GraphPatch
 from .workflow_intent import WorkflowIntent
 
 
@@ -42,6 +43,12 @@ class AgentPreviewResponse(BaseModel):
     cost_estimate: Optional[CostEstimate] = None
     warnings: list[str] = Field(default_factory=list)
     can_apply: bool = False  # True only if validation passed with 0 errors
+
+    # Incremental modify info (None / empty for generate previews)
+    patch: Optional[GraphPatch] = None  # change vs the existing workflow
+    diff: Optional[str] = None  # human-readable diff text
+    destructive: bool = False  # True when patch removes nodes or edges
+    module_diffs: list[dict] = Field(default_factory=list)  # per changed module
 
 
 class AgentApplyRequest(BaseModel):

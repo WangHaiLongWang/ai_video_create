@@ -11,9 +11,9 @@
 
 项目已进入“模块化主链可用、真实联调与高级自定义收敛”阶段。Module Palette/Designer、精确版本引用、Execution Materializer、Agent module-aware compiler、module_usage 和 Seedream 前端纵向 E2E 已完成基础验收；本轮进一步关闭了模块端口 Binding Designer、module-aware 图校验、真实 Mock Backend 浏览器链路和测试隔离四项缺口。
 
-本轮（Phase M3 第一批）已完成 MOD-R3-001/002/003/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Vitest 隔离治理。剩余重点是 Agent Modify 浏览器联调、同 SHA CI 证据和真实 Provider UAT。
+本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
 
-本轮校准以当前工作区实测为准：Playwright 全量 139 passed / 0 failed，前端 375 passed（默认命令连续两次与串行均绿），后端广覆盖 677 passed。尚不能替代同一 SHA 的 CI run 和真实 Provider UAT。
+本轮校准以当前工作区实测为准：Playwright 全量 142 passed / 0 failed（含 8 项真实 Mock FastAPI 浏览器链路），前端 387 passed，后端干净 venv 2123 passed / 0 failed。尚不能替代同一 SHA 的 CI run 和真实 Provider UAT。
 
 ### 当前评分
 
@@ -36,16 +36,17 @@
 
 | 验证项 | 当前结果 | 状态 |
 |---|---:|---|
-| Frontend Vitest | 22 files / 375 passed | 通过 |
+| Frontend Vitest | 22 files / 387 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
 | Vite build | index 130.49 kB；最大 chunk 181.08 kB | 通过，无 500 kB 警告 |
 | Chromium modules E2E（真实 Mock FastAPI） | 5/5 passed | 通过，**零 route mock**，Task/Asset 可查询 |
-| Playwright 全量 | 139 passed / 1 skipped / 0 failed | 通过 |
+| Chromium agent-modify E2E（真实 Mock FastAPI） | 3/3 passed | 通过，**零 route mock**，含 destructive 确认 |
+| Playwright 全量 | 142 passed / 1 skipped / 0 failed | 通过 |
 | Vitest 默认命令连续 2 次 | 375 passed × 2 | 通过 |
 | Vitest 串行模式 | 375 passed | 通过 |
 | Backend 广覆盖回归 | 677 passed | 通过 |
 | Agent structured parser/module gate | 341 passed | 通过 |
-| Backend full collection | 当前环境需重新复核 | 干净 venv 的 Pillow/cryptography 安装仍需验证 |
+| Backend full non-external（干净 venv） | 2123 passed / 8 skipped / 0 failed | 通过 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
 | Playwright CI | Mock FastAPI + Vite + Chromium job 已配置 | 尚无本次 run URL/同 SHA 证据 |
@@ -116,7 +117,16 @@
 | FE-R3-002 | P0 | 前端连接校验仍依赖固定 NODE_CATALOG | 使用 effective module ports | ✅ 完成 |
 | FE-R3-003 | P0 | modules E2E 使用 route mock | 真实 Mock FastAPI create→run | ✅ 完成 |
 | FE-R3-004 | P1 | Vitest 并发 EMFILE/串行 DOM 污染 | 默认 npm test 连续稳定全绿 | ✅ 完成 |
-| FE-R3-005 | P1 | Agent Modify 缺浏览器模块 Diff 验收 | 修改不重建、diff 可确认 | ⏳ 待办（MOD-R3-004） |
+| FE-R3-005 | P1 | Agent Modify 缺浏览器模块 Diff 验收 | 修改不重建、diff 可确认 | ✅ 完成 |
+
+FE-R3-005 完成要点（MOD-R3-004）：
+
+- **契约**：`AgentPreviewResponse` 增 `patch`/`diff`/`destructive`/`module_diffs`（added/removed/upgraded/reconfigured），前后端字段名经真实 API 冒烟核对一致。
+- **修改不重建**：`NodeIntent.node_id` 透传，`compile_intent` 优先使用原 id（不再 `_deterministic_id(alias)`），LLM 往返后按 alias 还原；`apply-v2` 对已有 workflow 改为 `compute_graph_patch` + `apply_graph_patch` 增量应用；前端 `applyGraphPatch` 同步。实测 apply 后服务端节点/连线 id 原样保留。
+- **Diff UI**：复活原死代码 `PatchPreview` 作为 modify 主视图（"变更内容（增量 Diff）"），新增 `ModuleDiffs` 区块与 `moduleId@moduleVersion` 徽标。
+- **破坏性二次确认**：`alertdialog` 列出删除节点/连线，可取消（no-op）；与 `!can_apply` 验证失败横幅明确分离。
+- **MockProvider 确定性**：modify prompt 返回保留拓扑 + 单点 config 变更，不再落入 `_template_fallback` 重建。
+- **真实浏览器验收**：新增 `agent-modify.spec.ts` 3 项，零 route mock，驱动真实 Mock FastAPI。
 
 FE-R3-001～004 完成要点：
 
@@ -162,18 +172,21 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 
 | ID | 优先级 | 阻断项 | 当前证据 | 关闭标准 | 状态 |
 |---|---:|---|---|---|---|
-| RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ⏳ 待办 |
+| RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（干净 venv 2096 passed / 0 failed） |
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
 | RC-004 | P0 | 无同一 commit CI 证据 | Playwright job 已配置 | 三平台 required checks + report URL | ⏳ 待办（MOD-R3-006） |
 | RC-007 | P1 | Doubao 模型未激活 | 两模型真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⏳ 外部阻断 |
 | RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 | ⏳ 待办 |
 
+RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。
+
 本轮顺带修复的已存在缺陷（非本轮引入，但已闭环）：
 
 1. `TestExecutionResolverRejectsUnboundPorts` 2 项失败——测试夹具缺 `status="published"`，Resolver 正确要求模块已发布才可执行；已补夹具。
 2. 双层限流缺口——`DISABLE_RATE_LIMIT=1` 只对 `RateLimitMiddleware` 生效，`SecurityMiddleware` 仍返回 429，导致全量 Playwright 失败；现已一致尊重该开关并补 2 项回归测试。
 3. `imageToVideo` 输出基数契约漂移——统一为 FE `node-manifest.ts` 权威（`video` 输出 `cardinality='one'`），后端对齐并加契约 parity 测试。
+4. `test_wan3_uat` 配置断言被本地 `.env` 影响（`AI_VIDEO_WAN3_MODEL=wan3.0-video-prime` 覆盖默认值）——改为构造不加载 `.env` 的 `Settings(_env_file=None)` 验证声明默认值。
 
 ## 7. 后续开发路线
 

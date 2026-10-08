@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import shutil
 from pathlib import Path
@@ -381,21 +382,28 @@ class TestRateLimitingAndBodySize:
         from fastapi import FastAPI
         from backend.app.middleware import SecurityMiddleware
 
-        test_app = FastAPI()
+        # conftest 为全量套件设置了 DISABLE_RATE_LIMIT=1；本用例要验证限流本身，
+        # 需临时恢复限流（与 test_security_middleware.py 的写法一致）。
+        old = os.environ.pop("DISABLE_RATE_LIMIT", None)
+        try:
+            test_app = FastAPI()
 
-        @test_app.get("/test")
-        async def test_endpoint():
-            return {"ok": True}
+            @test_app.get("/test")
+            async def test_endpoint():
+                return {"ok": True}
 
-        # 使用低限制的独立中间件
-        test_app.add_middleware(SecurityMiddleware, rate_limit=5)
+            # 使用低限制的独立中间件
+            test_app.add_middleware(SecurityMiddleware, rate_limit=5)
 
-        with TestClient(test_app) as c:
-            for _ in range(5):
-                c.get("/test")
-            response = c.get("/test")
-            assert response.status_code == 429
-            assert "请求过于频繁" in response.json()["detail"]
+            with TestClient(test_app) as c:
+                for _ in range(5):
+                    c.get("/test")
+                response = c.get("/test")
+                assert response.status_code == 429
+                assert "请求过于频繁" in response.json()["detail"]
+        finally:
+            if old is not None:
+                os.environ["DISABLE_RATE_LIMIT"] = old
 
     def test_body_size_limit_on_large_post(self, client):
         """大型 POST 请求被拒绝。"""

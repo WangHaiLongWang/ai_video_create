@@ -40,13 +40,18 @@ class MockProvider(BaseProvider):
 
         # Detect workflow generation / modification prompts
         prompt_lower = prompt.lower()
+        # v2 structured modify: "Modify this existing WorkflowIntent: {json}"
+        is_modify_intent = "modify this existing workflowintent" in prompt_lower
         is_workflow = (
             "nodes" in prompt_lower and "edges" in prompt_lower
         ) or "工作流" in prompt
         is_patch = "graphpatch" in prompt_lower or "patch" in prompt_lower
 
         # Generate a mock response based on the prompt
-        if is_patch:
+        if is_modify_intent:
+            # Incremental modify: preserve topology, tweak one config value
+            return self._generate_modify_intent_text(prompt)
+        elif is_patch:
             return self._generate_patch_text(prompt)
         elif is_workflow:
             return self._generate_workflow_text(prompt)
@@ -233,6 +238,41 @@ class MockProvider(BaseProvider):
             "add_edges": [],
             "remove_edges": [],
         }, ensure_ascii=False)
+
+    # Marker emitted by agent_v2._modify_intent_from_prompt
+    _MODIFY_MARKER = "Modify this existing WorkflowIntent:"
+
+    def _generate_modify_intent_text(self, prompt: str) -> str:
+        """Generate a mock WorkflowIntent modification (incremental).
+
+        Echoes the existing WorkflowIntent embedded in the prompt and tweaks
+        exactly one config value, so a modify round-trip preserves topology
+        ("修改不重建") instead of rebuilding a new pipeline.
+        """
+        context = None
+        idx = prompt.find(self._MODIFY_MARKER)
+        if idx != -1:
+            rest = prompt[idx + len(self._MODIFY_MARKER):].lstrip()
+            try:
+                context, _ = json.JSONDecoder().raw_decode(rest)
+            except ValueError:
+                context = None
+
+        if not isinstance(context, dict) or not context.get("nodes"):
+            # Topology unavailable — fall back to the generic workflow shape.
+            return self._generate_workflow_text(prompt)
+
+        data = json.loads(json.dumps(context))  # deep copy via JSON
+        nodes = [n for n in data.get("nodes", []) if isinstance(n, dict)]
+        target = next((n for n in nodes if n.get("kind") == "storyboard"), None) or (
+            nodes[0] if nodes else None
+        )
+        if target is not None:
+            config = dict(target.get("config") or {})
+            config["mockTweak"] = "modified"
+            target["config"] = config
+        data["description"] = "模拟修改：调整一个节点配置"
+        return json.dumps(data, ensure_ascii=False)
 
     def _create_minimal_mp4(self) -> bytes:
         """Create a minimal valid MP4 file."""

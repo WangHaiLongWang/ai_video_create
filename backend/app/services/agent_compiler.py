@@ -78,7 +78,9 @@ def compile_intent(intent: WorkflowIntent) -> dict[str, Any]:
 
     # --- 1. Create React Flow nodes ---
     for idx, node_intent in enumerate(intent.nodes):
-        node_id = _deterministic_id(node_intent.alias)
+        # Prefer the original node id when known (modify path) so untouched
+        # nodes keep their identity instead of being rebuilt from aliases.
+        node_id = node_intent.node_id or _deterministic_id(node_intent.alias)
         alias_to_id[node_intent.alias] = node_id
 
         manifest = _NODE_CATALOG_V2.get(node_intent.kind)

@@ -140,9 +140,28 @@ class TestScenario1_HealthCheck:
         assert result is False, "Health check should fail with an invalid key"
         await bad_provider.close()
 
-    def test_config_loads_correctly(self):
-        """Verify the Wan3 config is loaded from Settings correctly."""
-        settings = get_settings()
+    def test_config_loads_correctly(self, monkeypatch):
+        """Verify the Wan3 config defaults are declared correctly on Settings.
+
+        Builds a Settings instance that skips ``.env`` and ambient env vars so a
+        local override (e.g. AI_VIDEO_WAN3_MODEL=wan3.0-video-prime) cannot
+        fail a test that is about the declared defaults.
+        """
+        for var in (
+            "AI_VIDEO_WAN3_MODEL",
+            "AI_VIDEO_WAN3_RESOLUTION",
+            "AI_VIDEO_WAN3_RATIO",
+            "AI_VIDEO_WAN3_DURATION",
+            "AI_VIDEO_WAN3_AUDIO",
+            "AI_VIDEO_WAN3_SEED",
+            "AI_VIDEO_WAN3_PROMPT_EXTEND",
+            "AI_VIDEO_WAN3_WATERMARK",
+            "AI_VIDEO_WAN3_POLL_INTERVAL",
+            "AI_VIDEO_WAN3_TIMEOUT",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        settings = Settings(_env_file=None)
         assert settings.WAN3_MODEL == "wan3.0-video"
         assert settings.WAN3_RESOLUTION == "480P"
         assert settings.WAN3_RATIO == "adaptive"

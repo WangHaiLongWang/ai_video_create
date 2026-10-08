@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createModule, publishModule, updateModule } from './modules'
+import { checkModuleCompat, createModule, fetchModuleDiff, publishModule, updateModule } from './modules'
 import { BUILTIN_MODULES } from '../schemas/module-definition'
 
 describe('module API', () => {
@@ -59,5 +59,71 @@ describe('module API', () => {
         body: JSON.stringify({ version: definition.version, expectedVersion: 4 }),
       }),
     )
+  })
+})
+
+describe('module diff / compat API (MOD-201)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('fetchModuleDiff calls GET /api/modules/{id}/diff with from/to', async () => {
+    const mockDiff = {
+      versionFrom: '1.0.0',
+      versionTo: '1.1.0',
+      breaking: false,
+      addedFields: [{ key: 'style' }],
+      removedFields: [],
+      changedFields: [],
+      addedPorts: [],
+      removedPorts: [],
+      changedPorts: [],
+    }
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(mockDiff), { status: 200 }),
+    )
+
+    const result = await fetchModuleDiff('core.storyboard', '1.0.0', '1.1.0')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/modules/core.storyboard/diff?from=1.0.0&to=1.1.0',
+    )
+    expect(result.versionFrom).toBe('1.0.0')
+    expect(result.versionTo).toBe('1.1.0')
+    expect(result.addedFields).toEqual([{ key: 'style' }])
+    expect(result.breaking).toBe(false)
+  })
+
+  it('fetchModuleDiff surfaces errors through ModuleApiError', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Module version not found' }), { status: 404 }),
+    )
+
+    await expect(fetchModuleDiff('core.storyboard', '0.0.1', '9.9.9')).rejects.toMatchObject({
+      message: 'Module version not found',
+      status: 404,
+    })
+  })
+
+  it('checkModuleCompat calls POST /api/modules/{id}/compat-check', async () => {
+    const mockResult = { compatible: true, messages: [] }
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(mockResult), { status: 200 }),
+    )
+
+    const body = {
+      oldConfig: { prompt: 'hello' },
+      oldSchema: { type: 'object', properties: { prompt: { type: 'string' } } },
+      newSchema: { type: 'object', properties: { prompt: { type: 'string' }, style: { type: 'string' } } },
+    }
+    const result = await checkModuleCompat('core.textInput', body)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/modules/core.textInput/compat-check',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    )
+    expect(result.compatible).toBe(true)
+    expect(result.messages).toEqual([])
   })
 })

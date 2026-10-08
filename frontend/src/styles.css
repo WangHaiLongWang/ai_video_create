@@ -545,6 +545,48 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .agent-patch-add { color: #7dce7d; background: rgba(125, 206, 125, .06); }
 .agent-patch-remove { color: #d47868; background: rgba(212, 120, 104, .06); }
 .agent-patch-modify { color: #fbbf24; background: rgba(251, 191, 36, .06); }
+.agent-patch-desc { font-size: 10px; color: #737a6e; margin-bottom: 5px; }
+
+/* --- Agent module / version / config diff (MOD-R3-004) --- */
+.agent-intent-module {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 5px; border-radius: 3px;
+  background: #1a2e1a; color: #7dce7d; font-size: 8px;
+  font-family: "Cascadia Code", monospace;
+}
+.agent-intent-override {
+  padding: 1px 5px; border-radius: 3px;
+  background: #2a2a1a; color: #c5b96a; font-size: 8px;
+  font-family: "Cascadia Code", monospace;
+}
+.agent-module-diff { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.agent-module-diff-badge {
+  padding: 1px 5px; border-radius: 3px;
+  background: #30352a; color: #c5c9be; font-size: 8px; font-weight: 700;
+}
+.agent-module-diff-versions {
+  margin-left: auto; font-size: 9px;
+  font-family: "Cascadia Code", monospace; color: #737a6e;
+}
+.agent-module-diff-details {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 3px 0 3px 12px;
+}
+
+/* --- Destructive confirm (MOD-R3-004) --- */
+.agent-destructive-list {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 5px;
+}
+.agent-destructive-confirm {
+  border: 1px solid #6b3a32; border-radius: 6px;
+  padding: 8px 10px; background: rgba(58, 33, 29, .35);
+}
+.agent-destructive-confirm-title {
+  display: flex; align-items: center; gap: 5px;
+  color: #ffd7cf; font-size: 11px; font-weight: 700;
+  margin-bottom: 4px;
+}
 .agent-preview-dish { margin-top: 4px; }
 .agent-preview-diff pre {
   margin: 0; padding: 8px; border-radius: 5px;

@@ -259,4 +259,127 @@ describe('Agent v2 API functions', () => {
     expect(result.success).toBe(false)
     expect(result.error).toBe('Validation failed')
   })
+
+  it('agentModifyPreview_v2 parses patch/diff/destructive/module_diffs (MOD-R3-004)', async () => {
+    const mockResponse = {
+      intent: { name: 'Modified', nodes: [], connections: [] },
+      compiled_workflow: null,
+      validation_errors: [],
+      repair_steps: [],
+      cost_estimate: null,
+      warnings: [],
+      can_apply: true,
+      patch: {
+        description: '删除输出节点',
+        add_nodes: [],
+        remove_nodes: ['n3'],
+        update_nodes: [{ id: 'n2', config: { scenes: 5 } }],
+        add_edges: [],
+        remove_edges: ['e2'],
+      },
+      diff: '- n3\n- e2\n~ n2',
+      destructive: true,
+      module_diffs: [
+        {
+          nodeId: 'n2',
+          moduleId: 'core.storyboard',
+          from: '1.0.0',
+          to: '1.1.0',
+          type: 'upgraded',
+          details: {
+            versionFrom: '1.0.0',
+            versionTo: '1.1.0',
+            breaking: false,
+            addedFields: [{ key: 'style' }],
+            removedFields: [],
+            changedFields: [],
+            addedPorts: [],
+            removedPorts: [],
+            changedPorts: [],
+          },
+        },
+        {
+          nodeId: 'n1',
+          moduleId: 'core.textInput',
+          type: 'reconfigured',
+          details: { changedKeys: ['prompt'], from: { prompt: 'a' }, to: { prompt: 'b' } },
+        },
+      ],
+    }
+    mockFetch.mockResolvedValue(jsonResponse(mockResponse))
+
+    const result = await api.agentModifyPreview_v2('wf-123', '删掉输出')
+
+    expect(result.patch).toBeDefined()
+    expect(result.patch?.remove_nodes).toEqual(['n3'])
+    expect(result.diff).toBe('- n3\n- e2\n~ n2')
+    expect(result.destructive).toBe(true)
+    expect(result.module_diffs).toHaveLength(2)
+    expect(result.module_diffs?.[0]).toMatchObject({
+      nodeId: 'n2',
+      moduleId: 'core.storyboard',
+      from: '1.0.0',
+      to: '1.1.0',
+      type: 'upgraded',
+    })
+    expect(result.module_diffs?.[1]).toMatchObject({
+      nodeId: 'n1',
+      moduleId: 'core.textInput',
+      type: 'reconfigured',
+    })
+  })
+
+  it('NodeIntent parses moduleId/moduleVersion/configOverrides aliases', async () => {
+    const mockResponse = {
+      intent: {
+        name: 'Modular',
+        nodes: [
+          {
+            alias: 'input',
+            kind: 'textInput',
+            moduleId: 'core.textInput',
+            moduleVersion: '1.2.0',
+            configOverrides: { prompt: 'hello' },
+            config: { extra: 1 },
+          },
+        ],
+        connections: [],
+      },
+      compiled_workflow: null,
+      validation_errors: [],
+      repair_steps: [],
+      cost_estimate: null,
+      warnings: [],
+      can_apply: true,
+    }
+    mockFetch.mockResolvedValue(jsonResponse(mockResponse))
+
+    const result = await api.agentGeneratePreview_v2('模块化工作流')
+    const node = result.intent.nodes[0]
+
+    expect(node.moduleId).toBe('core.textInput')
+    expect(node.moduleVersion).toBe('1.2.0')
+    expect(node.configOverrides).toEqual({ prompt: 'hello' })
+    expect(node.config).toEqual({ extra: 1 })
+  })
+
+  it('modify preview without patch fields keeps them undefined (generate shape)', async () => {
+    const mockResponse = {
+      intent: { name: 'Gen', nodes: [], connections: [] },
+      compiled_workflow: null,
+      validation_errors: [],
+      repair_steps: [],
+      cost_estimate: null,
+      warnings: [],
+      can_apply: true,
+    }
+    mockFetch.mockResolvedValue(jsonResponse(mockResponse))
+
+    const result = await api.agentGeneratePreview_v2('生成')
+
+    expect(result.patch).toBeUndefined()
+    expect(result.destructive).toBeUndefined()
+    expect(result.module_diffs).toBeUndefined()
+    expect(result.diff).toBeUndefined()
+  })
 })
