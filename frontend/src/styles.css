@@ -3678,6 +3678,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .md-port-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 10px;
   border: 1px solid #3b4038;
@@ -3703,6 +3704,86 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .md-port-required {
   color: #fbbf24;
   font-weight: 700;
+}
+
+.md-ports-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.md-ports-group-header .md-ports-label {
+  margin-bottom: 0;
+}
+
+.md-port-lock {
+  display: flex;
+  color: #5a6055;
+}
+
+.md-port-item-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.md-port-item-unbound {
+  border-color: #6b3a32;
+  background: #241714;
+}
+
+.md-port-binding {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.md-port-binding-core {
+  background: #20231f;
+  color: #5a6055;
+}
+
+.md-port-binding-bound {
+  background: #1a2e1a;
+  color: #7dce7d;
+}
+
+.md-port-binding-unbound {
+  background: #3a211d;
+  color: #e8b87d;
+}
+
+.md-port-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  font-size: 10px;
+  color: #e8b87d;
+}
+
+.md-port-error svg {
+  flex-shrink: 0;
+}
+
+.md-error-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.md-error-list {
+  margin: 0;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.md-error-list code {
+  font-family: "Cascadia Code", monospace;
+  color: #e3e6dd;
 }
 
 .md-ports-warning {

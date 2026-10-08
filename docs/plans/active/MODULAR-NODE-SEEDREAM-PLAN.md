@@ -1,7 +1,7 @@
 # 可复用模块化节点与 Seedream 推进计划
 
 > 状态：Active
-> 日期：2026-09-28
+> 日期：2026-10-08
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
 > 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)
 
@@ -443,15 +443,22 @@ API Key 只来自 Provider Settings/secret reference。
 
 ### Phase M3：下一步真实联调与高级自定义（当前计划，2 人 5-7 天）
 
-| ID | Owner | 任务 | 验收 |
-|---|---|---|---|
-| MOD-R3-001 | Frontend | Module Designer 增加扩展端口与 binding 编辑 | 无 binding 不可发布，合法 binding 可执行 |
-| MOD-R3-002 | Frontend/Contract | 图校验使用每节点 effective module ports，不只用固定 NODE_CATALOG | connect/reconnect/start 结果一致 |
-| MOD-R3-003 | Fullstack | Playwright 使用真实 Mock FastAPI 完成模块 create→publish→drag→save→reload→run | 不依赖 route mock，Task/Asset 可查询 |
-| MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 |
-| MOD-R3-005 | QA | 修复 Vitest 并行 EMFILE 和 `--threads false` DOM 污染 | 默认 `npm test` 连续运行稳定全绿 |
-| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 |
-| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 |
+| ID | Owner | 任务 | 验收 | 状态 |
+|---|---|---|---|---|
+| MOD-R3-001 | Frontend | Module Designer 增加扩展端口与 binding 编辑 | 无 binding 不可发布，合法 binding 可执行 | ✅ 完成 |
+| MOD-R3-002 | Frontend/Contract | 图校验使用每节点 effective module ports，不只用固定 NODE_CATALOG | connect/reconnect/start 结果一致 | ✅ 完成 |
+| MOD-R3-003 | Fullstack | Playwright 使用真实 Mock FastAPI 完成模块 create→publish→drag→save→reload→run | 不依赖 route mock，Task/Asset 可查询 | ✅ 完成 |
+| MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 | ⏳ 待办 |
+| MOD-R3-005 | QA | 修复 Vitest 并行 EMFILE 和 `--threads false` DOM 污染 | 默认 `npm test` 连续运行稳定全绿 | ✅ 完成 |
+| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 | ⏳ 待办 |
+| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 | ⏳ 外部阻断 |
+
+2026-10-08 实测证据：
+
+- MOD-R3-001：`ModulePort.binding` + `collectPublishBlockers` + PortsSection 改造 + 422 结构化错误渲染；定向 51 passed，全量前端 375 passed。
+- MOD-R3-002：`getNodeEffectivePorts` + `UNKNOWN_HANDLE` + 拖拽期环检查 + 后端 `_effective_ports`；前后端结论一致，契约漂移（`imageToVideo` 基数、`scene` 输入、输出 `required`）以 FE `node-manifest.ts` 为权威对齐并加 parity 测试；后端 62 passed。
+- MOD-R3-003：Playwright 双服务（Mock FastAPI + Vite）+ `AI_VIDEO_DB_PATH` 隔离 DB + doubao-pinned 模块 mock 回退 + handler 补 `assets` 落库；`modules.spec.ts` 5/5 零 route mock，Task/Asset 可查询。
+- MOD-R3-005：显式 `afterEach(cleanup)` + `maxThreads: 2`；默认命令连续两次与串行模式均 375 passed。
 
 预计：2 人 3 周；单人 4-5 周。M0 可独立交付 Seedream 模块价值。
 

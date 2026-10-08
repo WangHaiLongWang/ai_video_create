@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_MODULES } from './module-definition'
+import { BUILTIN_MODULES, collectPublishBlockers } from './module-definition'
 import type { ModuleDefinition, ProviderPolicy, ModulePort } from './module-definition'
 import type { PortType } from './node-manifest'
 
@@ -126,5 +126,84 @@ describe('BUILTIN_MODULES deduplication', () => {
     const ids = BUILTIN_MODULES.map((m) => m.id)
     const uniqueIds = new Set(ids)
     expect(ids.length).toBe(uniqueIds.size)
+  })
+})
+
+describe('ModulePort.binding', () => {
+  it('round-trips through a serialized ModuleDefinition', () => {
+    const port: ModulePort = {
+      id: 'reference_image',
+      type: 'image',
+      required: false,
+      cardinality: 'one',
+      binding: 'ref_image_url',
+    }
+    const definition: ModuleDefinition = {
+      id: 'custom.ref-module',
+      version: '0.1.0',
+      status: 'draft',
+      baseKind: 'textToImage',
+      category: 'Image',
+      label: 'Ref module',
+      providerPolicy: { capability: 'image', allowed: [], locked: false },
+      ports: { inputs: [port], outputs: [] },
+    }
+
+    const roundTripped = JSON.parse(JSON.stringify(definition)) as ModuleDefinition
+    expect(roundTripped.ports.inputs[0].binding).toBe('ref_image_url')
+  })
+
+  it('is optional and survives a definition without bindings', () => {
+    const port: ModulePort = { id: 'scene', type: 'scene', required: true, cardinality: 'one' }
+    const roundTripped = JSON.parse(JSON.stringify(port)) as ModulePort
+    expect(roundTripped.binding).toBeUndefined()
+  })
+})
+
+describe('collectPublishBlockers', () => {
+  const corePort: ModulePort = { id: 'scene', type: 'scene', required: true, cardinality: 'one' }
+  const coreOutput: ModulePort = { id: 'image', type: 'image', required: false, cardinality: 'one' }
+
+  it('returns no blockers for a core-only port set', () => {
+    const blockers = collectPublishBlockers({ inputs: [corePort], outputs: [coreOutput] }, 'textToImage')
+    expect(blockers).toEqual([])
+  })
+
+  it('flags an unbound extended port with UNBOUND_MODULE_PORT', () => {
+    const extended: ModulePort = {
+      id: 'reference_image',
+      type: 'image',
+      required: false,
+      cardinality: 'one',
+    }
+    const blockers = collectPublishBlockers({ inputs: [corePort, extended], outputs: [coreOutput] }, 'textToImage')
+    expect(blockers).toHaveLength(1)
+    expect(blockers[0].error).toBe('UNBOUND_MODULE_PORT')
+    expect(blockers[0].field).toBe('ports.inputs[1].binding')
+    expect(blockers[0].message).toContain('reference_image')
+  })
+
+  it('clears the blocker once the extended port has a binding', () => {
+    const extended: ModulePort = {
+      id: 'reference_image',
+      type: 'image',
+      required: false,
+      cardinality: 'one',
+      binding: 'ref_image_url',
+    }
+    const blockers = collectPublishBlockers({ inputs: [corePort, extended], outputs: [coreOutput] }, 'textToImage')
+    expect(blockers).toEqual([])
+  })
+
+  it('flags unbound extended outputs too', () => {
+    const extendedOut: ModulePort = {
+      id: 'debug_preview',
+      type: 'image',
+      required: false,
+      cardinality: 'one',
+    }
+    const blockers = collectPublishBlockers({ inputs: [corePort], outputs: [coreOutput, extendedOut] }, 'textToImage')
+    expect(blockers).toHaveLength(1)
+    expect(blockers[0].field).toBe('ports.outputs[1].binding')
   })
 })

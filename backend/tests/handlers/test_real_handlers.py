@@ -2,7 +2,9 @@
 
 import pytest
 from backend.app.handlers import init_mock_handlers, init_real_handlers, get_handler
-from backend.app.providers import init_providers, clear_providers
+from backend.app.handlers.real_handlers import _provider_name
+from backend.app.providers import init_providers, clear_providers, get_provider
+from backend.app.config import get_settings, reset_settings
 
 
 class TestHandlerRegistry:
@@ -218,3 +220,82 @@ class TestRealOutputHandler:
         assert result.output is not None
         assert result.output.type == "video"
         assert "message" in result.output.metadata
+
+
+class TestProviderTrapFallback:
+    """Seedream pins provider:"doubao"; mock-only runs must still execute."""
+
+    def setup_method(self):
+        import os
+
+        clear_providers()
+        init_providers(mock=True)
+        init_real_handlers()
+        # Pin mock defaults explicitly — a developer .env may select real providers.
+        self._env_backup = {
+            k: os.environ.get(k)
+            for k in (
+                "AI_VIDEO_DEFAULT_LLM_PROVIDER",
+                "AI_VIDEO_DEFAULT_IMAGE_PROVIDER",
+                "AI_VIDEO_DEFAULT_VIDEO_PROVIDER",
+            )
+        }
+        os.environ["AI_VIDEO_DEFAULT_LLM_PROVIDER"] = "mock"
+        os.environ["AI_VIDEO_DEFAULT_IMAGE_PROVIDER"] = "mock"
+        os.environ["AI_VIDEO_DEFAULT_VIDEO_PROVIDER"] = "mock"
+        reset_settings()
+
+    def teardown_method(self):
+        import os
+
+        clear_providers()
+        for key, value in self._env_backup.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        reset_settings()
+
+    def test_doubao_locked_module_resolves_to_mock_without_key(self):
+        """A provider:"doubao" module falls back to mock when no doubao key exists."""
+        assert get_provider("doubao") is None
+        assert get_provider("mock") is not None
+        # Defaults are mock (pinned above).
+        assert get_settings().DEFAULT_IMAGE_PROVIDER.value == "mock"
+
+        name = _provider_name({"provider": "doubao"}, "image")
+        assert name == "mock"
+
+    @pytest.mark.asyncio
+    async def test_doubao_locked_image_node_executes_under_mock(self):
+        """End-to-end: the pinned-doubao image node produces an image via mock."""
+        handler = get_handler("textToImage")
+        task = {
+            "id": "task-seedream",
+            "execution_id": "exec-1",
+            "node_id": "seedream-1",
+            "item_key": "scene-001",
+            "config": {
+                "provider": "doubao",
+                "image_model": "doubao-seedream-5-0-pro-260628",
+                "image_prompt": "A modern city skyline at dawn",
+            },
+        }
+        result = await handler.execute(task, {"worker_id": "test"})
+        assert result.status == "succeeded"
+        assert result.output.type == "image"
+        assert result.output.asset_id is not None
+
+    def test_real_provider_default_does_not_silently_fall_back(self):
+        """When the capability default is a real provider, a missing provider fails loudly."""
+        import os
+
+        os.environ["AI_VIDEO_DEFAULT_IMAGE_PROVIDER"] = "doubao"
+        reset_settings()
+        try:
+            name = _provider_name({"provider": "doubao"}, "image")
+            assert name == "doubao"  # NOT silently rewritten to mock
+            assert get_provider(name) is None
+        finally:
+            os.environ["AI_VIDEO_DEFAULT_IMAGE_PROVIDER"] = "mock"
+            reset_settings()

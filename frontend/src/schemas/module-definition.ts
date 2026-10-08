@@ -1,4 +1,5 @@
 import type { PortType } from './node-manifest'
+import { NODE_CATALOG } from './node-manifest'
 
 // ---------------------------------------------------------------------------
 // Module category
@@ -50,6 +51,23 @@ export interface ModulePort {
   required: boolean
   cardinality: 'one' | 'many'
   label?: string
+  /**
+   * Whitelist binding for extended ports. Canonical form is a bare config
+   * field key (e.g. "ref_image_url") naming a property in `configSchema`,
+   * i.e. the port maps to `config.<binding>`. Core ports (ids defined by the
+   * baseKind manifest) never need a binding; an extended port without one
+   * cannot be published or executed (UNBOUND_MODULE_PORT).
+   */
+  binding?: string
+}
+
+// ---------------------------------------------------------------------------
+// Structured validation error — mirrors backend PortError
+// ---------------------------------------------------------------------------
+export interface PortError {
+  field: string    // e.g. "ports.inputs[1].binding"
+  error: string    // e.g. "UNBOUND_MODULE_PORT"
+  message: string
 }
 
 // ---------------------------------------------------------------------------
@@ -78,6 +96,41 @@ export interface ModuleDefinition {
     aggregate?: string
   }
   metadata?: Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------------
+// Publish blockers — client-side mirror of the UNBOUND_MODULE_PORT gate
+// ---------------------------------------------------------------------------
+/**
+ * Collect the blockers that stop a module from being published/executed.
+ * Mirrors the backend rule: an extended port (any port id not present in the
+ * baseKind's NODE_CATALOG manifest) must carry a non-empty `binding`.
+ */
+export function collectPublishBlockers(
+  ports: { inputs: ModulePort[]; outputs: ModulePort[] },
+  baseKind: string,
+): PortError[] {
+  const manifest = NODE_CATALOG[baseKind as keyof typeof NODE_CATALOG]
+  const coreIds = {
+    inputs: new Set((manifest?.ports.inputs ?? []).map((p) => p.id)),
+    outputs: new Set((manifest?.ports.outputs ?? []).map((p) => p.id)),
+  }
+  const blockers: PortError[] = []
+  for (const direction of ['inputs', 'outputs'] as const) {
+    ports[direction].forEach((port, i) => {
+      if (!coreIds[direction].has(port.id) && !port.binding) {
+        blockers.push({
+          field: `ports.${direction}[${i}].binding`,
+          error: 'UNBOUND_MODULE_PORT',
+          message: (
+            `Extension ${direction === 'inputs' ? 'input' : 'output'} port '${port.id}' ` +
+            `has no binding to config field`
+          ),
+        })
+      }
+    })
+  }
+  return blockers
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +172,8 @@ export interface ModuleDesignerState {
   isDirty: boolean
   expectedVersion: number
   error: string | null
+  /** Structured validation errors from the module API (e.g. UNBOUND_MODULE_PORT). */
+  validationErrors?: PortError[]
 }
 
 // ---------------------------------------------------------------------------

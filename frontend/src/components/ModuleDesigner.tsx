@@ -17,9 +17,12 @@ import {
 } from '@phosphor-icons/react'
 import { useModuleDesignerStore, configFieldsToSchema, schemaToConfigFields } from '../store/moduleDesignerSlice'
 import type { ModuleDefinition, ConfigSchemaField, ModuleCategory, ModuleIcon, ModulePort } from '../schemas/module-definition'
+import { collectPublishBlockers } from '../schemas/module-definition'
 import { NODE_CATALOG } from '../schemas/node-manifest'
 import type { NodeKind } from '../types'
 import { cloneModule, archiveModule } from '../api/modules'
+import { PortEditorDialog } from './PortEditorDialog'
+import type { PortEditorPortSave } from './PortEditorDialog'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -45,24 +48,12 @@ const STATUS_COLORS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function getPortsForBaseKind(baseKind: NodeKind): { inputs: ModulePort[]; outputs: ModulePort[] } {
-  const manifest = NODE_CATALOG[baseKind]
-  if (!manifest) return { inputs: [], outputs: [] }
+/** Core port ids from the baseKind manifest (locked by the module contract). */
+function getCorePortIds(baseKind: string): { inputs: Set<string>; outputs: Set<string> } {
+  const manifest = NODE_CATALOG[baseKind as NodeKind]
   return {
-    inputs: manifest.ports.inputs.map((p) => ({
-      id: p.id,
-      type: p.type,
-      required: p.required,
-      cardinality: p.cardinality,
-      label: p.label,
-    })),
-    outputs: manifest.ports.outputs.map((p) => ({
-      id: p.id,
-      type: p.type,
-      required: p.required,
-      cardinality: p.cardinality,
-      label: p.label,
-    })),
+    inputs: new Set((manifest?.ports.inputs ?? []).map((p) => p.id)),
+    outputs: new Set((manifest?.ports.outputs ?? []).map((p) => p.id)),
   }
 }
 
@@ -475,45 +466,157 @@ function ConfigSchemaSection() {
 }
 
 function PortsSection() {
-  const { draft } = useModuleDesignerStore()
+  const { draft, addExtendedPort, updateExtendedPort, deleteExtendedPort } = useModuleDesignerStore()
+  const [dialog, setDialog] = useState<{ direction: 'input' | 'output'; port: ModulePort | null } | null>(null)
+
   if (!draft) return null
 
-  const ports = getPortsForBaseKind(draft.baseKind as NodeKind)
+  const coreIds = getCorePortIds(draft.baseKind)
+  const configKeys = schemaToConfigFields(draft.configSchema as Record<string, unknown> | undefined).map((f) => f.key)
+  const blockers = collectPublishBlockers(draft.ports, draft.baseKind)
+  const blockerByField = new Map(blockers.map((b) => [b.field, b]))
+
+  const keyFor = (direction: 'input' | 'output'): 'inputs' | 'outputs' =>
+    direction === 'input' ? 'inputs' : 'outputs'
+
+  const handleSavePort = (saved: PortEditorPortSave) => {
+    if (!dialog) return
+    const port: ModulePort = {
+      id: saved.id,
+      type: saved.type as ModulePort['type'],
+      required: saved.required,
+      cardinality: saved.cardinality,
+      label: saved.label,
+      binding: saved.binding,
+    }
+    if (dialog.port) {
+      updateExtendedPort(dialog.direction, dialog.port.id, port)
+    } else {
+      addExtendedPort(dialog.direction, port)
+    }
+    setDialog(null)
+  }
+
+  const renderPort = (direction: 'input' | 'output', port: ModulePort, index: number) => {
+    const listKey = keyFor(direction)
+    const isCore = coreIds[listKey].has(port.id)
+    const blocker = blockerByField.get(`ports.${listKey}[${index}].binding`)
+    return (
+      <div key={port.id} className={`md-port-item${blocker ? ' md-port-item-unbound' : ''}`}>
+        {isCore && (
+          <span className="md-port-lock" title="Core port (locked by baseKind)">
+            <Lock size={11} />
+          </span>
+        )}
+        <span className="md-port-id" title={port.label && port.label !== port.id ? port.label : undefined}>
+          {port.id}
+        </span>
+        <span className="md-port-type">{port.type}</span>
+        {port.required && <span className="md-port-required">*</span>}
+        <span className="md-port-type">{port.cardinality === 'many' ? '0..*' : '1'}</span>
+        {isCore ? (
+          <span className="md-port-binding md-port-binding-core">core</span>
+        ) : port.binding ? (
+          <span className="md-port-binding md-port-binding-bound" title={`Bound to config.${port.binding}`}>
+            → {port.binding}
+          </span>
+        ) : (
+          <span className="md-port-binding md-port-binding-unbound">未绑定</span>
+        )}
+        <div className="md-port-item-actions">
+          <button
+            onClick={() => setDialog({ direction, port })}
+            title={isCore ? 'Edit label' : 'Edit port'}
+            className="md-icon-btn"
+          >
+            <Pencil size={11} />
+          </button>
+          {!isCore && (
+            <button
+              onClick={() => deleteExtendedPort(direction, port.id)}
+              title="Delete port"
+              className="md-icon-btn md-icon-btn-danger"
+            >
+              <Trash size={11} />
+            </button>
+          )}
+        </div>
+        {blocker && (
+          <div className="md-port-error">
+            <Warning size={10} />
+            <span>{blocker.message}</span>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="md-section">
-      <SectionHeader title="Ports (Read-only)" icon={<ArrowsLeftRight size={14} />} />
+      <SectionHeader title="Ports" icon={<ArrowsLeftRight size={14} />} />
       <div className="md-ports-group">
-        <span className="md-ports-label">Inputs</span>
-        {ports.inputs.length === 0 ? (
+        <div className="md-ports-group-header">
+          <span className="md-ports-label">Inputs</span>
+          <button
+            onClick={() => setDialog({ direction: 'input', port: null })}
+            title="Add input port"
+            className="md-icon-btn"
+          >
+            <Plus size={11} />
+          </button>
+        </div>
+        {draft.ports.inputs.length === 0 ? (
           <span className="md-ports-empty">No inputs</span>
         ) : (
-          ports.inputs.map((p) => (
-            <div key={p.id} className="md-port-item">
-              <span className="md-port-id">{p.id}</span>
-              <span className="md-port-type">{p.type}</span>
-              {p.required && <span className="md-port-required">*</span>}
-            </div>
-          ))
+          draft.ports.inputs.map((p, i) => renderPort('input', p, i))
         )}
       </div>
       <div className="md-ports-group">
-        <span className="md-ports-label">Outputs</span>
-        {ports.outputs.length === 0 ? (
+        <div className="md-ports-group-header">
+          <span className="md-ports-label">Outputs</span>
+          <button
+            onClick={() => setDialog({ direction: 'output', port: null })}
+            title="Add output port"
+            className="md-icon-btn"
+          >
+            <Plus size={11} />
+          </button>
+        </div>
+        {draft.ports.outputs.length === 0 ? (
           <span className="md-ports-empty">No outputs</span>
         ) : (
-          ports.outputs.map((p) => (
-            <div key={p.id} className="md-port-item">
-              <span className="md-port-id">{p.id}</span>
-              <span className="md-port-type">{p.type}</span>
-              {p.required && <span className="md-port-required">*</span>}
-            </div>
-          ))
+          draft.ports.outputs.map((p, i) => renderPort('output', p, i))
         )}
       </div>
+      {dialog && (() => {
+        const listKey = keyFor(dialog.direction)
+        const editingCore = dialog.port != null && coreIds[listKey].has(dialog.port.id)
+        return (
+          <PortEditorDialog
+            direction={dialog.direction}
+            port={dialog.port}
+            existingPortIds={draft.ports[listKey].map((p) => p.id)}
+            bindingMode={editingCore ? undefined : { value: dialog.port?.binding, options: configKeys }}
+            lockContract={editingCore}
+            onSave={handleSavePort}
+            onDelete={
+              dialog.port && !editingCore
+                ? () => {
+                    deleteExtendedPort(dialog.direction, dialog.port!.id)
+                    setDialog(null)
+                  }
+                : undefined
+            }
+            onClose={() => setDialog(null)}
+          />
+        )
+      })()}
       <div className="md-ports-warning">
         <Warning size={12} />
-        <span>Core ports are derived from baseKind and cannot be edited. Extension ports can be added but must be bound to publish.</span>
+        <span>
+          Core ports are locked to the baseKind contract (id / type / cardinality); only the label may be overridden.
+          Extended ports must be bound to a config field before the module can be published or executed.
+        </span>
       </div>
     </div>
   )
@@ -523,13 +626,16 @@ function PortsSection() {
 // Main Component
 // ---------------------------------------------------------------------------
 export function ModuleDesigner() {
-  const { isOpen, draft, isDirty, expectedVersion, error, closeDesigner, saveDraft, publishDraft, openDesigner } = useModuleDesignerStore()
+  const { isOpen, draft, isDirty, expectedVersion, error, validationErrors, closeDesigner, saveDraft, publishDraft, openDesigner } = useModuleDesignerStore()
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [cloning, setCloning] = useState(false)
   const [archiving, setArchiving] = useState(false)
 
   if (!isOpen || !draft) return null
+
+  // Client-side mirror of the UNBOUND_MODULE_PORT publish gate.
+  const publishBlockers = collectPublishBlockers(draft.ports, draft.baseKind)
 
   const handleClose = () => {
     if (isDirty) {
@@ -616,7 +722,19 @@ export function ModuleDesigner() {
           {error && (
             <div className="md-ports-warning" role="alert">
               <Warning size={12} />
-              <span>{error}</span>
+              <div className="md-error-detail">
+                {validationErrors && validationErrors.length > 0 ? (
+                  <ul className="md-error-list">
+                    {validationErrors.map((e, i) => (
+                      <li key={`${e.field}-${i}`}>
+                        <strong>{e.error}</strong> <code>{e.field}</code>: {e.message}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span>{error}</span>
+                )}
+              </div>
             </div>
           )}
           <BasicInfoSection />
@@ -666,7 +784,12 @@ export function ModuleDesigner() {
           <button
             className="md-btn md-btn-success"
             onClick={handlePublish}
-            disabled={publishing}
+            disabled={publishing || publishBlockers.length > 0}
+            title={
+              publishBlockers.length > 0
+                ? publishBlockers.map((b) => b.message).join('\n')
+                : undefined
+            }
           >
             {publishing ? 'Publishing...' : 'Publish'}
           </button>

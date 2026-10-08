@@ -25,8 +25,7 @@ import { StudioNodeView } from '../StudioNode'
 import { useStudioStore } from '../store'
 import { createModuleNode, createNode } from '../workflow'
 import type { ModuleDefinition } from '../schemas/module-definition'
-import { validateConnection as validateConnectionNew } from '../schemas/graph-validation'
-import { NODE_CATALOG } from '../schemas/node-manifest'
+import { validateConnection as validateConnectionNew, getNodeEffectivePorts } from '../schemas/graph-validation'
 import type { NodeKind, EnhancedEdge, StudioNode } from '../types'
 import { AgentComposer } from './AgentComposer'
 
@@ -266,12 +265,13 @@ function CanvasInner() {
   }, [workflow.viewport])
 
   const isValidConnection: IsValidConnection<EnhancedEdge> = useCallback((connection) => {
-    const nodeKinds: Record<string, NodeKind> = {}
-    workflow.nodes.forEach(n => { nodeKinds[n.id] = n.data.kind })
+    // Pass full node records so validation resolves each node's effective
+    // ports (data.ports first, catalog fallback) — module extension ports
+    // and instance-level overrides are therefore enforced here too.
     const error = validateConnectionNew(
       connection.source, connection.sourceHandle ?? undefined,
       connection.target, connection.targetHandle ?? undefined,
-      nodeKinds, NODE_CATALOG, workflow.edges,
+      workflow.nodes, undefined, workflow.edges,
     )
     return !error
   }, [workflow.nodes, workflow.edges])
@@ -283,10 +283,8 @@ function CanvasInner() {
     const node = workflow.nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const manifest = NODE_CATALOG[node.data.kind]
-    if (!manifest) return
-
-    const outputPort = manifest.ports.outputs.find(p => p.id === handleId)
+    const { outputs } = getNodeEffectivePorts(node)
+    const outputPort = outputs.find(p => p.id === handleId)
     if (!outputPort) return
 
     setConnectingFrom({ nodeId, handleId, portType: outputPort.type })

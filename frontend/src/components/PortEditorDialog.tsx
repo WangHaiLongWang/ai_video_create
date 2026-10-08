@@ -31,13 +31,32 @@ function toSnakeCase(s: string): string {
     .replace(/_+/g, '_')
 }
 
+export interface PortEditorPortSave extends PortInfo {
+  /** Config field key this port is bound to (module extended ports). */
+  binding?: string
+}
+
 export interface PortEditorDialogProps {
   direction: 'input' | 'output'
-  port?: PortInfo | null  // null = add new
+  port?: (PortInfo & { binding?: string }) | null  // null = add new
   existingPortIds: string[]
-  onSave: (port: PortInfo) => void
+  onSave: (port: PortEditorPortSave) => void
   onDelete?: () => void
   onClose: () => void
+  /**
+   * Module binding mode: when set, shows a binding <select> whose options are
+   * config field keys. The empty option means "no binding" (unbound).
+   */
+  bindingMode?: {
+    value?: string
+    options: string[]
+  }
+  /**
+   * Lock the port contract (id/type/required/cardinality) — used for core
+   * module ports whose identity is fixed by the baseKind manifest.
+   * Only label (and binding) remain editable.
+   */
+  lockContract?: boolean
 }
 
 export function PortEditorDialog({
@@ -47,6 +66,8 @@ export function PortEditorDialog({
   onSave,
   onDelete,
   onClose,
+  bindingMode,
+  lockContract,
 }: PortEditorDialogProps) {
   const isEditing = port != null
 
@@ -55,6 +76,7 @@ export function PortEditorDialog({
   const [type, setType] = useState<PortType>((port?.type as PortType) ?? 'text')
   const [required, setRequired] = useState(port?.required ?? false)
   const [cardinality, setCardinality] = useState<Cardinality>(port?.cardinality ?? 'one')
+  const [binding, setBinding] = useState(port?.binding ?? bindingMode?.value ?? '')
   const [idError, setIdError] = useState('')
 
   function handleLabelChange(v: string) {
@@ -100,6 +122,7 @@ export function PortEditorDialog({
       type,
       required,
       cardinality,
+      binding: binding || undefined,
     })
   }
 
@@ -135,6 +158,7 @@ export function PortEditorDialog({
           <select
             value={type}
             onChange={(e) => setType(e.target.value as PortType)}
+            disabled={lockContract}
           >
             {PORT_TYPES.map((t) => (
               <option key={t} value={t}>{PORT_TYPE_LABELS[t]}</option>
@@ -148,6 +172,7 @@ export function PortEditorDialog({
             type="checkbox"
             checked={required}
             onChange={(e) => setRequired(e.target.checked)}
+            disabled={lockContract}
           />
         </label>
 
@@ -156,12 +181,31 @@ export function PortEditorDialog({
           <select
             value={cardinality}
             onChange={(e) => setCardinality(e.target.value as Cardinality)}
+            disabled={lockContract}
           >
             {(Object.entries(CARDINALITY_LABELS) as [Cardinality, string][]).map(([val, lbl]) => (
               <option key={val} value={val}>{lbl}</option>
             ))}
           </select>
         </label>
+
+        {bindingMode && (
+          <label>
+            <span>Binding (config field)</span>
+            <select
+              value={binding}
+              onChange={(e) => setBinding(e.target.value)}
+            >
+              <option value="">— 无 binding —</option>
+              {bindingMode.options.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            <small style={{ color: '#9aa193', fontSize: 10 }}>
+              扩展端口必须绑定 config 字段才能发布 / 执行
+            </small>
+          </label>
+        )}
 
         <div className="field-dialog-actions">
           {isEditing && onDelete && (

@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '../schemas/module-definition'
+import type { ModuleDefinition, PortError } from '../schemas/module-definition'
 
 const API_BASE = '/api'
 
@@ -6,22 +6,55 @@ export class ModuleApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    /** Machine-readable code when the API returned one (e.g. "MODULE_VALIDATION_FAILED"). */
+    public readonly code?: string,
+    /** Structured validation errors (e.g. UNBOUND_MODULE_PORT) when present. */
+    public readonly errors?: PortError[],
   ) {
     super(message)
     this.name = 'ModuleApiError'
   }
 }
 
+/** Shape of the FastAPI `detail` field on 4xx responses. */
+interface ErrorDetail {
+  code?: string
+  message?: string
+  errors?: Array<{ field?: string; error?: string; message?: string }>
+}
+
 async function parseResponse<T>(res: Response, action: string): Promise<T> {
   if (!res.ok) {
     let detail = `${action}: ${res.status}`
+    let code: string | undefined
+    let errors: PortError[] | undefined
     try {
-      const payload = await res.json() as { detail?: string }
-      if (payload.detail) detail = payload.detail
+      const payload = await res.json() as { detail?: string | ErrorDetail }
+      if (typeof payload.detail === 'string') {
+        detail = payload.detail
+      } else if (payload.detail && typeof payload.detail === 'object') {
+        // 422 validation body: { detail: { code, errors: [{field, error, message}] } }
+        const obj = payload.detail
+        code = obj.code
+        if (Array.isArray(obj.errors)) {
+          errors = obj.errors.map((e) => ({
+            field: e.field ?? '',
+            error: e.error ?? 'UNKNOWN',
+            message: e.message ?? '',
+          }))
+        }
+        if (errors && errors.length > 0) {
+          detail = errors.map((e) => `${e.error}: ${e.field} - ${e.message}`).join('\n')
+        } else if (obj.message) {
+          detail = obj.message
+        } else if (code) {
+          detail = `${action}: ${code}`
+        }
+      }
     } catch {
       // Keep the status-based fallback for non-JSON responses.
     }
-    throw new ModuleApiError(detail, res.status)
+    throw new ModuleApiError(detail, res.status, code, errors)
   }
   return res.json() as Promise<T>
 }

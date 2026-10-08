@@ -6,8 +6,14 @@ execution start.
 
 It delegates to the schema-level ``validate_graph`` (which handles self-loops,
 duplicate edges, type mismatches, cardinality, required ports, cycle detection,
-and direction checks) and wraps the result into a structured error envelope
-suitable for HTTP422 responses.
+unknown handles/kinds, and direction checks) and wraps the result into a
+structured error envelope suitable for HTTP422 responses.
+
+Port resolution is module-aware and matches what the canvas renders: each
+node's effective ports come from ``data.ports`` (preferred), then the module
+registry via ``data.moduleId``/``data.moduleVersion``, then the kind-keyed
+catalog. Start-time conclusions therefore agree with connect/reconnect
+validation on the frontend without reordering the execution pipeline.
 """
 
 from __future__ import annotations
@@ -64,11 +70,14 @@ def validate_graph(
     ----------
     nodes:
         List of node dicts. Each must have at least ``id`` and ``kind`` keys.
+        ``data.ports`` / ``data.moduleId`` are honoured when present so
+        module-instance nodes are validated against their effective ports.
     edges:
         List of edge dicts. Each must have at least ``id``, ``source``,
         ``target`` keys; ``sourceHandle`` and ``targetHandle`` are optional.
     catalog:
-        Node manifest catalog. Falls back to the global default if *None*.
+        Node manifest catalog (fallback port source). Falls back to the
+        global default if *None*.
 
     Returns
     -------

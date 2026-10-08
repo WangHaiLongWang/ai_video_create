@@ -87,6 +87,74 @@ def test_rate_limit_agent_stricter():
             os.environ["DISABLE_RATE_LIMIT"] = old
 
 
+def test_rate_limit_disabled_env_skips_rate_limiting():
+    """DISABLE_RATE_LIMIT=1 must disable RateLimitMiddleware entirely."""
+    old = os.environ.get("DISABLE_RATE_LIMIT")
+    os.environ["DISABLE_RATE_LIMIT"] = "1"
+    try:
+        app = _app_with_limiter(default_limit=2, agent_limit=1)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        # Far past the limit — must never 429 while the flag is set.
+        for _ in range(20):
+            r = client.get("/")
+            assert r.status_code == 200
+    finally:
+        if old is None:
+            os.environ.pop("DISABLE_RATE_LIMIT", None)
+        else:
+            os.environ["DISABLE_RATE_LIMIT"] = old
+
+
+# ---------------------------------------------------------------------------
+# SecurityMiddleware rate limiter — must honour the same DISABLE_RATE_LIMIT flag
+# ---------------------------------------------------------------------------
+
+from backend.app.middleware import SecurityMiddleware
+
+
+def _app_with_security(rate_limit: int):
+    app = Starlette(routes=[Route("/", _ok)])
+    app.add_middleware(SecurityMiddleware, rate_limit=rate_limit)
+    return app
+
+
+def test_security_middleware_rate_limit_blocks_over_threshold():
+    """SecurityMiddleware throttles at its own threshold (main.py uses 200)."""
+    old = os.environ.pop("DISABLE_RATE_LIMIT", None)
+    try:
+        app = _app_with_security(rate_limit=3)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        for _ in range(3):
+            assert client.get("/").status_code == 200
+        assert client.get("/").status_code == 429
+    finally:
+        if old is not None:
+            os.environ["DISABLE_RATE_LIMIT"] = old
+
+
+def test_security_middleware_respects_disable_rate_limit():
+    """Regression: both limiters must honour DISABLE_RATE_LIMIT.
+
+    Setting the flag used to disable only RateLimitMiddleware, so
+    SecurityMiddleware still returned 429 and broke the E2E suite.
+    """
+    old = os.environ.get("DISABLE_RATE_LIMIT")
+    os.environ["DISABLE_RATE_LIMIT"] = "1"
+    try:
+        app = _app_with_security(rate_limit=3)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        for _ in range(20):
+            assert client.get("/").status_code == 200
+    finally:
+        if old is None:
+            os.environ.pop("DISABLE_RATE_LIMIT", None)
+        else:
+            os.environ["DISABLE_RATE_LIMIT"] = old
+
+
 # ---------------------------------------------------------------------------
 # CORS configuration tests
 # ---------------------------------------------------------------------------

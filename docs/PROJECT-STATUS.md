@@ -9,13 +9,11 @@
 
 ## 1. 结论
 
-项目已进入“模块化主链可用、真实联调与高级自定义收敛”阶段。Module Palette/Designer、精确版本引用、Execution Materializer、Agent module-aware compiler、module_usage 和 Seedream 前端纵向 E2E 已完成基础验收；剩余重点是模块端口 Binding Designer、前端 module-aware 图校验、真实 Mock Backend 浏览器链路、测试隔离和真实 Provider UAT。
+项目已进入“模块化主链可用、真实联调与高级自定义收敛”阶段。Module Palette/Designer、精确版本引用、Execution Materializer、Agent module-aware compiler、module_usage 和 Seedream 前端纵向 E2E 已完成基础验收；本轮进一步关闭了模块端口 Binding Designer、module-aware 图校验、真实 Mock Backend 浏览器链路和测试隔离四项缺口。
 
-本轮校准纠正了旧状态中的三项错误：
+本轮（Phase M3 第一批）已完成 MOD-R3-001/002/003/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Vitest 隔离治理。剩余重点是 Agent Modify 浏览器联调、同 SHA CI 证据和真实 Provider UAT。
 
-- 当前日期是 2026-09-21、HEAD 是 `cc61b46`，旧文档记录的未来日期和不属于当前 HEAD 的基线不可作为证据。
-- 后端完整测试仍不能在当前 venv 收集：Pillow 未安装；cryptography 已加入 requirements，但当前 venv 尚未同步安装。旧 Agent v1 acceptance 仍有 3 项失败。
-- CI 只有三平台 unit/build 框架，没有 Playwright job；integration 命令使用 `|| true`，失败不会阻断 CI，因此不能视为已通过发布门禁。
+本轮校准以当前工作区实测为准：Playwright 全量 139 passed / 0 failed，前端 375 passed（默认命令连续两次与串行均绿），后端广覆盖 677 passed。尚不能替代同一 SHA 的 CI run 和真实 Provider UAT。
 
 ### 当前评分
 
@@ -38,46 +36,48 @@
 
 | 验证项 | 当前结果 | 状态 |
 |---|---:|---|
-| Frontend Vitest | 22 files / 342 passed | 通过 |
+| Frontend Vitest | 22 files / 375 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
-| Vite build | main 98.41 kB；最大 chunk 172.68 kB | 通过，无 500 kB 警告 |
-| Chromium modules E2E | 3/3 passed；App+modules 14/14 passed | 通过，使用 API Mock |
-| Backend 第二轮纵向集 | 173 passed / 1 warning | 通过 |
-| Agent structured parser/module gate | 93 passed / 1 warning | 通过 |
+| Vite build | index 130.49 kB；最大 chunk 181.08 kB | 通过，无 500 kB 警告 |
+| Chromium modules E2E（真实 Mock FastAPI） | 5/5 passed | 通过，**零 route mock**，Task/Asset 可查询 |
+| Playwright 全量 | 139 passed / 1 skipped / 0 failed | 通过 |
+| Vitest 默认命令连续 2 次 | 375 passed × 2 | 通过 |
+| Vitest 串行模式 | 375 passed | 通过 |
+| Backend 广覆盖回归 | 677 passed | 通过 |
+| Agent structured parser/module gate | 341 passed | 通过 |
 | Backend full collection | 当前环境需重新复核 | 干净 venv 的 Pillow/cryptography 安装仍需验证 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
 | Playwright CI | Mock FastAPI + Vite + Chromium job 已配置 | 尚无本次 run URL/同 SHA 证据 |
 
-说明：第二轮 Windows 并行复测出现 `EMFILE`，串行模式暴露 Testing Library cleanup 污染；这属于测试隔离门禁，已进入 Phase M3。第二轮生产改动由定向 unit、typecheck、build 和 modules Playwright 3/3 覆盖。
+### 2.1 浏览器门禁
 
-### 2.1 浏览器失败
+1. 历史 deselect 和 multi-drag 失败已修复。
+2. Modules E2E 现为 **5 项、零 route mock**，驱动真实 Mock FastAPI 完成 create→publish→drag→save→reload→run，并可查询 Task/Asset。
+3. CI 已配置 Mock FastAPI + Vite + Chromium；仍需实际 Actions run URL、同 SHA 和 artifact。
+4. Scene JSON roundtrip 仍需纳入 required checks。
 
-1. `clicking canvas background deselects the selected node`（已修复，定向复测通过）
-   - Page Object 点击 `.react-flow__viewport`，实际 pointer event 被 `.react-flow__pane` 拦截。
-   - 应修改测试定位到 pane，同时确认产品的 `onPaneClick` 行为。
-2. `multiple nodes can be dragged independently`（已修复，定向复测通过）
-   - 第二个节点拖拽后 Y 坐标变化为 0。
-   - 需要区分拖拽 helper/坐标断言不稳定，还是第二节点真实无法拖动。
-3. Scene JSON roundtrip 用例仍处于 skip，不能计入闭环完成。
+### 2.2 测试隔离与限流（本轮修复）
 
-当前 Playwright 只自动启动 Vite，不启动 FastAPI；日志存在多次 `ECONNREFUSED 127.0.0.1:8000`。因此 132 项通过主要证明前端与 route mock 行为，不等同于真实前后端联调。
+- Vitest：显式 `afterEach(cleanup)` + `maxThreads: 2`，默认命令连续两次与串行模式均全绿。
+- 发现并修复双层限流缺口：`DISABLE_RATE_LIMIT=1` 此前只对 `RateLimitMiddleware` 生效，`SecurityMiddleware` 仍返回 429，导致全量 E2E 失败；现已两层一致尊重该开关，并补 2 项回归测试。
+- 发现并修复 handler 只写文件不写 `assets` 表的问题（`GET /api/assets` 此前恒为空），以及 `item_key` 为 None 时的崩溃。
 
-### 2.2 后端失败
+### 2.2 后端环境与测试
 
-- `Pillow>=10` 已写入 requirements，但当前 venv 未同步安装。
-- AES-GCM 实现依赖 `cryptography`，已加入 requirements；当前 venv 尚未同步安装。
-- 排除两个收集阻断后，3 项 `backend/tests/acceptance/test_e2e.py` 失败：旧 `/api/agent/generate` 在 Mock 模式返回 422，导致 generate/modify/explain 链路中断。
-- 后端核心执行耗时约 4 分 28 秒，结果为 1521 passed、3 failed、20 skipped。
+- Pillow/cryptography 已进入 requirements；仍需要干净 venv 和三平台 CI 证明依赖可复现。
+- 第二轮 module_usage/registry/parser/resolver 定向集 173 passed。
+- Agent structured parser/module gate 定向集 93 passed。
+- 完整 non-external pytest 需要在当前工作区重新归档，不沿用旧失败数字。
 
 ## 3. 前端实现评估
 
 ### 3.0 组件化/Agent 最新判定
 
 - 节点实例级自定义：通过。
-- ModuleDefinition/Registry/Designer：代码和单测基础通过，但不能代表端到端组件化。
-- Module 执行：P0；Resolver 未可靠回写 Compiler/Scheduler。
-- Agent：编排基础通过；自然语言到 module-aware 可执行 Workflow 仍未通过。
+- ModuleDefinition/Registry/Designer：基础生命周期和前端 route-mock E2E 通过。
+- Module 执行：Materializer 已接 REST/Scheduler，module_usage 已同步；真实 backend 浏览器执行仍待验收。
+- Agent：structured parser、module-aware compile/gate 已有定向证据；Modify 浏览器联调仍待完成。
 - 最新审计：[`reports/workflow-componentization-audit-2026-09-23.md`](reports/workflow-componentization-audit-2026-09-23.md)。
 
 第一轮 P0 开发已完成：ExecutionMaterializer、Workflow create/import roundtrip、Registry/Repository、Module API 乐观锁、Frontend module create/drop/property、Agent module-aware compiler、RepairResult 和四层 preview gate。定向 Backend module/agent/execution 回归 723 passed；Frontend 22 files / 342 tests passed，typecheck/build 通过。
@@ -110,14 +110,20 @@
 
 ### 3.2 前端剩余缺口
 
-| ID | 优先级 | 缺口 | 关闭标准 |
-|---|---:|---|---|
-| FE-RC-001 | P0 | 画布取消选择 E2E 失败 | 使用 pane locator，行为与测试均通过 |
-| FE-RC-002 | P0 | 多节点独立拖拽 E2E 失败 | 两节点分别移动且坐标/Undo 正确 |
-| FE-RC-003 | P0 | Scene roundtrip 被 skip | 启动真实 Mock backend，导出→导入结构等价 |
-| FE-RC-004 | P0 | Playwright 未进入 CI | CI 启动 backend+frontend，135 项全绿并归档 trace |
-| FE-RC-005 | P1 | E2E 中代理失败噪声 | 非错误态用例不得依赖 ECONNREFUSED fallback |
-| FE-RC-006 | P1 | Settings/Provider 缺真实保存恢复 E2E | 设置保存、重启恢复、Key 不回显 |
+| ID | 优先级 | 缺口 | 关闭标准 | 状态 |
+|---|---:|---|---|---|
+| FE-R3-001 | P0 | Module Designer 无扩展端口 Binding 编辑 | binding 可编辑、校验、发布、执行 | ✅ 完成 |
+| FE-R3-002 | P0 | 前端连接校验仍依赖固定 NODE_CATALOG | 使用 effective module ports | ✅ 完成 |
+| FE-R3-003 | P0 | modules E2E 使用 route mock | 真实 Mock FastAPI create→run | ✅ 完成 |
+| FE-R3-004 | P1 | Vitest 并发 EMFILE/串行 DOM 污染 | 默认 npm test 连续稳定全绿 | ✅ 完成 |
+| FE-R3-005 | P1 | Agent Modify 缺浏览器模块 Diff 验收 | 修改不重建、diff 可确认 | ⏳ 待办（MOD-R3-004） |
+
+FE-R3-001～004 完成要点：
+
+- **FE-R3-001**：`ModulePort.binding` 类型、`collectPublishBlockers` 客户端门禁、PortsSection 渲染 `draft.ports` 并区分 core（锁定）/扩展（可增删改 + binding 下拉）、Publish 遇未绑定端口禁用、`parseResponse` 正确解析 422 `{code, errors}` 结构化错误。同时修复 baseKind 切换清空扩展端口的缺陷。
+- **FE-R3-002**：新增 `getNodeEffectivePorts`（优先 `data.ports`，回退 `NODE_CATALOG`），两处校验器改为 port-map 驱动，新增 `UNKNOWN_HANDLE`，`validateConnection` 补环检查，使 connect/reconnect/start 结论一致；后端 `_effective_ports` 同步解析，无需重排执行管线。
+- **FE-R3-003**：Playwright webServer 改为 Mock FastAPI + Vite 双服务，`modules.spec.ts` 零 route mock 完成 create→publish→drag→save→reload→run，Task/Asset 可查询；`AI_VIDEO_DB_PATH` 使 E2E 使用隔离 DB；doubao-pinned 模块在 mock-only 时回退 MockProvider。
+- **FE-R3-004**：显式 `afterEach(cleanup)` + `maxThreads: 2`，默认命令连续两次与串行模式均 375 passed。
 
 ## 4. 后端与架构评估
 
@@ -133,12 +139,11 @@
 ### 架构债务
 
 1. Node Manifest/graph validator 仍由前后端分别维护，需共享 fixtures 或代码生成。
-2. `cryptography` 缺少依赖声明，安全模块无法在干净环境可靠安装。
+2. Pillow/cryptography 已声明，但干净环境安装证据和锁定策略仍不足。
 3. 数据库 migration 缺少正式 `schema_migrations` 账本和失败恢复证明。
 4. Provider 设置 API 主要修改内存，`.env` 仍是重启后的事实来源。
 5. 旧 Agent v1 与 Agent v2 并存且 acceptance 行为不一致，需要兼容策略或下线计划。
-6. CI integration 使用 `|| true`，会隐藏真实回归。
-7. Playwright 与 backend 生命周期未统一编排。
+6. Playwright/Backend 生命周期已进入 CI，仍缺真实 run 和 flaky/资源限制治理。
 
 ## 5. Provider 状态
 
@@ -155,16 +160,20 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 
 ## 6. 发布阻断项
 
-| ID | 优先级 | 阻断项 | 当前证据 | 关闭标准 |
-|---|---:|---|---|---|
-| RC-001 | P0 | 后端依赖不可复现 | Pillow 未安装，cryptography 未声明 | 新 venv 安装 requirements 后完整收集 |
-| RC-002 | P0 | Mock Agent acceptance 3 项失败 | `/api/agent/generate` 返回 422 | 明确 v1 兼容策略，完整 pytest 全绿 |
-| RC-003 | P0 | 全套 Chromium 尚未复跑，Scene roundtrip 仍 skip | 定向 2/2 已通过 | 135/135 或经批准调整用例后全绿 |
-| RC-004 | P0 | CI 无 Playwright job | `ci.yml` 未调用 test:e2e | backend+frontend E2E job 全绿 |
-| RC-005 | P0 | integration 失败被吞 | 两处 `|| true` | 必选集失败必须阻断，external 单独标记 |
-| RC-006 | P0 | 无同一 commit 三平台 run | 只有 workflow 配置 | 保存 Actions run URL/commit/artifact |
-| RC-007 | P1 | Doubao 模型未激活 | 两模型真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT |
-| RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 |
+| ID | 优先级 | 阻断项 | 当前证据 | 关闭标准 | 状态 |
+|---|---:|---|---|---|---|
+| RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ⏳ 待办 |
+| RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
+| RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
+| RC-004 | P0 | 无同一 commit CI 证据 | Playwright job 已配置 | 三平台 required checks + report URL | ⏳ 待办（MOD-R3-006） |
+| RC-007 | P1 | Doubao 模型未激活 | 两模型真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⏳ 外部阻断 |
+| RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 | ⏳ 待办 |
+
+本轮顺带修复的已存在缺陷（非本轮引入，但已闭环）：
+
+1. `TestExecutionResolverRejectsUnboundPorts` 2 项失败——测试夹具缺 `status="published"`，Resolver 正确要求模块已发布才可执行；已补夹具。
+2. 双层限流缺口——`DISABLE_RATE_LIMIT=1` 只对 `RateLimitMiddleware` 生效，`SecurityMiddleware` 仍返回 429，导致全量 Playwright 失败；现已一致尊重该开关并补 2 项回归测试。
+3. `imageToVideo` 输出基数契约漂移——统一为 FE `node-manifest.ts` 权威（`video` 输出 `cardinality='one'`），后端对齐并加契约 parity 测试。
 
 ## 7. 后续开发路线
 

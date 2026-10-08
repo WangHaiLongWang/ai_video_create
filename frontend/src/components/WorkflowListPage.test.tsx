@@ -8,7 +8,7 @@
  * 注意: 当前测试环境模拟 fetch 行为，验证 API 集成逻辑
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach, afterAll } from 'vitest'
 import type { WorkflowSummary, WorkflowDetail } from '../api'
 
 // Mock fetch
@@ -47,8 +47,15 @@ vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
   }
   return el
 })
-vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node)
-vi.spyOn(document.body, 'removeChild').mockImplementation((node) => node)
+const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node)
+const removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation((node) => node)
+
+// Restore document.body spies so they cannot leak into other test files
+// (cross-test hazard: no-op appendChild/removeChild would break RTL render()).
+afterAll(() => {
+  appendChildSpy.mockRestore()
+  removeChildSpy.mockRestore()
+})
 
 // Import api after mocks
 import * as api from '../api'

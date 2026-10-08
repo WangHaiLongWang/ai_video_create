@@ -364,23 +364,10 @@ class TestTextToImageCorePorts:
 
 class TestImageToVideoCorePorts:
     def test_imageToVideo_has_correct_core_ports(self):
-        """imageToVideo core ports: input image, output video (many)."""
-        module = _make_module(
-            base_kind="imageToVideo",
-            ports={
-                "inputs": [
-                    {"id": "image", "type": "image", "required": True, "cardinality": "one"}
-                ],
-                "outputs": [
-                    {"id": "video", "type": "video", "required": True, "cardinality": "many"}
-                ],
-            }
-        )
-        errors = PortBindingValidator().validate_ports(module)
-        assert errors == []
+        """imageToVideo core ports: input image, output video (one).
 
-    def test_imageToVideo_wrong_cardinality_fails(self):
-        """imageToVideo output 'video' must have cardinality 'many'."""
+        Canonical contract is the frontend node-manifest (MOD-R3-002 drift fix).
+        """
         module = _make_module(
             base_kind="imageToVideo",
             ports={
@@ -389,6 +376,22 @@ class TestImageToVideoCorePorts:
                 ],
                 "outputs": [
                     {"id": "video", "type": "video", "required": True, "cardinality": "one"}
+                ],
+            }
+        )
+        errors = PortBindingValidator().validate_ports(module)
+        assert errors == []
+
+    def test_imageToVideo_wrong_cardinality_fails(self):
+        """imageToVideo output 'video' must have cardinality 'one'."""
+        module = _make_module(
+            base_kind="imageToVideo",
+            ports={
+                "inputs": [
+                    {"id": "image", "type": "image", "required": True, "cardinality": "one"}
+                ],
+                "outputs": [
+                    {"id": "video", "type": "video", "required": True, "cardinality": "many"}
                 ],
             }
         )
@@ -456,6 +459,7 @@ class TestExecutionResolverRejectsUnboundPorts:
         # Register a module with an unbound extension port directly into the registry
         module = _make_module(
             id="test.unbound",
+            status="published",
             ports={
                 "inputs": [
                     {"id": "scene", "type": "scene", "required": True, "cardinality": "one"},
@@ -496,6 +500,7 @@ class TestExecutionResolverRejectsUnboundPorts:
         registry = ModuleRegistry()
         module = _make_module(
             id="test.bound",
+            status="published",
             ports={
                 "inputs": [
                     {"id": "scene", "type": "scene", "required": True, "cardinality": "one"}

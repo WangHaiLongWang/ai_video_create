@@ -17,7 +17,7 @@ import { createPromptToVideoWorkflow } from './workflow'
 import { validateConnection as validateConnectionNew, validateGraph } from './schemas/graph-validation'
 import { NODE_CATALOG } from './schemas/node-manifest'
 import { upgradeWorkflowSpec } from './schemas/workflow-spec'
-import type { EdgeData, EdgeMode, EnhancedEdge, FieldDefinition, NodeKind, PortInfo, RunStatus, StudioNode, WorkflowSpec } from './types'
+import type { EdgeData, EdgeMode, EnhancedEdge, FieldDefinition, PortInfo, RunStatus, StudioNode, WorkflowSpec } from './types'
 
 const STORAGE_KEY = 'ai-video-create.workflow.v1'
 const MAX_HISTORY = 50
@@ -251,7 +251,11 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
   }),
 
   setWorkflow: (workflow) => {
-    // Run graph validation on the incoming workflow
+    // Run graph validation on the incoming workflow. Ports are resolved from
+    // each node's effective ports (data.ports first, catalog fallback), so
+    // module extension ports are included. Non-blocking by design: the canvas
+    // accepts drafts with warnings; save/start enforce the same rules via the
+    // backend and via validateConnection on connect/reconnect.
     const errors = validateGraph(workflow.nodes, workflow.edges, NODE_CATALOG)
     if (errors.length > 0) {
       console.warn('Graph validation issues:', errors)
@@ -287,14 +291,12 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const target = state.workflow.nodes.find((node) => node.id === connection.target)
     if (!source || !target || !connection.sourceHandle || !connection.targetHandle) return state
 
-    // Build nodeKinds map for catalog-based validation
-    const nodeKinds: Record<string, NodeKind> = {}
-    state.workflow.nodes.forEach(n => { nodeKinds[n.id] = n.data.kind })
-
+    // Effective-port validation: node records carry data.ports (module
+    // extension ports / instance overrides), catalog is only the fallback.
     const error = validateConnectionNew(
       connection.source, connection.sourceHandle,
       connection.target, connection.targetHandle,
-      nodeKinds, NODE_CATALOG, state.workflow.edges,
+      state.workflow.nodes, NODE_CATALOG, state.workflow.edges,
     )
     if (error) {
       console.warn('Connection rejected:', error.message)
@@ -374,15 +376,12 @@ export const useStudioStore = create<WorkflowState>((set, get) => ({
     const edge = state.workflow.edges.find((e) => e.id === edgeId)
     if (!edge) return state
 
-    // Validate the new connection
-    const nodeKinds: Record<string, NodeKind> = {}
-    state.workflow.nodes.forEach(n => { nodeKinds[n.id] = n.data.kind })
-
-    // Check for duplicates (excluding the current edge being reconnected)
+    // Check for duplicates (excluding the current edge being reconnected).
+    // Effective-port validation (module-aware) — same conclusions as onConnect.
     const otherEdges = state.workflow.edges.filter((e) => e.id !== edgeId)
     const error = validateConnectionNew(
       newSource, newSourceHandle, newTarget, newTargetHandle,
-      nodeKinds, NODE_CATALOG, otherEdges,
+      state.workflow.nodes, NODE_CATALOG, otherEdges,
     )
     if (error) {
       console.warn('Reconnect rejected:', error.message)

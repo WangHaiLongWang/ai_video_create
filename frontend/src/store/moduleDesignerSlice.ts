@@ -1,8 +1,15 @@
 import { create } from 'zustand'
-import type { ModuleDefinition, ModuleDesignerState, ConfigSchemaField, ModulePort } from '../schemas/module-definition'
-import { createModule, publishModule, updateModule } from '../api/modules'
+import type { ModuleDefinition, ModuleDesignerState, ConfigSchemaField, ModulePort, PortError } from '../schemas/module-definition'
+import { createModule, publishModule, updateModule, ModuleApiError } from '../api/modules'
 import { NODE_CATALOG } from '../schemas/node-manifest'
 import type { NodeKind } from '../types'
+
+type PortDirection = 'input' | 'output'
+type PortKey = 'inputs' | 'outputs'
+
+function directionKey(direction: PortDirection): PortKey {
+  return direction === 'input' ? 'inputs' : 'outputs'
+}
 
 function getPortsForKind(baseKind: string): { inputs: ModulePort[]; outputs: ModulePort[] } {
   const manifest = NODE_CATALOG[baseKind as NodeKind]
@@ -11,6 +18,46 @@ function getPortsForKind(baseKind: string): { inputs: ModulePort[]; outputs: Mod
     inputs: manifest.ports.inputs.map((port) => ({ ...port })),
     outputs: manifest.ports.outputs.map((port) => ({ ...port })),
   }
+}
+
+/** Core port ids (from the baseKind manifest) per direction. */
+function corePortIds(baseKind: string): { inputs: Set<string>; outputs: Set<string> } {
+  const manifest = NODE_CATALOG[baseKind as NodeKind]
+  return {
+    inputs: new Set((manifest?.ports.inputs ?? []).map((p) => p.id)),
+    outputs: new Set((manifest?.ports.outputs ?? []).map((p) => p.id)),
+  }
+}
+
+/**
+ * Merge ports when baseKind changes: take the new kind's core ports and keep
+ * the user-added extended ports. An extended port whose id collides with a
+ * new core id loses (core wins); old core ports that left the contract drop.
+ */
+function mergePortsForBaseKind(
+  prevKind: string,
+  prevPorts: { inputs: ModulePort[]; outputs: ModulePort[] },
+  nextKind: string,
+): { inputs: ModulePort[]; outputs: ModulePort[] } {
+  const prevCore = corePortIds(prevKind)
+  const nextCore = corePortIds(nextKind)
+  const next = getPortsForKind(nextKind)
+
+  const keptExtensions = (prev: ModulePort[], wasCore: Set<string>, isCore: Set<string>) =>
+    prev.filter((p) => !wasCore.has(p.id) && !isCore.has(p.id))
+
+  return {
+    inputs: [...next.inputs, ...keptExtensions(prevPorts.inputs, prevCore.inputs, nextCore.inputs)],
+    outputs: [...next.outputs, ...keptExtensions(prevPorts.outputs, prevCore.outputs, nextCore.outputs)],
+  }
+}
+
+/** Surface structured API errors (ModuleApiError.errors) when present. */
+function toErrorState(err: unknown, fallback: string): { error: string; validationErrors?: PortError[] } {
+  if (err instanceof ModuleApiError) {
+    return { error: err.message, validationErrors: err.errors }
+  }
+  return { error: err instanceof Error ? err.message : fallback }
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +169,18 @@ interface ModuleDesignerActions {
   updateConfigField: (key: string, field: ConfigSchemaField) => void
   removeConfigField: (key: string) => void
   reorderConfigFields: (fromIndex: number, toIndex: number) => void
+  /** Add a user-defined extended port (never shadows a core port id). */
+  addExtendedPort: (direction: PortDirection, port: ModulePort) => void
+  /**
+   * Update a port by id. Extended ports accept the full update; core ports
+   * only accept a `label` change (id/type/cardinality are locked by the
+   * baseKind contract).
+   */
+  updateExtendedPort: (direction: PortDirection, id: string, port: ModulePort) => void
+  /** Delete an extended port. Core ports are never deleted. */
+  deleteExtendedPort: (direction: PortDirection, id: string) => void
+  /** Set or clear (undefined/empty) the config-field binding on a port. */
+  setPortBinding: (direction: PortDirection, id: string, binding?: string) => void
 }
 
 type ModuleDesignerStore = ModuleDesignerState & ModuleDesignerActions
@@ -162,7 +221,8 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
     const newDraft = { ...draft, ...partial }
 
     if (partial.baseKind !== undefined && partial.baseKind !== draft.baseKind) {
-      newDraft.ports = getPortsForKind(partial.baseKind)
+      // Refresh core ports from the new contract but keep extended ports.
+      newDraft.ports = mergePortsForBaseKind(draft.baseKind, draft.ports, partial.baseKind)
     }
 
     // Auto-update ID from label if creating new
@@ -170,7 +230,7 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
       newDraft.id = generateModuleId(partial.label, newDraft.category)
     }
 
-    set({ draft: newDraft, isDirty: true, error: null })
+    set({ draft: newDraft, isDirty: true, error: null, validationErrors: undefined })
   },
 
   saveDraft: async () => {
@@ -186,9 +246,10 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
         isDirty: false,
         expectedVersion: saved.expectedVersion ?? (moduleId === null ? 1 : expectedVersion + 1),
         error: null,
+        validationErrors: undefined,
       })
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to save module' })
+      set(toErrorState(err, 'Failed to save module'))
       throw err
     }
   },
@@ -209,15 +270,16 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
         expectedVersion: published.expectedVersion ?? get().expectedVersion + 1,
         isDirty: false,
         error: null,
+        validationErrors: undefined,
       })
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to publish module' })
+      set(toErrorState(err, 'Failed to publish module'))
       throw err
     }
   },
 
   closeDesigner: () => {
-    set({ isOpen: false, moduleId: null, draft: null, isDirty: false, expectedVersion: 1, error: null })
+    set({ isOpen: false, moduleId: null, draft: null, isDirty: false, expectedVersion: 1, error: null, validationErrors: undefined })
   },
 
   addConfigField: (field) => {
@@ -300,6 +362,89 @@ export const useModuleDesignerStore = create<ModuleDesignerStore>((set, get) => 
     set({
       draft: { ...draft, configSchema: newSchema },
       isDirty: true,
+    })
+  },
+
+  addExtendedPort: (direction, port) => {
+    const { draft } = get()
+    if (!draft) return
+
+    const key = directionKey(direction)
+    const core = corePortIds(draft.baseKind)
+    // Never shadow a core port; core ids belong to the baseKind contract.
+    if (core[key].has(port.id)) return
+    if (draft.ports[key].some((p) => p.id === port.id)) return
+
+    set({
+      draft: {
+        ...draft,
+        ports: { ...draft.ports, [key]: [...draft.ports[key], port] },
+      },
+      isDirty: true,
+      error: null,
+      validationErrors: undefined,
+    })
+  },
+
+  updateExtendedPort: (direction, id, port) => {
+    const { draft } = get()
+    if (!draft) return
+
+    const key = directionKey(direction)
+    const core = corePortIds(draft.baseKind)
+    const isCore = core[key].has(id)
+
+    const ports = draft.ports[key].map((p) => {
+      if (p.id !== id) return p
+      if (isCore) {
+        // Core contract is locked (id/type/cardinality); only label may change.
+        return { ...p, label: port.label }
+      }
+      return { ...port, id }
+    })
+
+    set({
+      draft: { ...draft, ports: { ...draft.ports, [key]: ports } },
+      isDirty: true,
+      error: null,
+      validationErrors: undefined,
+    })
+  },
+
+  deleteExtendedPort: (direction, id) => {
+    const { draft } = get()
+    if (!draft) return
+
+    const key = directionKey(direction)
+    const core = corePortIds(draft.baseKind)
+    // Core ports cannot be removed.
+    if (core[key].has(id)) return
+
+    set({
+      draft: {
+        ...draft,
+        ports: { ...draft.ports, [key]: draft.ports[key].filter((p) => p.id !== id) },
+      },
+      isDirty: true,
+      error: null,
+      validationErrors: undefined,
+    })
+  },
+
+  setPortBinding: (direction, id, binding) => {
+    const { draft } = get()
+    if (!draft) return
+
+    const key = directionKey(direction)
+    const ports = draft.ports[key].map((p) =>
+      p.id === id ? { ...p, binding: binding ? binding : undefined } : p,
+    )
+
+    set({
+      draft: { ...draft, ports: { ...draft.ports, [key]: ports } },
+      isDirty: true,
+      error: null,
+      validationErrors: undefined,
     })
   },
 }))

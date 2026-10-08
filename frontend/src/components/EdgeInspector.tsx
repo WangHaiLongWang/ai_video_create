@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { ArrowsClockwise, Trash } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
-import { NODE_CATALOG } from '../schemas/node-manifest'
-import type { EdgeMode } from '../types'
+import { getNodeEffectivePorts } from '../schemas/graph-validation'
+import type { EdgeMode, StudioNode } from '../types'
 
 const EDGE_MODES: { value: EdgeMode; label: string; desc: string }[] = [
   { value: 'direct', label: 'direct', desc: '直接传递' },
@@ -11,11 +11,12 @@ const EDGE_MODES: { value: EdgeMode; label: string; desc: string }[] = [
   { value: 'direct-by-key', label: 'direct-by-key', desc: '按 Key 直传' },
 ]
 
-function getPortLabel(nodeKind: string | undefined, handleId: string | null | undefined, direction: 'input' | 'output'): string {
-  if (!nodeKind || !handleId) return handleId ?? '?'
-  const manifest = NODE_CATALOG[nodeKind as keyof typeof NODE_CATALOG]
-  if (!manifest) return handleId
-  const ports = direction === 'input' ? manifest.ports.inputs : manifest.ports.outputs
+function getPortLabel(node: StudioNode | undefined, handleId: string | null | undefined, direction: 'input' | 'output'): string {
+  if (!node || !handleId) return handleId ?? '?'
+  // Effective ports: instance-level data.ports first (module extensions),
+  // catalog fallback — same resolution the validators use.
+  const { inputs, outputs } = getNodeEffectivePorts(node)
+  const ports = direction === 'input' ? inputs : outputs
   const port = ports.find((p) => p.id === handleId)
   return port?.label ?? port?.id ?? handleId
 }
@@ -36,11 +37,9 @@ export function EdgeInspector() {
 
   const sourceNodeLabel = sourceNode?.data.label ?? edge.source
   const targetNodeLabel = targetNode?.data.label ?? edge.target
-  const sourceNodeKind = sourceNode?.data.kind
-  const targetNodeKind = targetNode?.data.kind
 
-  const sourcePortLabel = getPortLabel(sourceNodeKind, edge.sourceHandle, 'output')
-  const targetPortLabel = getPortLabel(targetNodeKind, edge.targetHandle, 'input')
+  const sourcePortLabel = getPortLabel(sourceNode, edge.sourceHandle, 'output')
+  const targetPortLabel = getPortLabel(targetNode, edge.targetHandle, 'input')
 
   const mode = (edge.data?.mode as EdgeMode) ?? 'direct'
   const isMapMode = mode === 'map'

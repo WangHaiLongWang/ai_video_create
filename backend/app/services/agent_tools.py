@@ -24,6 +24,12 @@ from backend.app.schemas.workflow_intent import (
 
 # ---------------------------------------------------------------------------
 # V2 NODE_CATALOG -- rich manifests with typed ports
+#
+# Canonical contract: frontend/src/schemas/node-manifest.ts is the
+# human-facing source of truth. Port ids/types/cardinality/required must
+# match it exactly (MOD-R3-002 drift fix):
+#   - outputs carry required=False ("required" is only meaningful for inputs)
+#   - imageToVideo: optional "scene" input, "video" output cardinality "one"
 # ---------------------------------------------------------------------------
 
 _NODE_CATALOG_V2: dict[str, NodeManifest] = {
@@ -35,7 +41,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
         ports=PortGroup(
             inputs=[],
             outputs=[
-                PortDefinition(id="text", type="text", required=True, label="Text"),
+                PortDefinition(id="text", type="text", required=False, label="Text"),
             ],
         ),
         config_schema={"prompt": {"type": "string", "default": ""}},
@@ -50,7 +56,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
                 PortDefinition(id="prompt", type="text", required=True, label="Prompt"),
             ],
             outputs=[
-                PortDefinition(id="scenes", type="scene", required=True, cardinality="many", label="Scenes"),
+                PortDefinition(id="scenes", type="scene", required=False, cardinality="many", label="Scenes"),
             ],
         ),
         config_schema={
@@ -68,7 +74,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
                 PortDefinition(id="scene", type="scene", required=True, label="Scene"),
             ],
             outputs=[
-                PortDefinition(id="image", type="image", required=True, label="Image"),
+                PortDefinition(id="image", type="image", required=False, label="Image"),
             ],
         ),
         config_schema={
@@ -85,9 +91,10 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
         ports=PortGroup(
             inputs=[
                 PortDefinition(id="image", type="image", required=True, label="Image"),
+                PortDefinition(id="scene", type="scene", required=False, label="Scene"),
             ],
             outputs=[
-                PortDefinition(id="video", type="video", required=True, cardinality="many", label="Video"),
+                PortDefinition(id="video", type="video", required=False, cardinality="one", label="Video"),
             ],
         ),
         config_schema={
@@ -107,7 +114,7 @@ _NODE_CATALOG_V2: dict[str, NodeManifest] = {
                 PortDefinition(id="video", type="video", required=True, cardinality="many", label="Video"),
             ],
             outputs=[
-                PortDefinition(id="video", type="video", required=True, label="Video"),
+                PortDefinition(id="video", type="video", required=False, label="Video"),
             ],
         ),
         config_schema={
@@ -514,7 +521,7 @@ def intent_to_compact_prompt(intent: WorkflowIntent) -> str:
 
         "Workflow: 滑雪教学
          Nodes: story(storyboard) -> img(textToImage) -> vid(imageToVideo) -> concat(videoConcat) -> out(output)
-         Connections: story.scenes -> img.scene [map], img.images -> vid.image [map], vid.videos -> concat.videos [many]"
+         Connections: story.scenes -> img.scene [map], img.image -> vid.image [map], vid.video -> concat.video [many]"
     """
     parts: list[str] = [f"Workflow: {intent.name}"]
 

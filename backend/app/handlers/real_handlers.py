@@ -16,12 +16,50 @@ from backend.app.handlers.contracts import ArtifactRef, NodeResult
 logger = logging.getLogger(__name__)
 
 
-def _provider_name(config: dict, capability: str) -> str:
-    """Resolve a node override or the configured default provider."""
-    configured = config.get("provider")
-    if configured:
-        return str(configured).lower()
+def _record_asset(
+    task: dict,
+    asset_type: str,
+    file_path: str,
+    *,
+    scene_id: str | None = None,
+    variant_id: str | None = None,
+    provider: str = "",
+    model: str = "",
+    file_size: int = 0,
+    mime_type: str = "",
+    metadata: dict | None = None,
+) -> None:
+    """Persist an artifact row so ``GET /api/assets`` can query it.
+
+    Handlers previously wrote files via AssetManager but never inserted into
+    the ``assets`` table, leaving the query API empty after every run.  This is
+    best-effort: a bookkeeping failure must not fail the node itself.
+    """
+    try:
+        from backend.app.repositories.assets import create_asset
+
+        create_asset(
+            execution_id=task.get("execution_id", ""),
+            node_id=task.get("node_id", ""),
+            task_id=task.get("id", ""),
+            asset_type=asset_type,
+            file_path=file_path,
+            file_size=file_size,
+            mime_type=mime_type,
+            provider=provider,
+            model=model,
+            scene_id=scene_id,
+            variant_id=variant_id or None,
+            metadata=metadata or {},
+        )
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning("Failed to record asset for task %s: %s", task.get("id"), e)
+
+
+def _capability_default(capability: str) -> str:
+    """Return the configured default provider name for a capability."""
     from backend.app.config import get_settings
+
     settings = get_settings()
     defaults = {
         "text": settings.DEFAULT_LLM_PROVIDER.value,
@@ -29,6 +67,31 @@ def _provider_name(config: dict, capability: str) -> str:
         "video": settings.DEFAULT_VIDEO_PROVIDER.value,
     }
     return defaults[capability]
+
+
+def _provider_name(config: dict, capability: str) -> str:
+    """Resolve a node override or the configured default provider.
+
+    Mock-only fallback: modules such as the builtin Seedream definition pin
+    ``provider: "doubao"`` (locked providerPolicy).  When that provider is not
+    registered and the capability's configured default is ``mock``, resolve to
+    ``mock`` so mock-only runs can complete.  Real-provider defaults never take
+    this path — a missing provider there still surfaces as ``NO_*_PROVIDER`` —
+    so production behaviour is unchanged.
+    """
+    configured = config.get("provider")
+    if configured:
+        name = str(configured).lower()
+        if get_provider(name) is None and _capability_default(capability) == "mock":
+            logger.info(
+                "Provider %r not registered and DEFAULT_%s_PROVIDER=mock; "
+                "falling back to MockProvider",
+                name,
+                capability.upper(),
+            )
+            return "mock"
+        return name
+    return _capability_default(capability)
 
 
 class RealTextInputHandler:
@@ -224,7 +287,8 @@ class RealTextToImageHandler:
         """
         config = task.get("config", {})
         prompt = config.get("image_prompt", config.get("prompt", ""))
-        scene_id = task.get("item_key", "unknown")
+        # item_key is None for non-map tasks; .get("item_key", ...) would return None.
+        scene_id = task.get("item_key") or "unknown"
 
         # 解析 scene_id 和 variant_id（支持 "scene-001::variant-01" 格式）
         actual_scene_id = scene_id
@@ -282,6 +346,18 @@ class RealTextToImageHandler:
                 category="images",
                 extension="png",
             )
+            _record_asset(
+                task,
+                "image",
+                relative_path,
+                scene_id=actual_scene_id,
+                variant_id=variant_id or None,
+                provider=_provider_name(config, "image"),
+                model=str(config.get("image_model", "")),
+                file_size=len(image_data),
+                mime_type="image/png",
+                metadata={"asset_id": asset_id, "path": relative_path},
+            )
 
             return NodeResult.ok(
                 output=ArtifactRef(
@@ -324,7 +400,8 @@ class RealImageToVideoHandler:
         and ``scene.duration`` into ``config["duration"]`` before this handler runs.
         """
         config = task.get("config", {})
-        scene_id = task.get("item_key", "unknown")
+        # item_key is None for non-map tasks; .get("item_key", ...) would return None.
+        scene_id = task.get("item_key") or "unknown"
         duration = config.get("duration", 4)
 
         # 解析 scene_id 和 variant_id
@@ -351,7 +428,7 @@ class RealImageToVideoHandler:
         if provider_name in {"wan3", "comfyui"}:
             return await self._use_provider(task, config, actual_scene_id, variant_id, duration, image_path, video_prompt)
         if provider_name == "mock":
-            return self._mock_video_output(actual_scene_id, variant_id, duration)
+            return self._mock_video_output(actual_scene_id, variant_id, duration, task)
         return await self._use_ffmpeg(task, config, actual_scene_id, variant_id, image_path, duration)
 
     async def _use_provider(
@@ -390,6 +467,18 @@ class RealImageToVideoHandler:
                 filename=asset_id,
                 category="videos",
                 extension="mp4",
+            )
+            _record_asset(
+                task,
+                "video",
+                relative_path,
+                scene_id=scene_id,
+                variant_id=variant_id or None,
+                provider=_provider_name(config, "video"),
+                model=str(config.get("video_model", config.get("model", ""))),
+                file_size=len(video_data),
+                mime_type="video/mp4",
+                metadata={"asset_id": asset_id, "path": relative_path},
             )
             return NodeResult.ok(
                 output=ArtifactRef(
@@ -465,7 +554,7 @@ class RealImageToVideoHandler:
             # Check if FFmpeg is available
             if not await ffmpeg.check_ffmpeg_available():
                 # Fallback to mock
-                return self._mock_video_output(scene_id, duration)
+                return self._mock_video_output(scene_id, variant_id, duration, task)
 
             # Generate output path
             asset_id = f"vid-{uuid.uuid4().hex[:8]}"
@@ -483,6 +572,14 @@ class RealImageToVideoHandler:
             )
 
             relative_path = f"videos/{output_filename}"
+            _record_asset(
+                task,
+                "video",
+                relative_path,
+                scene_id=scene_id,
+                variant_id=variant_id or None,
+                metadata={"asset_id": asset_id, "path": relative_path},
+            )
 
             return NodeResult.ok(
                 output=ArtifactRef(
@@ -501,11 +598,27 @@ class RealImageToVideoHandler:
 
         except FFmpegError as e:
             logger.error(f"FFmpeg video creation failed: {e}")
-            return self._mock_video_output(scene_id, variant_id, duration)
+            return self._mock_video_output(scene_id, variant_id, duration, task)
 
-    def _mock_video_output(self, scene_id: str, variant_id: str = "", duration: float = 4) -> NodeResult:
+    def _mock_video_output(
+        self,
+        scene_id: str,
+        variant_id: str = "",
+        duration: float = 4,
+        task: dict | None = None,
+    ) -> NodeResult:
         """Generate mock video output as fallback."""
         asset_id = f"vid-{uuid.uuid4().hex[:8]}"
+        relative_path = f"videos/{asset_id}.mp4"
+        if task is not None:
+            _record_asset(
+                task,
+                "video",
+                relative_path,
+                scene_id=scene_id,
+                variant_id=variant_id or None,
+                metadata={"asset_id": asset_id, "path": relative_path},
+            )
         return NodeResult.ok(
             output=ArtifactRef(
                 type="video",
@@ -535,6 +648,13 @@ class RealVideoConcatHandler:
         if not video_paths:
             # No videos to concatenate
             asset_id = f"final-{uuid.uuid4().hex[:8]}"
+            relative_path = f"final/{asset_id}.mp4"
+            _record_asset(
+                task,
+                "final",
+                relative_path,
+                metadata={"asset_id": asset_id, "path": relative_path, "filename": filename},
+            )
             return NodeResult.ok(
                 output=ArtifactRef(
                     type="video",
@@ -552,7 +672,7 @@ class RealVideoConcatHandler:
 
             # Check if FFmpeg is available
             if not await ffmpeg.check_ffmpeg_available():
-                return self._mock_concat_output(filename)
+                return self._mock_concat_output(filename, task)
 
             # Resolve absolute paths
             asset_manager = get_asset_manager()
@@ -567,6 +687,12 @@ class RealVideoConcatHandler:
             await ffmpeg.concatenate_videos(abs_paths, output_path)
 
             relative_path = f"final/{output_filename}"
+            _record_asset(
+                task,
+                "final",
+                relative_path,
+                metadata={"asset_id": asset_id, "path": relative_path, "filename": filename},
+            )
 
             return NodeResult.ok(
                 output=ArtifactRef(
@@ -583,11 +709,19 @@ class RealVideoConcatHandler:
 
         except FFmpegError as e:
             logger.error(f"FFmpeg concatenation failed: {e}")
-            return self._mock_concat_output(filename)
+            return self._mock_concat_output(filename, task)
 
-    def _mock_concat_output(self, filename: str) -> NodeResult:
+    def _mock_concat_output(self, filename: str, task: dict | None = None) -> NodeResult:
         """Generate mock concat output as fallback."""
         asset_id = f"final-{uuid.uuid4().hex[:8]}"
+        relative_path = f"final/{asset_id}.mp4"
+        if task is not None:
+            _record_asset(
+                task,
+                "final",
+                relative_path,
+                metadata={"asset_id": asset_id, "path": relative_path, "filename": filename},
+            )
         return NodeResult.ok(
             output=ArtifactRef(
                 type="video",

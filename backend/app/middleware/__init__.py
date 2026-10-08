@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections import defaultdict
 from typing import Callable
@@ -36,6 +37,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
 
         # 2. 速率限制 (简单滑动窗口)
+        # DISABLE_RATE_LIMIT=1 用于测试/E2E，需与 RateLimitMiddleware 一致地尊重，
+        # 否则只关掉一层限流，另一层仍会返回 429。
+        rate_limit_disabled = os.getenv("DISABLE_RATE_LIMIT") == "1"
         now = time.time()
         window = 60.0  # 1 分钟窗口
 
@@ -44,7 +48,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             t for t in self._request_counts[client_ip] if now - t < window
         ]
 
-        if len(self._request_counts[client_ip]) >= self.rate_limit:
+        if not rate_limit_disabled and len(self._request_counts[client_ip]) >= self.rate_limit:
             return JSONResponse(
                 {"detail": "请求过于频繁，请稍后重试"},
                 status_code=429,

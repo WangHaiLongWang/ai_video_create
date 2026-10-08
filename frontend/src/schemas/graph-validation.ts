@@ -1,6 +1,6 @@
 import type { Edge } from '@xyflow/react'
-import type { NodeKind } from '../types'
-import type { NodeManifest, PortDefinition, PortType } from './node-manifest'
+import type { NodeKind, PortInfo } from '../types'
+import type { NodeManifest } from './node-manifest'
 import { NODE_CATALOG } from './node-manifest'
 
 // ---------------------------------------------------------------------------
@@ -14,10 +14,21 @@ export interface ValidationError {
   portId?: string
 }
 
-interface NodeRecord {
+export interface NodeDataLike {
+  kind?: NodeKind
+  ports?: {
+    inputs: PortInfo[]
+    outputs: PortInfo[]
+  }
+  moduleId?: string
+  moduleVersion?: string
+  [key: string]: unknown
+}
+
+export interface NodeRecord {
   id: string
   kind?: NodeKind
-  data?: { kind?: NodeKind }
+  data?: NodeDataLike
 }
 
 interface EdgeRecord {
@@ -28,6 +39,9 @@ interface EdgeRecord {
   targetHandle?: string | null
 }
 
+/** Ports may come either as full node records or as a plain id→kind map. */
+type NodeInput = NodeRecord[] | Record<string, NodeKind>
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -37,17 +51,73 @@ function nodeKind(node: NodeRecord): NodeKind | undefined {
   return node.kind ?? node.data?.kind
 }
 
-function findOutputPort(manifest: NodeManifest, handleId: string | null | undefined): PortDefinition | undefined {
-  return manifest.ports.outputs.find((p) => p.id === handleId)
+/**
+ * Resolve a node's effective input/output ports.
+ *
+ * Prefers the per-instance `data.ports` (module extension ports, instance-level
+ * port CRUD) and falls back to the kind-keyed catalog. The fallback covers
+ * legacy nodes and V1 exports where `downgradeWorkflowSpec` strips ports.
+ */
+export function getNodeEffectivePorts(
+  node: NodeRecord | undefined,
+  catalog: Record<string, NodeManifest> = NODE_CATALOG,
+): { inputs: PortInfo[]; outputs: PortInfo[] } {
+  const instancePorts = node?.data?.ports
+  if (instancePorts) {
+    return {
+      inputs: instancePorts.inputs ?? [],
+      outputs: instancePorts.outputs ?? [],
+    }
+  }
+  const manifest = node ? catalog[nodeKind(node) ?? ''] : undefined
+  if (manifest) {
+    return { inputs: manifest.ports.inputs, outputs: manifest.ports.outputs }
+  }
+  return { inputs: [], outputs: [] }
 }
 
-function findInputPort(manifest: NodeManifest, handleId: string | null | undefined): PortDefinition | undefined {
-  return manifest.ports.inputs.find((p) => p.id === handleId)
+function findOutputPort(ports: PortInfo[], handleId: string | null | undefined): PortInfo | undefined {
+  return ports.find((p) => p.id === handleId)
+}
+
+function findInputPort(ports: PortInfo[], handleId: string | null | undefined): PortInfo | undefined {
+  return ports.find((p) => p.id === handleId)
 }
 
 /** Two types are compatible when they are identical or either side is "any". */
-function typesCompatible(a: PortType, b: PortType): boolean {
+function typesCompatible(a: string, b: string): boolean {
   return a === b || a === 'any' || b === 'any'
+}
+
+/** Normalise the flexible node input (array or id→kind map) to an id-keyed map. */
+function toNodeMap(nodes: NodeInput | undefined): Map<string, NodeRecord> {
+  if (!nodes) return new Map()
+  if (Array.isArray(nodes)) return new Map(nodes.map((n) => [n.id, n]))
+  return new Map(Object.entries(nodes).map(([id, kind]) => [id, { id, kind }]))
+}
+
+/** True when adding source→target would close a loop over the existing edges. */
+function wouldCreateCycle(
+  source: string,
+  target: string,
+  existingEdges: EdgeRecord[],
+): boolean {
+  const adjacency = new Map<string, string[]>()
+  for (const e of existingEdges) {
+    const list = adjacency.get(e.source) ?? []
+    list.push(e.target)
+    adjacency.set(e.source, list)
+  }
+  const visited = new Set<string>()
+  const stack = [target]
+  while (stack.length > 0) {
+    const u = stack.pop() as string
+    if (u === source) return true
+    if (visited.has(u)) continue
+    visited.add(u)
+    for (const v of adjacency.get(u) ?? []) stack.push(v)
+  }
+  return false
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +130,8 @@ export function validateGraph(
 ): ValidationError[] {
   const errors: ValidationError[] = []
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+  // Effective ports per node: instance-level data.ports first, catalog fallback.
+  const portsMap = new Map(nodes.map((n) => [n.id, getNodeEffectivePorts(n, catalog)]))
 
   // 1. Self-loop
   for (const edge of edges) {
@@ -92,12 +164,12 @@ export function validateGraph(
     const tgtNode = nodeMap.get(edge.target)
     if (!srcNode || !tgtNode) continue
 
-    const srcManifest = catalog[nodeKind(srcNode) ?? '']
-    const tgtManifest = catalog[nodeKind(tgtNode) ?? '']
-    if (!srcManifest || !tgtManifest) continue
+    const srcPorts = portsMap.get(edge.source)
+    const tgtPorts = portsMap.get(edge.target)
+    if (!srcPorts || !tgtPorts) continue
 
-    const srcPort = findOutputPort(srcManifest, edge.sourceHandle)
-    const tgtPort = findInputPort(tgtManifest, edge.targetHandle)
+    const srcPort = findOutputPort(srcPorts.outputs, edge.sourceHandle)
+    const tgtPort = findInputPort(tgtPorts.inputs, edge.targetHandle)
 
     if (srcPort && tgtPort && !typesCompatible(srcPort.type, tgtPort.type)) {
       errors.push({
@@ -121,9 +193,9 @@ export function validateGraph(
     const [nodeId, portHandle] = key.split('::')
     const node = nodeMap.get(nodeId)
     if (!node) continue
-    const manifest = catalog[nodeKind(node) ?? '']
-    if (!manifest) continue
-    const port = findInputPort(manifest, portHandle)
+    const ports = portsMap.get(nodeId)
+    if (!ports) continue
+    const port = findInputPort(ports.inputs, portHandle)
     if (port && port.cardinality === 'one' && count > 1) {
       errors.push({
         code: 'CARDINALITY_VIOLATION',
@@ -136,9 +208,9 @@ export function validateGraph(
 
   // 5. Required port warning — required input with no edge
   for (const node of nodes) {
-    const manifest = catalog[nodeKind(node) ?? '']
-    if (!manifest) continue
-    for (const port of manifest.ports.inputs) {
+    const ports = portsMap.get(node.id)
+    if (!ports) continue
+    for (const port of ports.inputs) {
       if (!port.required) continue
       const hasEdge = edges.some(
         (e) => e.target === node.id && (e.targetHandle ?? '') === port.id,
@@ -205,28 +277,50 @@ export function validateGraph(
     })
   }
 
-  // 7. Direction — output→output or input→input
+  // 7. Unknown handle + direction — output→output or input→input
   for (const edge of edges) {
     const srcNode = nodeMap.get(edge.source)
     const tgtNode = nodeMap.get(edge.target)
     if (!srcNode || !tgtNode) continue
 
-    const srcManifest = catalog[nodeKind(srcNode) ?? '']
-    const tgtManifest = catalog[nodeKind(tgtNode) ?? '']
-    if (!srcManifest || !tgtManifest) continue
+    const srcPorts = portsMap.get(edge.source)
+    const tgtPorts = portsMap.get(edge.target)
+    if (!srcPorts || !tgtPorts) continue
 
-    const srcPort = findOutputPort(srcManifest, edge.sourceHandle)
-    const tgtPort = findInputPort(tgtManifest, edge.targetHandle)
+    const srcPort = findOutputPort(srcPorts.outputs, edge.sourceHandle)
+    const srcInputPort = findInputPort(srcPorts.inputs, edge.sourceHandle)
+    const tgtPort = findInputPort(tgtPorts.inputs, edge.targetHandle)
+    const tgtOutputPort = findOutputPort(tgtPorts.outputs, edge.targetHandle)
+
+    // UNKNOWN_HANDLE — a named handle must exist on the node's effective ports
+    if (edge.sourceHandle && !srcPort && !srcInputPort) {
+      errors.push({
+        code: 'UNKNOWN_HANDLE',
+        message: `连线 ${edge.id} 的源端口 ${edge.sourceHandle} 不存在于节点 ${srcNode.id} 的端口列表`,
+        edgeId: edge.id,
+        nodeId: srcNode.id,
+        portId: edge.sourceHandle,
+      })
+    }
+    if (edge.targetHandle && !tgtPort && !tgtOutputPort) {
+      errors.push({
+        code: 'UNKNOWN_HANDLE',
+        message: `连线 ${edge.id} 的目标端口 ${edge.targetHandle} 不存在于节点 ${tgtNode.id} 的端口列表`,
+        edgeId: edge.id,
+        nodeId: tgtNode.id,
+        portId: edge.targetHandle,
+      })
+    }
 
     // If source handle is an input port or target handle is an output port
-    if (!srcPort && findInputPort(srcManifest, edge.sourceHandle)) {
+    if (!srcPort && srcInputPort) {
       errors.push({
         code: 'DIRECTION',
         message: `连线 ${edge.id} 不能从输入端口 ${edge.sourceHandle ?? ''} 发出`,
         edgeId: edge.id,
       })
     }
-    if (!tgtPort && findOutputPort(tgtManifest, edge.targetHandle)) {
+    if (!tgtPort && tgtOutputPort) {
       errors.push({
         code: 'DIRECTION',
         message: `连线 ${edge.id} 不能连接到输出端口 ${edge.targetHandle ?? ''}`,
@@ -245,12 +339,18 @@ export function validateGraph(
 /**
  * Validate a single connection attempt before committing it.
  *
+ * Port type/cardinality checks use each node's effective ports (instance-level
+ * `data.ports` first, catalog fallback) so module extension ports are checked.
+ * A would-be cycle is rejected here so drag-time conclusions match
+ * `validateGraph` and backend start validation.
+ *
  * @param source        Source node ID
  * @param sourceHandle  Source port (handle) ID
  * @param target        Target node ID
  * @param targetHandle  Target port (handle) ID
- * @param nodeKinds     Mapping of node ID to its NodeKind
- * @param catalog       Node manifest catalog (defaults to NODE_CATALOG)
+ * @param nodes         Full node records (preferred) or a node ID → NodeKind map
+ * @param catalog       Node manifest catalog (defaults to NODE_CATALOG), used
+ *                      as fallback when a node has no `data.ports`
  * @param existingEdges Current edges in the graph
  * @returns null if valid, or a single ValidationError
  */
@@ -259,15 +359,14 @@ export function validateConnection(
   sourceHandle: string | undefined,
   target: string,
   targetHandle: string | undefined,
-  nodeKinds: Record<string, NodeKind> = {},
+  nodes: NodeInput = {},
   catalog: Record<string, NodeManifest> = NODE_CATALOG,
   existingEdges: EdgeRecord[] = [],
 ): ValidationError | null {
-  // Resolve source and target manifests via their NodeKind
-  const srcKind = nodeKinds[source]
-  const tgtKind = nodeKinds[target]
-  const srcManifest = srcKind ? catalog[srcKind] : undefined
-  const tgtManifest = tgtKind ? catalog[tgtKind] : undefined
+  // Resolve source and target ports via their effective ports
+  const nodeMap = toNodeMap(nodes)
+  const srcPorts = getNodeEffectivePorts(nodeMap.get(source), catalog)
+  const tgtPorts = getNodeEffectivePorts(nodeMap.get(target), catalog)
 
   // Self-loop
   if (source === target) {
@@ -290,52 +389,74 @@ export function validateConnection(
     }
   }
 
-  if (srcManifest && tgtManifest) {
-    const srcOutputPort = findOutputPort(srcManifest, sourceHandle)
-    const srcInputPort = findInputPort(srcManifest, sourceHandle)
-    const tgtOutputPort = findOutputPort(tgtManifest, targetHandle)
-    const tgtInputPort = findInputPort(tgtManifest, targetHandle)
+  const srcOutputPort = findOutputPort(srcPorts.outputs, sourceHandle)
+  const srcInputPort = findInputPort(srcPorts.inputs, sourceHandle)
+  const tgtOutputPort = findOutputPort(tgtPorts.outputs, targetHandle)
+  const tgtInputPort = findInputPort(tgtPorts.inputs, targetHandle)
 
-    // Direction — can't connect from an input port or into an output port
-    if (!srcOutputPort && srcInputPort) {
-      return {
-        code: 'DIRECTION',
-        message: `不能从输入端口 ${sourceHandle ?? ''} 发出连线`,
-        portId: sourceHandle,
-      }
+  // Unknown handle — a named handle must exist on the node's effective ports
+  if (sourceHandle && !srcOutputPort && !srcInputPort) {
+    return {
+      code: 'UNKNOWN_HANDLE',
+      message: `源端口 ${sourceHandle} 不存在`,
+      portId: sourceHandle,
     }
+  }
+  if (targetHandle && !tgtInputPort && !tgtOutputPort) {
+    return {
+      code: 'UNKNOWN_HANDLE',
+      message: `目标端口 ${targetHandle} 不存在`,
+      portId: targetHandle,
+    }
+  }
 
-    if (!tgtInputPort && tgtOutputPort) {
+  // Direction — can't connect from an input port or into an output port
+  if (!srcOutputPort && srcInputPort) {
+    return {
+      code: 'DIRECTION',
+      message: `不能从输入端口 ${sourceHandle ?? ''} 发出连线`,
+      portId: sourceHandle,
+    }
+  }
+
+  if (!tgtInputPort && tgtOutputPort) {
+    return {
+      code: 'DIRECTION',
+      message: `不能连接到输出端口 ${targetHandle ?? ''}`,
+      portId: targetHandle,
+    }
+  }
+
+  // Type mismatch
+  if (srcOutputPort && tgtInputPort) {
+    if (!typesCompatible(srcOutputPort.type, tgtInputPort.type)) {
       return {
-        code: 'DIRECTION',
-        message: `不能连接到输出端口 ${targetHandle ?? ''}`,
+        code: 'TYPE_MISMATCH',
+        message: `端口类型不兼容：${srcOutputPort.type} 不能连接到 ${tgtInputPort.type}`,
         portId: targetHandle,
       }
     }
+  }
 
-    // Type mismatch
-    if (srcOutputPort && tgtInputPort) {
-      if (!typesCompatible(srcOutputPort.type, tgtInputPort.type)) {
-        return {
-          code: 'TYPE_MISMATCH',
-          message: `端口类型不兼容：${srcOutputPort.type} 不能连接到 ${tgtInputPort.type}`,
-          portId: targetHandle,
-        }
+  // Cardinality violation
+  if (tgtInputPort && tgtInputPort.cardinality === 'one') {
+    const existingCount = existingEdges.filter(
+      (e) => e.target === target && (e.targetHandle ?? '') === (targetHandle ?? ''),
+    ).length
+    if (existingCount >= 1) {
+      return {
+        code: 'CARDINALITY_VIOLATION',
+        message: `端口 ${tgtInputPort.id} 的基数为 "one"，已连接 ${existingCount} 条边`,
+        portId: targetHandle,
       }
     }
+  }
 
-    // Cardinality violation
-    if (tgtInputPort && tgtInputPort.cardinality === 'one') {
-      const existingCount = existingEdges.filter(
-        (e) => e.target === target && (e.targetHandle ?? '') === (targetHandle ?? ''),
-      ).length
-      if (existingCount >= 1) {
-        return {
-          code: 'CARDINALITY_VIOLATION',
-          message: `端口 ${tgtInputPort.id} 的基数为 "one"，已连接 ${existingCount} 条边`,
-          portId: targetHandle,
-        }
-      }
+  // Cycle — the new edge must not close a loop
+  if (wouldCreateCycle(source, target, existingEdges)) {
+    return {
+      code: 'CYCLE',
+      message: '连线会形成环路，工作流不能包含循环',
     }
   }
 

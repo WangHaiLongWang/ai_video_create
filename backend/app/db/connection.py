@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -12,13 +13,35 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def _get_db_path() -> Path:
+    """Resolve the SQLite file path.
+
+    Honors ``Settings.DB_PATH`` / ``AI_VIDEO_DB_PATH`` so test and E2E runs can
+    point at an isolated database.  Relative values are resolved against the
+    project root; when unset the historical ``data/ai_video_create.db`` location
+    is used unchanged.
+    """
     global _DB_PATH
     if _DB_PATH is None:
-        # 默认放在项目根目录 data/ai_video_create.db
         project_root = Path(__file__).resolve().parent.parent.parent.parent
-        data_dir = project_root / "data"
-        data_dir.mkdir(exist_ok=True)
-        _DB_PATH = data_dir / "ai_video_create.db"
+        configured = os.environ.get("AI_VIDEO_DB_PATH", "").strip()
+        if not configured:
+            try:
+                from backend.app.config import get_settings
+
+                configured = (get_settings().DB_PATH or "").strip()
+            except Exception:  # pragma: no cover - settings optional at import
+                configured = ""
+        # Keep the historical default when settings still carry it.
+        if not configured or configured == "data/ai_video_create.db":
+            data_dir = project_root / "data"
+            data_dir.mkdir(exist_ok=True)
+            _DB_PATH = data_dir / "ai_video_create.db"
+        else:
+            path = Path(configured)
+            if not path.is_absolute():
+                path = project_root / path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _DB_PATH = path
     return _DB_PATH
 
 

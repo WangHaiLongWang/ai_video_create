@@ -1,16 +1,16 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.5
-> 制定日期：2026-09-21
+> 计划版本：1.6
+> 制定日期：2026-10-08
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-09-21 执行检查点
+## 0. 2026-10-08 执行检查点
 
-项目主要功能模块已完成，当前重点从“扩充能力”切换为“恢复可复现绿色门禁与 RC 证据”。
+项目主要功能模块和两轮模块化纵向开发已完成，当前重点是 Phase M3：真实 Mock Backend 联调、高级端口 Binding、测试稳定性、同 SHA CI 与 Provider UAT。
 
 ### 已完成
 

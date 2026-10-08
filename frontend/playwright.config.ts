@@ -1,12 +1,20 @@
 import { defineConfig, devices } from '@playwright/test'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 /**
  * Playwright configuration for ai_video_create frontend E2E tests.
  *
- * The dev server is started automatically by Playwright when running tests.
- * Ensure the backend API is running at http://127.0.0.1:8000 before executing E2E tests,
- * as the Vite dev server proxies /api requests to it.
+ * Both servers are started by Playwright:
+ *   1. Mock FastAPI backend on http://127.0.0.1:8000 (providers default to mock,
+ *      database isolated via AI_VIDEO_DB_PATH so the dev DB is never polluted).
+ *   2. Vite dev server on http://127.0.0.1:5173 (proxies /api to the backend).
+ *
+ * `reuseExistingServer: true` keeps CI working: the browser-e2e workflow already
+ * boots both servers and Playwright simply attaches to them.
  */
+const e2eDbPath = join(tmpdir(), `ai-video-create-e2e-${Date.now()}.db`)
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false, // sequential to avoid port conflicts on CI
@@ -36,13 +44,33 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'npm run dev',
-    port: 5173,
-    // In CI, servers are started by the workflow; locally, reuse if already running.
-    reuseExistingServer: true,
-    timeout: 15_000,
-  },
+  webServer: [
+    {
+      // Mock FastAPI backend — run-python.cjs resolves the project venv/python.
+      command:
+        'node ../scripts/run-python.cjs -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000',
+      url: 'http://127.0.0.1:8000/api/health',
+      reuseExistingServer: true,
+      timeout: 60_000,
+      env: {
+        // Preserve the ambient environment (PATH, etc.) and layer E2E settings.
+        ...process.env,
+        AI_VIDEO_DEFAULT_LLM_PROVIDER: 'mock',
+        AI_VIDEO_DEFAULT_IMAGE_PROVIDER: 'mock',
+        AI_VIDEO_DEFAULT_VIDEO_PROVIDER: 'mock',
+        AI_VIDEO_DB_PATH: e2eDbPath,
+        // Module E2E polls/queries enough endpoints to trip the 60/min limiter.
+        DISABLE_RATE_LIMIT: '1',
+      },
+    },
+    {
+      command: 'npm run dev',
+      port: 5173,
+      // In CI, servers are started by the workflow; locally, reuse if already running.
+      reuseExistingServer: true,
+      timeout: 15_000,
+    },
+  ],
 
   outputDir: 'test-results',
 })

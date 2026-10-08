@@ -296,6 +296,7 @@ jobs:
           AI_VIDEO_DEFAULT_LLM_PROVIDER=mock \
           AI_VIDEO_DEFAULT_IMAGE_PROVIDER=mock \
           AI_VIDEO_DEFAULT_VIDEO_PROVIDER=mock \
+          DISABLE_RATE_LIMIT=1 \
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           BACKEND_PID=$!
           echo "BACKEND_PID=$BACKEND_PID" >> "$GITHUB_ENV"
