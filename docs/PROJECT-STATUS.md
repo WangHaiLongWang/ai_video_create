@@ -1,10 +1,11 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-09-28
-> 状态版本：18.0
-> 代码基线：`70daa1d` + 第二轮纵向验收工作区
+> 基线日期：2026-10-10
+> 状态版本：19.0
+> 代码基线：`44d2227`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
+> 当前硬化计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
 
 ## 1. 结论
@@ -19,16 +20,16 @@
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
-| 架构骨架 | 90% | 模块/Agent/执行层代码增多，单一契约和 wiring 仍不稳定 |
-| React Flow 编辑器 | 94% | 实例级字段/端口/Edge 成熟，模块端口语义未完全接入 |
-| 节点组件化 | 80% | Registry/API/Materializer/module_usage/Frontend E2E 已推进，高级端口和真实后端 E2E 待补 |
-| Mock 执行闭环 | 90% | defaults/overrides 已进入 snapshot/Task，需浏览器连接真实 Mock Backend |
-| Workflow Agent | 84% | structured parser、module-aware compiler/gate 已有第二轮测试，Modify 浏览器联调待验收 |
+| 架构骨架 | 92% | 模块/Agent/执行层完整，下一步消除共享契约和迁移债务 |
+| React Flow 编辑器 | 97% | 实例字段/端口/Binding/effective-port 校验和 E2E 成熟 |
+| 节点组件化 | 94% | 生命周期、Materializer、module_usage、真实 Mock Backend E2E 完成 |
+| Mock 执行闭环 | 96% | 浏览器 create→publish→run、Task/Asset 查询通过 |
+| Workflow Agent | 93% | structured parser、module compiler/gate、Modify增量Diff/E2E 完成 |
 | Scene/Prompt 产品层 | 88% | Editor/Import/Export/Draft/Preview 已有 |
 | 安全与秘密管理 | 83% | 安全代码存在，依赖环境和发布证据仍需修复 |
 | Provider 与媒体 | 79% | Qwen/Wan3 有历史 UAT；Doubao External Blocked |
-| 发布工程 | 78% | Playwright CI job 已有，仍缺同 SHA 运行证据与测试隔离修复 |
-| 综合产品完成度 | **约 84%** | 第二轮纵向验收通过，仍未达到生产发布门槛 |
+| 发布工程 | 84% | CI job和测试隔离完成，仍缺同 SHA run/UAT/发布演练 |
+| 综合产品完成度 | **约 91%** | 功能主链成熟，进入平台硬化与 RC 证据阶段 |
 
 ## 2. 当前可重复测试基线
 
@@ -38,7 +39,7 @@
 |---|---:|---|
 | Frontend Vitest | 22 files / 387 passed | 通过 |
 | TypeScript | 0 errors | 通过 |
-| Vite build | index 130.49 kB；最大 chunk 181.08 kB | 通过，无 500 kB 警告 |
+| Vite build | index 138.51 kB；最大 chunk 185.73 kB | 本轮复测通过，无 500 kB 警告 |
 | Chromium modules E2E（真实 Mock FastAPI） | 5/5 passed | 通过，**零 route mock**，Task/Asset 可查询 |
 | Chromium agent-modify E2E（真实 Mock FastAPI） | 3/3 passed | 通过，**零 route mock**，含 destructive 确认 |
 | Playwright 全量 | 142 passed / 1 skipped / 0 failed | 通过 |
@@ -47,6 +48,7 @@
 | Backend 广覆盖回归 | 677 passed | 通过 |
 | Agent structured parser/module gate | 341 passed | 通过 |
 | Backend full non-external（干净 venv） | 2123 passed / 8 skipped / 0 failed | 通过 |
+| Backend 当前专项复测 | 153 passed / 1 warning | 本轮通过 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
 | Playwright CI | Mock FastAPI + Vite + Chromium job 已配置 | 尚无本次 run URL/同 SHA 证据 |

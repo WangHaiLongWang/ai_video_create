@@ -1,9 +1,26 @@
 # 可复用模块化节点与 Seedream 推进计划
 
 > 状态：Active
-> 日期：2026-10-08
+> 日期：2026-10-10
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
 > 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)
+
+## 0.0 2026-10-10 Phase M3 关闭检查点
+
+MOD-R3-001～005 已完成：扩展端口 Binding Designer、effective module ports 前后端图校验、真实 Mock FastAPI 模块 E2E、Agent Modify 增量 Diff/破坏性确认、Vitest 隔离治理均已有自动化证据。
+
+| 能力 | 状态 | 证据 |
+|---|---|---|
+| Module create/publish/drag/config/save/reload/run | Done | modules E2E 5/5，零 route mock |
+| 扩展端口 Binding | Done | Designer/store/schema/backend validator tests |
+| Module-aware graph validation | Done | FE graph tests + backend parity/validator |
+| Agent Modify | Done | 3 项真实浏览器 E2E + 增量 patch/module diff tests |
+| 测试隔离 | Done | cleanup + maxThreads；历史连续运行证据 |
+| Playwright CI 配置 | Done | Mock FastAPI + Vite + Chromium job |
+| 同 SHA CI 运行证据 | Pending | 需要 Actions URL/artifact |
+| Seedream 真实 UAT | External Blocked | 账号模型未激活 |
+
+模块化专项进入维护状态；后续平台任务转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)。
 
 ## 0. 2026-09-22 验证检查点
 
@@ -441,7 +458,7 @@ API Key 只来自 Provider Settings/secret reference。
 | AG-P0-005 | Agent | 基于 existing workflow 的 modify/diff/destructive confirm | 修改不是重建 |
 | AG-P0-006 | QA | 30+ 真实 parser cases、6 module integration、4 Playwright | 不直接测试 fallback 代替 parser |
 
-### Phase M3：下一步真实联调与高级自定义（当前计划，2 人 5-7 天）
+### Phase M3：真实联调与高级自定义（功能完成）
 
 | ID | Owner | 任务 | 验收 | 状态 |
 |---|---|---|---|---|
@@ -450,8 +467,8 @@ API Key 只来自 Provider Settings/secret reference。
 | MOD-R3-003 | Fullstack | Playwright 使用真实 Mock FastAPI 完成模块 create→publish→drag→save→reload→run | 不依赖 route mock，Task/Asset 可查询 | ✅ 完成 |
 | MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 | ✅ 完成 |
 | MOD-R3-005 | QA | 修复 Vitest 并行 EMFILE 和 `--threads false` DOM 污染 | 默认 `npm test` 连续运行稳定全绿 | ✅ 完成 |
-| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 | ⏳ 待办 |
-| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 | ⏳ 外部阻断 |
+| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 | 转 HARD-501/502 |
+| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 | 转 HARD-505，外部阻断 |
 
 2026-10-08 实测证据：
 

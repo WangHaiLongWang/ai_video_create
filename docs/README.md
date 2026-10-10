@@ -13,6 +13,7 @@
 | [React Flow / Agent 计划](plans/active/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 当前最高前端优先级 |
 | [RC 收敛计划](plans/active/RC-CLOSURE-PLAN.md) | 依赖、E2E、CI 和 v1.0.0-rc.1 门禁 | 当前发布优先级 |
 | [模块化节点与 Seedream](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md) | 可复用模块、Schema 属性组件和 Seedream 薄切片 | 下一产品开发专项 |
+| [Platform Hardening](plans/active/PLATFORM-HARDENING-PLAN.md) | 共享契约、迁移、Provider 持久化、CI/UAT 和 RC 发布 | 当前最高优先级 |
 
 阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。
 
@@ -54,6 +55,7 @@
 - [Frontend 模块化与 Agent 验证 2026-09-22](reports/frontend-modularity-agent-validation-2026-09-22.md)
 - [Workflow 组件化审计 2026-09-23](reports/workflow-componentization-audit-2026-09-23.md)
 - [模块化第二轮纵向验收 2026-09-28](reports/module-round2-validation-2026-09-28.md)
+- [Platform Hardening 审计 2026-10-10](reports/platform-audit-2026-10-10.md)
 
 报告是特定环境下的证据，不自动代表当前分支门禁通过。报告必须包含日期、commit、环境、命令和原始结果。
 

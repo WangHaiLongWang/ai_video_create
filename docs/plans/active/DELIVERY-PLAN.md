@@ -1,16 +1,16 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.6
-> 制定日期：2026-10-08
+> 计划版本：1.7
+> 制定日期：2026-10-10
 > 计划状态：Active，后续开发的唯一主计划
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-10-08 执行检查点
+## 0. 2026-10-10 执行检查点
 
-项目主要功能模块和两轮模块化纵向开发已完成，当前重点是 Phase M3：真实 Mock Backend 联调、高级端口 Binding、测试稳定性、同 SHA CI 与 Provider UAT。
+项目主要功能模块、两轮模块化纵向开发和 Phase M3 已完成，当前重点切换为 Platform Hardening：共享契约、正式迁移、Provider 持久化、同 SHA CI、真实 Provider UAT 与 RC 发布。
 
 ### 已完成
 
@@ -643,19 +643,19 @@ v1.0 发布目标：
 
 ## 14. 下一 Sprint 可直接领取的任务
 
-本 Sprint 以“模块化真实联调与发布证据”为目标；模块基础 P0 与第二轮纵向验收已完成，后续按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) Phase M3 执行：
+本 Sprint 以“平台硬化与 RC 证据”为目标；模块 Phase M3 已完成，后续按 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) 执行：
 
 | 顺序 | 工单 | 交付 | 验收 |
 |---:|---|---|---|
-| 1 | MOD-R3-001 | Designer 扩展端口与 binding 编辑 | 无 binding 不可发布，合法 binding 可运行 |
-| 2 | MOD-R3-002 | 前端 module-aware 图校验 | Canvas/store/backend 对 effective ports 结论一致 |
-| 3 | MOD-R3-003 | 真实 Mock Backend 模块 Playwright | create→publish→drag→save→reload→run |
-| 4 | MOD-R3-004 | Agent Modify Preview 浏览器联调 | module/version/config diff 可见且不重建 |
-| 5 | MOD-R3-005 | Vitest 文件句柄与 cleanup 隔离 | 默认 npm test 连续运行稳定全绿 |
-| 6 | MOD-R3-006 | Playwright CI 与三平台同 SHA 证据 | Actions URL/report/trace 归档 |
-| 7 | MOD-R3-007 | Seedream 最小真实 UAT | 模型激活后 1 scene/1 variant 成功 |
+| 1 | HARD-001/002 | Node/Python 工具链和依赖锁 | 新机器一次安装成功 |
+| 2 | HARD-101..104 | Node/Module/Agent 共享契约 | 删除手写重复 Catalog |
+| 3 | HARD-201..204 | schema_migrations ledger | 旧库升级/中断恢复通过 |
+| 4 | HARD-301..304 | Provider 配置和秘密持久化 | UI 保存重启恢复、Key 不回显 |
+| 5 | HARD-401..404 | Agent v1/v2、终点语义、审计和限额 | v2 冻结、超限前置阻断 |
+| 6 | HARD-501..506 | 同 SHA CI 和真实 Provider UAT | run URL/report/产物可追溯 |
+| 7 | HARD-601..604 | RC 版本、文档和发布演练 | `v1.0.0-rc.1` 可回滚发布 |
 
-Sprint 出口：模块真实 Mock Backend 浏览器链路全绿、模块端口 binding 可编辑可执行、测试隔离稳定、同 SHA CI 证据完整；真实 Seedream 未激活时保持 Optional/External Blocked。
+Sprint 出口：共享契约、迁移和配置持久化完成；同 SHA required checks 与真实主 Provider UAT 有证据；版本和运维文档一致。Seedream 未激活时保持 Optional/External Blocked。
 
 ## 15. 计划维护
 
