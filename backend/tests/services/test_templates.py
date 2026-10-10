@@ -1,6 +1,10 @@
 """Tests for Template service."""
 
 import pytest
+from backend.app.domain.graph_validation import (
+    extract_nodes_edges_from_spec,
+    raise_if_invalid,
+)
 from backend.app.services.templates import TemplateService
 from backend.app.models import WorkflowSpec
 
@@ -51,6 +55,13 @@ class TestTemplateService:
         for node in spec.nodes:
             if node.data.kind == "textInput":
                 assert node.data.config.get("prompt") == "自然风光"
+
+    def test_prompt_to_video_template_is_port_valid(self):
+        """Test prompt-to-video template passes port-aware graph validation."""
+        spec = self.service.create_from_template("prompt-to-video")
+        assert spec is not None
+        nodes, edges = extract_nodes_edges_from_spec(spec.model_dump())
+        assert raise_if_invalid(nodes, edges) == []
 
     def test_save_as_template(self):
         """Test saving workflow as template."""

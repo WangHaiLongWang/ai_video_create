@@ -12,6 +12,17 @@ NODE_DEFS = [
     ("output", "成片输出", "video", None, {"filename": "output.mp4"}),
 ]
 
+# V2 端口 ID（与 agent_tools._NODE_CATALOG_V2 一致）: kind -> (输入端口, 输出端口)
+# 边必须携带 sourceHandle/targetHandle 才能命中必填端口。
+NODE_PORT_IDS: dict[str, tuple[str | None, str | None]] = {
+    "textInput": (None, "text"),
+    "storyboard": ("prompt", "scenes"),
+    "textToImage": ("scene", "image"),
+    "imageToVideo": ("image", "video"),
+    "videoConcat": ("video", "video"),
+    "output": ("video", None),
+}
+
 
 def create_prompt_to_video(prompt: str) -> WorkflowSpec:
     match = re.search(r"(\d+)\s*镜头", prompt)
@@ -38,7 +49,13 @@ def create_prompt_to_video(prompt: str) -> WorkflowSpec:
             )
         )
     edges = [
-        WorkflowEdge(id=f"edge-{index}", source=nodes[index - 1].id, target=nodes[index].id)
+        WorkflowEdge(
+            id=f"edge-{index}",
+            source=nodes[index - 1].id,
+            target=nodes[index].id,
+            sourceHandle=NODE_PORT_IDS[nodes[index - 1].data.kind][1],
+            targetHandle=NODE_PORT_IDS[nodes[index].data.kind][0],
+        )
         for index in range(1, len(nodes))
     ]
     return WorkflowSpec(id="prompt-to-video", name="提示词到短视频", nodes=nodes, edges=edges)

@@ -203,9 +203,9 @@ jobs:
       # ---------- 启动后端并验证健康检查 ----------
       - name: 启动后端并验证健康检查
         run: |
-          cd backend
-          # 后台启动 FastAPI 服务
-          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          # 必须从仓库根启动：应用代码混用相对导入与 backend.app.* 绝对导入，
+          # 因此只能以 backend.app.main 导入（与 playwright.config.ts 一致）。
+          python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 &
           BACKEND_PID=$!
 
           # 等待后端启动（最多 30 秒）
@@ -292,12 +292,13 @@ jobs:
       # ---------- 启动后端 (Mock 模式) ----------
       - name: 启动后端 (Mock 模式)
         run: |
-          cd backend
+          # 从仓库根启动：backend.app.main 才能解析 backend.app.* 绝对导入
+          # （与 playwright.config.ts 的 webServer 一致）。
           AI_VIDEO_DEFAULT_LLM_PROVIDER=mock \
           AI_VIDEO_DEFAULT_IMAGE_PROVIDER=mock \
           AI_VIDEO_DEFAULT_VIDEO_PROVIDER=mock \
           DISABLE_RATE_LIMIT=1 \
-          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 &
           BACKEND_PID=$!
           echo "BACKEND_PID=$BACKEND_PID" >> "$GITHUB_ENV"
 

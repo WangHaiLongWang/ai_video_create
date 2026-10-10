@@ -120,6 +120,22 @@ class TestListDrafts:
         assert len(drafts) == 1
         assert drafts[0]["name"] == "Test Bundle"
 
+    def test_list_drafts_uses_draft_id_key(self):
+        """List summaries must use `draft_id`, matching create/update and the
+        frontend `SceneDraftSummary` type (regression: list used to return `id`,
+        so the Export/SceneEditor draft pickers read `undefined`)."""
+        create_resp = client.post(
+            f"/api/workflows/{WORKFLOW_ID}/scene-drafts",
+            json={"bundle": SAMPLE_BUNDLE_DICT},
+        )
+        created_id = create_resp.json()["draft_id"]
+
+        resp = client.get(f"/api/workflows/{WORKFLOW_ID}/scene-drafts")
+        assert resp.status_code == 200
+        row = resp.json()[0]
+        assert row["draft_id"] == created_id
+        assert "id" not in row
+
 
 class TestGetDraft:
     def test_get_draft(self):

@@ -99,11 +99,21 @@ const SAMPLE_BUNDLE_JSON = {
   ],
 }
 
-/** Inject workflow into localStorage before page load. */
+/**
+ * Inject workflow into localStorage before page load.
+ *
+ * `addInitScript` serializes its function, so it cannot close over module
+ * scope — the key must be passed as an argument (otherwise `STORAGE_KEY` is
+ * `undefined` in the browser and the workflow is stored under the literal
+ * key "undefined", leaving the app on its default workflow).
+ */
 async function seedWorkflow(page: Page, workflow: typeof WORKFLOW_WITH_STORYBOARD) {
-  await page.addInitScript((wf) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(wf))
-  }, workflow)
+  await page.addInitScript(
+    ({ key, wf }) => {
+      localStorage.setItem(key, JSON.stringify(wf))
+    },
+    { key: STORAGE_KEY, wf: workflow },
+  )
 }
 
 /** Make an API request from the browser context. */
@@ -155,23 +165,6 @@ async function waitForSceneEditorReady(page: Page) {
     },
     { timeout: 8000 },
   )
-}
-
-/** Check if the backend API is reachable (returns true/false). */
-async function isBackendAvailable(page: Page): Promise<boolean> {
-  try {
-    const result = await page.evaluate(async () => {
-      try {
-        const res = await fetch('/api/health', { signal: AbortSignal.timeout(2000) })
-        return res.ok
-      } catch {
-        return false
-      }
-    })
-    return result
-  } catch {
-    return false
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -398,9 +391,9 @@ test.describe('Group 2 — Import Flow', () => {
 
 test.describe('Group 3 — Roundtrip', () => {
   test('export bundle as JSON, re-import, verify scenes match', async ({ page }) => {
-    const backendAvailable = await isBackendAvailable(page)
-    test.skip(!backendAvailable, 'Backend API not available — skipping roundtrip test')
-
+    // MOD-R3-003 起 Playwright 始终启动真实 Mock FastAPI，此用例为必测项，
+    // 不再按后端可用性自跳过（原先 isBackendAvailable 在 about:blank 上 fetch，
+    // 相对 URL 必然失败，导致该用例从未真正执行）。
     await seedWorkflow(page, WORKFLOW_WITH_STORYBOARD)
     await page.goto('/')
     await new CanvasPage(page).waitForReady()
@@ -410,6 +403,7 @@ test.describe('Group 3 — Roundtrip', () => {
 
     // Step 1: Create a scene draft via API so we have data to export
     const createResult = await createDraftViaAPI(page, workflowId, SAMPLE_BUNDLE_JSON as unknown as Record<string, unknown>)
+    expect(createResult.draft_id, 'draft create must return draft_id').toBeTruthy()
     const draftId = createResult.draft_id
 
     // Step 2: Open Export dialog (no Scene Editor needed) and export as JSON

@@ -254,7 +254,10 @@ class TestSceneServiceListDrafts:
         assert "Story A" in titles
         assert "Story B" in titles
         for s in summaries:
-            assert "id" in s
+            # Contract: list summaries use `draft_id` (same as create/update
+            # responses and the frontend SceneDraftSummary type), not `id`.
+            assert "draft_id" in s
+            assert "id" not in s
             assert "scene_count" in s
 
     def test_list_drafts_empty(self):

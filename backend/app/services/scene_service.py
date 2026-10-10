@@ -167,6 +167,10 @@ class SceneService:
         If workflow_id is provided, list drafts for that workflow.
         Otherwise, list all drafts (requires iterating all workflows or
         using a direct query).
+
+        Summary rows use the same ``draft_id`` key as the create/update
+        responses and the frontend ``SceneDraftSummary`` type — the repository
+        layer calls it ``id`` (the SQLite column name).
         """
         if workflow_id is None:
             # List all drafts across all workflows
@@ -176,12 +180,15 @@ class SceneService:
                 "locked_scene_ids, created_at, updated_at "
                 "FROM scene_drafts ORDER BY updated_at DESC"
             ).fetchall()
-            return [repo._row_to_dict(r) for r in rows]
+            return [
+                {**repo._row_to_dict(r), "draft_id": r["id"]}
+                for r in rows
+            ]
 
         records = repo.list_drafts(workflow_id)
         return [
             {
-                "id": r["id"],
+                "draft_id": r["id"],
                 "name": r["name"],
                 "source": r["source"],
                 "workflow_id": r["workflow_id"],
