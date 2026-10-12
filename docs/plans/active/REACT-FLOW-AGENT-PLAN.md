@@ -1,11 +1,37 @@
 # React Flow 节点自定义与 Workflow Agent 前瞻计划
 
-> 状态：Active 子计划  
-> 日期：2026-09-21
+> 状态：已落地收口（2026-10-12 校准；后续以模块化/硬化计划为准）  
+> 日期：2026-09-21（校准：2026-10-12）
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
-> 关联：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)
+> 关联：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)、[MODULAR-NODE-SEEDREAM-PLAN.md](MODULAR-NODE-SEEDREAM-PLAN.md)、[PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md)
+
+## 0.0 2026-10-12 状态校准
+
+本文档写于 2026-09-21，其 §4 连线修复、§5 自定义字段 UI、§6 Workflow Agent 2.0 主链均已落地。后续不再以本计划为执行主线，一律以 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 与 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) 为准；§2 根因分析、§3 字段模型保留作历史设计参考，不随本次校准删除。
+
+### 落地位置与验收证据
+
+| 本文章节 | 落地位置 | 验收证据 |
+|---|---|---|
+| §4 连线修复 | Handle/布局、`isValidConnection`/Strict、Store `ConnectResult`、module-aware effective ports（FE-R3-002 / MOD-R3-002 / MOD-R3-001 端口 Binding） | `flow-connection.spec.ts`；Playwright 全量 142 passed（1 skipped）；[`PROJECT-STATUS.md`](../../PROJECT-STATUS.md) §3.1/§3.2；[`reports/module-round2-validation-2026-09-28.md`](../../reports/module-round2-validation-2026-09-28.md) |
+| §5 自定义字段 UI | PropertyPanel 分区、FieldEditorDialog、PortEditor/端口 CRUD 与级联删除、WorkflowSpec 2.0 roundtrip（FIELD-001～007） | 字段/端口 Playwright 主矩阵；`fields-ports` E2E；[`PROJECT-STATUS.md`](../../PROJECT-STATUS.md) §3.1 |
+| §6 Workflow Agent 2.0 | structured parser（WorkflowIntent/MiMo）、module-aware compiler/gate、Modify 增量 Diff 与破坏性确认（AGENT-201～207/209 + AG-P0-001～006 + MOD-R3-004 / FE-R3-005） | `agent-modify.spec.ts` 3 项真实 Mock FastAPI 浏览器验收（零 route mock）；[`reports/module-round2-validation-2026-09-28.md`](../../reports/module-round2-validation-2026-09-28.md) structured parser/module gate；[`reports/workflow-componentization-audit-2026-09-23.md`](../../reports/workflow-componentization-audit-2026-09-23.md) P0 断点清单与后续关闭；[`PROJECT-STATUS.md`](../../PROJECT-STATUS.md) §3.0/§3.2 FE-R3-005 |
+
+测试基线（2026-10-10，详见 PROJECT-STATUS §2）：Frontend 387、Playwright 142 passed（含 modules E2E 5 项 + agent-modify E2E 3 项，零 route mock）、Backend 干净 venv 2123 passed。
+
+### 仍未关闭条目（转出本计划）
+
+| 条目 | 去向 | 阻断/备注 |
+|---|---|---|
+| AGENT-208 审计持久化、脱敏和限额 | [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) HARD-403 / HARD-404 | ⏳ 待办 |
+| 同 SHA CI 证据归档 | RC-004 → HARD-501/502 | ⏳ 待办 |
+| 真实 Provider UAT（Seedream/Qwen/Wan3） | RC-007 / RC-008 → HARD-504/505、DOU-001 | RC-007 外部阻断 |
+
+功能侧自 Phase M3 后冻结，无新增模块/Agent 功能；下一步是平台硬化（见 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)）。
 
 ## 0. 2026-09-21 代码检查点
+
+> **历史快照（2026-10-12 校准）**：下表状态列反映 2026-09-21/22 判断，其中多项（含 AGENT-210「Prompt → Run」）其后已在 Phase M0-M3 交付。当前有效状态见 §0.0 状态校准与 §7 工单表，勿以本表领取任务或判断完成度。
 
 > 2026-09-22 复核补充：Agent compiler/validator/repair 核心专项 308 项通过，但 v2 的自然语言入口仍通过 `_template_fallback` 构造 Intent。两个约束完全不同的 Prompt 返回相同六节点、5 scenes、无 variants；因此 AGENT-203 只能判定“编译器完成”，不能判定“Structured Prompt Parser 完成”。前后端 `textToImage` 端口 ID 还存在 `image/images` 漂移。
 
@@ -357,42 +383,44 @@ Agent 输出 WorkflowIntent，而不是直接自由生成所有 React Flow 字�
 
 ## 7. 工单计划
 
+> 2026-10-12 校准：状态列 ✅=已交付，⏳=未关闭/转出；证据指针见 §0.0 与 PROJECT-STATUS §3。
+
 ### 7.1 连线恢复（P0，2-3 天）
 
-| ID | 工作量 | 任务 | 文件 | 验收 |
-|---|---:|---|---|---|
-| RF-001 | 0.5d | 修复 overflow 和 Handle 布局 | `StudioNode.tsx`, CSS | 每个端口 ≥14px 可点击 |
-| RF-002 | 0.5d | Canvas `isValidConnection` 与 Strict mode | `Canvas.tsx` | 拖线实时反馈 |
-| RF-003 | 0.5d | Store 返回结构化 ConnectResult | `store.ts` | 不再静默失败 |
-| RF-004 | 0.5d | Toast/端口高亮/失败提示 | Canvas/CSS | 用户看到拒绝原因 |
-| RF-005 | 1d | 鼠标/键盘 Playwright 连线矩阵 | `e2e/flow-connection.spec.ts` | 6 条默认边和错误场景通过 |
+| ID | 工作量 | 任务 | 文件 | 验收 | 状态 | 落地证据 |
+|---|---:|---|---|---|---|---|
+| RF-001 | 0.5d | 修复 overflow 和 Handle 布局 | `StudioNode.tsx`, CSS | 每个端口 ≥14px 可点击 | ✅ | PROJECT-STATUS §3.1 |
+| RF-002 | 0.5d | Canvas `isValidConnection` 与 Strict mode | `Canvas.tsx` | 拖线实时反馈 | ✅ | PROJECT-STATUS §3.1 |
+| RF-003 | 0.5d | Store 返回结构化 ConnectResult | `store.ts` | 不再静默失败 | ✅ | PROJECT-STATUS §3.1 |
+| RF-004 | 0.5d | Toast/端口高亮/失败提示 | Canvas/CSS | 用户看到拒绝原因 | ✅ | PROJECT-STATUS §3.1 |
+| RF-005 | 1d | 鼠标/键盘 Playwright 连线矩阵 | `e2e/flow-connection.spec.ts` | 6 条默认边和错误场景通过 | ✅ | `flow-connection.spec.ts`；Playwright 全量 142 passed |
 
 ### 7.2 自定义字段（P0/P1，1.5-2 周）
 
-| ID | 工作量 | 任务 |
-|---|---:|---|
-| FIELD-001 | 1d | FieldDefinition Schema、reserved key、validator |
-| FIELD-002 | 2d | FieldEditorDialog 与动态表单渲染 |
-| FIELD-003 | 1d | 添加/删除/重命名/排序 Store actions |
-| FIELD-004 | 1d | 删除确认、Edge/端口影响分析、Undo 事务 |
-| FIELD-005 | 1.5d | 高级 PortEditor，类型/基数/required |
-| FIELD-006 | 1d | WorkflowSpec 2.0 roundtrip/migration |
-| FIELD-007 | 1.5d | 单元与 Playwright E2E |
+| ID | 工作量 | 任务 | 状态 | 落地证据 |
+|---|---:|---|---|---|
+| FIELD-001 | 1d | FieldDefinition Schema、reserved key、validator | ✅ | PROJECT-STATUS §3.1 字段 CRUD |
+| FIELD-002 | 2d | FieldEditorDialog 与动态表单渲染 | ✅ | PROJECT-STATUS §3.1 |
+| FIELD-003 | 1d | 添加/删除/重命名/排序 Store actions | ✅ | PROJECT-STATUS §3.1 |
+| FIELD-004 | 1d | 删除确认、Edge/端口影响分析、Undo 事务 | ✅ | 浏览器用例；PROJECT-STATUS §3.1 |
+| FIELD-005 | 1.5d | 高级 PortEditor，类型/基数/required | ✅ | PROJECT-STATUS §3.1 端口 CRUD；MOD-R3-001 Binding |
+| FIELD-006 | 1d | WorkflowSpec 2.0 roundtrip/migration | ✅ | PROJECT-STATUS §3.1 保存刷新保真 |
+| FIELD-007 | 1.5d | 单元与 Playwright E2E | ✅ | 字段/端口 Playwright 主矩阵 |
 
 ### 7.3 Workflow Agent 2.0（P0，2-3 周）
 
-| ID | 工作量 | 任务 |
-|---|---:|---|
-| AGENT-201 | 1.5d | WorkflowIntent Pydantic/JSON Schema |
-| AGENT-202 | 2d | Manifest/Template/Validate/Layout 工具层 |
-| AGENT-203 | 2d | Structured output 与 alias compiler |
-| AGENT-204 | 1.5d | Validator-driven repair（最多 2 次） |
-| AGENT-205 | 1d | 调用量/成本估算与 warning |
-| AGENT-206 | 2d | Generate/Modify preview API v2 |
-| AGENT-207 | 2d | 前端 diff、字段/端口变更展示和确认 |
-| AGENT-208 | 1d | 审计记录、脱敏和限额 |
-| AGENT-209 | 2d | 30+ 中文 golden cases |
-| AGENT-210 | 2d | Playwright：Prompt → 完整可连线流程 |
+| ID | 工作量 | 任务 | 状态 | 落地证据 |
+|---|---:|---|---|---|
+| AGENT-201 | 1.5d | WorkflowIntent Pydantic/JSON Schema | ✅ | PROJECT-STATUS §3.0 |
+| AGENT-202 | 2d | Manifest/Template/Validate/Layout 工具层 | ✅ | PROJECT-STATUS §3.0 |
+| AGENT-203 | 2d | Structured output 与 alias compiler | ✅ | structured parser：`reports/module-round2-validation-2026-09-28.md` |
+| AGENT-204 | 1.5d | Validator-driven repair（最多 2 次） | ✅ | RepairResult 契约修复（MOD-P0-06） |
+| AGENT-205 | 1d | 调用量/成本估算与 warning | ✅ | 基础版估算；真实价格/限额转 HARD-404 |
+| AGENT-206 | 2d | Generate/Modify preview API v2 | ✅ | PROJECT-STATUS §3.2 FE-R3-005 契约 |
+| AGENT-207 | 2d | 前端 diff、字段/端口变更展示和确认 | ✅ | `agent-modify.spec.ts` 3 项零 route mock |
+| AGENT-208 | 1d | 审计记录、脱敏和限额 | ⏳ | 转 HARD-403/HARD-404，见 §0.0 |
+| AGENT-209 | 2d | 30+ 中文 golden cases | ✅ | AG-P0-006 parser cases；`reports/module-round2-validation-2026-09-28.md` |
+| AGENT-210 | 2d | Playwright：Prompt → 完整可连线流程 | ✅ | modules E2E 5 项 + agent-modify E2E 3 项（真实 Mock FastAPI，零 route mock） |
 
 ## 8. 实施顺序
 

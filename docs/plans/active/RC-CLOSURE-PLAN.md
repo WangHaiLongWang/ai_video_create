@@ -1,10 +1,15 @@
 # v1.0.0-rc.1 收敛计划
 
-> 状态：Active
-> 日期：2026-09-21
-> 基线：`cc61b46`
+> **已被取代说明（2026-10-12）**：本计划已由 [PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md) 取代，不再是推进主线。当前发布阻断与关闭标准以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §6 为准（RC-001/002/003 已关闭；RC-004、RC-008 待办，RC-007 外部阻断），对应工程任务见 PLATFORM-HARDENING-PLAN Epic H0-H6（HARD-xxx，映射见其 §10）。以下正文保留 2026-09-21 时期的工单、基线数字与结论，仅作**历史快照**，不用于领取任务或判断完成度。
+
+> 状态：Superseded by PLATFORM-HARDENING-PLAN（2026-10-12）
+> 日期：2026-09-21（历史快照）
+> 基线：`cc61b46`（历史快照）
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
 > 事实基线：[PROJECT-STATUS.md](../../PROJECT-STATUS.md)
+> 取代计划：[PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md)
+
+**处理方式说明**：采用「原地标注 Superseded + 历史快照」，而非把 RC-004/007/008 迁入 HARD-5xx 后改写本文件为归档指引。理由：(1) 剩余未关闭的发布阻断已在 PROJECT-STATUS §6 权威登记，工程承接已在 PLATFORM-HARDENING-PLAN HARD-501/502/504/505，再迁移一次只会制造第三处跟踪；(2) 本文件 §3 的 RC-001A/RC-002… 编号与 PROJECT-STATUS §6 的 RC-001… 并非同一套体系，迁移易混淆；(3) 原地标注完整保留 2026-09-21 决策上下文，符合不删历史、增量校准的约束。
 
 ## 1. 目标与非目标
 
@@ -12,7 +17,9 @@
 
 本计划不新增节点类型、不新增 Provider、不扩展时间线功能。Doubao 保持可选 Provider，模型激活不阻断 Qwen+Wan3 的 RC 主路径。
 
-## 2. 当前基线
+## 2. 当前基线（历史快照，2026-09-21）
+
+> 以下数字为 2026-09-21 时期记录，已过期。当前基线以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §2（2026-10-10）为准：Frontend 387 passed、Playwright 142 passed / 1 skipped / 0 failed、Backend 干净 venv 2123 passed / 8 skipped / 0 failed。
 
 ```text
 Frontend unit:     295 passed
@@ -23,7 +30,7 @@ Backend acceptance: 170 passed / 0 failed
 Provider tests:    44 passed
 ```
 
-## 3. P0 工作分解
+## 3. P0 工作分解（历史快照，2026-09-21）
 
 | ID | Owner | 工作量 | 交付 | 验收 | 依赖 |
 |---|---|---:|---|---|---|
@@ -84,7 +91,9 @@ external-provider (manual/nightly)
 
 禁止使用 `|| true`、吞异常或仅输出 warning 继续通过。外部服务不可用应使用明确 marker 和单独 job，而不是让核心门禁失真。
 
-## 6. Definition of Done
+## 6. Definition of Done（历史快照，2026-09-21）
+
+> 勾选状态仅反映 2026-09-21 时期判断；当前 DoD 以 [PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md) §12 为准（勾选框保持未勾，待同 SHA 证据齐备后逐项确认）。
 
 - [x] requirements 可在全新 Python 3.12 venv 安装。
 - [x] backend full non-external suite 全绿。
@@ -104,7 +113,9 @@ external-provider (manual/nightly)
 - Provider UAT 使用单场景、单变体和最低可接受时长，设置显式成本上限。
 - RC 回滚保留上一版本代码和数据库备份，生成资产不自动删除。
 
-## 8. 建议执行顺序
+## 8. 建议执行顺序（历史快照，2026-09-21）
+
+> 以下 Day 1-4 顺序已被 PLATFORM-HARDENING-PLAN §11 排期取代。
 
 ```text
 Day 1: RC-001A + RC-003A/B

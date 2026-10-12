@@ -1,7 +1,7 @@
 # Doubao Seedream / Seedance 2.5 接入与验收计划
 
-> 状态：Active，等待火山方舟模型服务激活
-> 日期：2026-09-21
+> 状态：**等待火山方舟模型服务激活（RC-007 外部阻断）**
+> 校准日期：2026-10-12（内容快照仍为 2026-09-21）
 > Provider：`doubao`
 > 关联文档：[Doubao 集成说明](../../integrations/doubao-seedance-2.5.md)
 
@@ -47,6 +47,15 @@ Scene image_prompt
 
 ## 4. 复测步骤
 
+> 状态列（2026-10-12 校准）：001 认证与目录已通过（2026-09-21）；002/003/004 受外部阻断，待模型激活后复测。
+
+| 步骤 | 内容 | 状态 | 证据/阻断 |
+|---|---|---|---|
+| DOU-UAT-001 | 认证与目录 | ✅ 通过（2026-09-21） | Key/Ark `/models` 访问成功；`reports/doubao-uat-2026-09-21.md` |
+| DOU-UAT-002 | 文字生成图片 | ⏳ 外部阻断 | 账号未激活 Seedream，HTTP 404（RC-007） |
+| DOU-UAT-003 | 图片生成视频 | ⏳ 外部阻断 | 上游生图未成功且视频模型权限阻断（RC-007） |
+| DOU-UAT-004 | Workflow 纵向验收 | ⏳ 外部阻断 | 依赖 002/003（RC-007） |
+
 ### DOU-UAT-001：认证与目录
 
 ```powershell
@@ -83,20 +92,22 @@ textInput → storyboard(1 scene)
 
 ## 5. 后续研发工单
 
-| ID | 优先级 | 工作量 | 内容 | 验收 |
-|---|---:|---:|---|---|
-| DOU-001 | P0 | 外部 | 激活两个模型或创建 Endpoint | 真实请求不再返回未激活 |
-| DOU-002 | P0 | 0.5d | 完成 image/video smoke 并记录报告 | UAT-002/003 通过 |
-| DOU-003 | P0 | 1d | 工作流纵向 UAT | UAT-004 通过 |
-| DOU-004 | P1 | 0.5d | 区分“认证正常/模型未激活” | 设置页显示可行动错误 |
-| DOU-005 | P1 | 1d | Ark 错误码映射与 retryable 分类 | 401/403/404/429/5xx 覆盖 |
-| DOU-006 | P1 | 1d | 视频任务重启恢复和取消 | 重启续轮询，取消拒绝迟到结果 |
-| DOU-007 | P1 | 0.5d | 成本预估和并发限制 | 运行前显示调用数 |
-| DOU-008 | P1 | 1d | Settings/API/E2E | 选择、保存、恢复、测试连接通过 |
+> 对齐说明（2026-10-12）：真实 Provider UAT 已归口 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) **HARD-505**（激活 Seedream/Seedance 或配置 Endpoint，Doubao UAT 不再 404）。DOU-001～003 与 HARD-505 为同一出口，**不在本计划重复排期**；激活后的 smoke/纵向 UAT 作为 HARD-505 的验收步骤执行。DOU-004～008 属产品硬化，分别并入 HARD-506/HARD-404/HARD-303 系列，避免双轨开发。
+
+| ID | 优先级 | 工作量 | 内容 | 验收 | 归口 |
+|---|---:|---:|---|---|---|
+| DOU-001 | P0 | 外部 | 激活两个模型或创建 Endpoint | 真实请求不再返回未激活 | ≡ HARD-505（外部阻断 RC-007） |
+| DOU-002 | P0 | 0.5d | 完成 image/video smoke 并记录报告 | UAT-002/003 通过 | HARD-505 出口步骤 |
+| DOU-003 | P0 | 1d | 工作流纵向 UAT | UAT-004 通过 | HARD-505 出口步骤 |
+| DOU-004 | P1 | 0.5d | 区分“认证正常/模型未激活” | 设置页显示可行动错误 | HARD-506 失败演练 |
+| DOU-005 | P1 | 1d | Ark 错误码映射与 retryable 分类 | 401/403/404/429/5xx 覆盖 | HARD-506 |
+| DOU-006 | P1 | 1d | 视频任务重启恢复和取消 | 重启续轮询，取消拒绝迟到结果 | HARD-506（cancel）；恢复待对齐 |
+| DOU-007 | P1 | 0.5d | 成本预估和并发限制 | 运行前显示调用数 | HARD-404 预计费用限额 |
+| DOU-008 | P1 | 1d | Settings/API/E2E | 选择、保存、恢复、测试连接通过 | HARD-303 Provider 配置产品化 |
 
 ## 6. 发布门禁
 
-在以下条件满足前，Doubao 只能标记为 `Contract Ready / External Blocked`：
+在以下条件满足前，Doubao 只能标记为 `Contract Ready / External Blocked`（当前即此状态，见 PROJECT-STATUS §6 **RC-007**：模型未激活，⏳ 外部阻断）：
 
 - DOU-UAT-002、003、004 全部通过；
 - 真实结果经过人工内容验收；

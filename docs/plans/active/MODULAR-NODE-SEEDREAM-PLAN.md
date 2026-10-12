@@ -1,9 +1,9 @@
 # 可复用模块化节点与 Seedream 推进计划
 
-> 状态：Active
-> 日期：2026-10-10
+> 状态：Active（功能侧冻结，见 §0.1）
+> 日期：2026-10-10（最近校准：2026-10-12）
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
-> 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)
+> 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)、[PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md)
 
 ## 0.0 2026-10-10 Phase M3 关闭检查点
 
@@ -21,6 +21,20 @@ MOD-R3-001～005 已完成：扩展端口 Binding Designer、effective module po
 | Seedream 真实 UAT | External Blocked | 账号模型未激活 |
 
 模块化专项进入维护状态；后续平台任务转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)。
+
+## 0.1 2026-10-12 收敛检查点
+
+Phase M3（MOD-R3-001～005）关闭后无新功能代码提交，功能侧冻结，不再扩展模块/节点能力。后续工作全部转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)（共享契约、迁移、Provider 持久化、CI/UAT、RC 发布），本计划只维护状态与证据指针。
+
+当前测试基线（详见 [`PROJECT-STATUS.md`](../../PROJECT-STATUS.md) §2）：Frontend 387、Playwright 142 passed（含 modules E2E 5 项 + agent-modify E2E 3 项，零 route mock）、Backend 干净 venv 2123 passed。
+
+剩余缺口仅以下三项，均不再新增本计划内功能：
+
+| ID | 缺口 | 状态 | 去向 |
+|---|---|---|---|
+| RC-004 | 无同一 commit CI 证据 | ⏳ 待办 | HARD-501/502（原 MOD-R3-006） |
+| RC-007 | Doubao 模型未激活，真实 Seedream UAT 不可执行 | ⏳ 外部阻断 | HARD-505 / DOU-001（原 MOD-R3-007） |
+| RC-008 | 真实 Qwen/Wan3 当前证据缺失 | ⏳ 待办 | HARD-504 |
 
 ## 0. 2026-09-22 验证检查点
 
@@ -371,7 +385,9 @@ API Key 只来自 Provider Settings/secret reference。
 
 ### 8.3 当前外部阻断
 
-2026-09-21 验证确认：Key 和模型目录有效，但账号未激活 `doubao-seedream-5-0-pro-260628`。模块可以完成 Mock/Contract/编辑闭环，但真实 UAT 需要先激活模型或填写已运行的 Endpoint ID。
+2026-09-21 验证确认（与 [`DOUBAO-SEEDANCE-PLAN.md`](DOUBAO-SEEDANCE-PLAN.md) §2/§3 表述一致）：API Key 加载与 Ark `/models` 访问正常，Seedream 正式 ID `doubao-seedream-5-0-pro-260628`、Seedance 2.5 正式 ID `doubao-seedance-2-5-260628` 均已确认；但账号尚未激活上述模型服务，真实生图/生视频请求返回 HTTP 404（未激活），当前状态 `Contract Ready / External Blocked`。
+
+模块侧可以完成 Mock/Contract/编辑闭环；真实 Seedream UAT（1 scene/1 variant 产出可解码图片）前置条件为：在火山方舟控制台激活 `doubao-seedream-5-0-pro-260628`（及 Seedance 对应模型），或为模型创建在线推理 Endpoint 并将 Endpoint ID 写入 `.env`。阻断 ID：RC-007 / HARD-505 / DOU-001。
 
 ### 8.4 Seedream 验收链
 
@@ -390,73 +406,75 @@ API Key 只来自 Provider Settings/secret reference。
 
 ### Phase M0：契约与 Seedream 薄切片（P0，5-7 天）
 
-| ID | 工作量 | 任务 | 验收 |
-|---|---:|---|---|
-| MOD-001 | 0.5d 剩余 | 前后端从共享 Schema/fixture 生成 | 消除 port/cardinality 漂移 |
-| MOD-002 | 0.5d 剩余 | 统一内置 Registry/Seedream definition | 前端不再维护重复 builtin |
-| MOD-003 | 1d | NodeData/WorkflowSpec 接入 module reference + migration | API/DB/export roundtrip |
-| MOD-004 | 1d 剩余 | Schema-driven Property Renderer 接远端版本 | Seedream 字段正确渲染/校验 |
-| MOD-005 | 1d | Execution Resolver 合并 effective config | Handler 收到 doubao/model/size/seed |
-| MOD-006 | 1d | 挂载 Palette、module drop、Seedream Playwright | 创建→配置→保存→Mock 执行通过 |
+| ID | 工作量 | 任务 | 验收 | 状态 |
+|---|---:|---|---|---|
+| MOD-001 | 0.5d 剩余 | 前后端从共享 Schema/fixture 生成 | 消除 port/cardinality 漂移 | ✅ 已完成 |
+| MOD-002 | 0.5d 剩余 | 统一内置 Registry/Seedream definition | 前端不再维护重复 builtin | ✅ 已完成 |
+| MOD-003 | 1d | NodeData/WorkflowSpec 接入 module reference + migration | API/DB/export roundtrip | ✅ 已完成 |
+| MOD-004 | 1d 剩余 | Schema-driven Property Renderer 接远端版本 | Seedream 字段正确渲染/校验 | ✅ 已完成 |
+| MOD-005 | 1d | Execution Resolver 合并 effective config | Handler 收到 doubao/model/size/seed | ✅ 已完成 |
+| MOD-006 | 1d | 挂载 Palette、module drop、Seedream Playwright | 创建→配置→保存→Mock 执行通过 | ✅ 已完成 |
 
 ### Phase M0-R：P0 主链修复（第一轮完成，剩余 2-4 天）
 
-| ID | Owner | 任务 | 验收 |
-|---|---|---|---|
-| MOD-P0-01 | Backend | Registry 注入 Repository；修复 clone version map；SemVer 排序 | 模块/Agent tools 全绿 |
-| MOD-P0-02 | Fullstack | 对齐 create/update/publish/clone API、body、expected_version、409 和错误 UI | Designer 能真实保存并发布 |
-| MOD-P0-03 | Backend | Publish 强制 schema/security/port binding/provider policy 校验 | 非法模块不可发布 |
-| MOD-P0-04 | Backend | ExecutionMaterializer 将精确版本、defaults、overrides 写入 immutable snapshot；API/Scheduler 共用 | Task.config 与 Handler 收到 effective config |
-| MOD-P0-05 | Agent | Compiler 保留 moduleId/moduleVersion/configOverrides 和 module ports | compiled spec 不丢模块信息 |
-| MOD-P0-06 | Agent | 修复 RepairResult 契约、修复后强制重编译、四层 can_apply gate | preview/apply 不返回旧图 |
-| MOD-P0-07 | Agent | 修复 image-only output 端口和 modify 增量语义 | 图片流程合法，modify 有 diff |
-| MOD-P0-08 | Contract | 从共享 manifest fixture 生成前后端端口契约 | `image/images` 和 cardinality 漂移归零 |
+| ID | Owner | 任务 | 验收 | 状态 |
+|---|---|---|---|---|
+| MOD-P0-01 | Backend | Registry 注入 Repository；修复 clone version map；SemVer 排序 | 模块/Agent tools 全绿 | ✅ 已完成 |
+| MOD-P0-02 | Fullstack | 对齐 create/update/publish/clone API、body、expected_version、409 和错误 UI | Designer 能真实保存并发布 | ✅ 已完成 |
+| MOD-P0-03 | Backend | Publish 强制 schema/security/port binding/provider policy 校验 | 非法模块不可发布 | ✅ 已完成 |
+| MOD-P0-04 | Backend | ExecutionMaterializer 将精确版本、defaults、overrides 写入 immutable snapshot；API/Scheduler 共用 | Task.config 与 Handler 收到 effective config | ✅ 已完成 |
+| MOD-P0-05 | Agent | Compiler 保留 moduleId/moduleVersion/configOverrides 和 module ports | compiled spec 不丢模块信息 | ✅ 已完成 |
+| MOD-P0-06 | Agent | 修复 RepairResult 契约、修复后强制重编译、四层 can_apply gate | preview/apply 不返回旧图 | ✅ 已完成 |
+| MOD-P0-07 | Agent | 修复 image-only output 端口和 modify 增量语义 | 图片流程合法，modify 有 diff | ✅ 已完成 |
+| MOD-P0-08 | Contract | 从共享 manifest fixture 生成前后端端口契约 | `image/images` 和 cardinality 漂移归零 | ✅ 已完成 |
 
 第一轮已完成：MOD-P0-01/02/04/05/06 和基础 MOD-P0-08。新增 Materializer 纵向测试证明模块 defaults + overrides 会进入 Compiler/Task；Agent repair 后重新编译并执行 graph/module resolver gate。
 
 剩余：MOD-P0-03 全路径发布校验复核、MOD-P0-07 image-only 输出产品决策、模块纵向 Playwright、CI 和真实 Prompt/Modify 验收。expectedVersion API/前端消费已完成，需浏览器冲突验收。
 
+> 2026-10-12 校准：上表 MOD-P0-01～08 已全部交付关闭；原“剩余”段落为 2026-09-23 时点记录，保留作历史。MOD-P0-07 的 image-only 终点产品决策不在本计划收口，转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) HARD-402；CI/真实 UAT 缺口见 §0.1（RC-004/007/008）。
+
 ### Phase M1：用户模块设计器（P1，5-7 天）
 
-| ID | 工作量 | 任务 | 验收 |
-|---|---:|---|---|
-| MOD-101 | 1.5d | SQLite migration + repository + optimistic lock | 重启恢复，版本不可变 |
-| MOD-102 | 2d | Module Designer 基础信息/字段/Provider Policy | draft 可保存和预览 |
-| MOD-103 | 1d | 核心端口覆盖 + binding validator | 无 binding 不可发布 |
-| MOD-104 | 1d | Palette 分类/搜索/My Modules | published 模块可拖入 |
-| MOD-105 | 1d | clone/publish/archive UI | 生命周期 E2E |
+| ID | 工作量 | 任务 | 验收 | 状态 |
+|---|---:|---|---|---|
+| MOD-101 | 1.5d | SQLite migration + repository + optimistic lock | 重启恢复，版本不可变 | ✅ 已完成 |
+| MOD-102 | 2d | Module Designer 基础信息/字段/Provider Policy | draft 可保存和预览 | ✅ 已完成 |
+| MOD-103 | 1d | 核心端口覆盖 + binding validator | 无 binding 不可发布 | ✅ 已完成 |
+| MOD-104 | 1d | Palette 分类/搜索/My Modules | published 模块可拖入 | ✅ 已完成 |
+| MOD-105 | 1d | clone/publish/archive UI | 生命周期 E2E | ✅ 已完成 |
 
 ### Phase M1-R：前端组件化闭环（2 人 5-7 天）
 
-| ID | Owner | 任务 | 验收 |
-|---|---|---|---|
-| FE-MOD-001 | Frontend | Module Catalog id@version cache，远端为真源 | Canvas/Panel/Agent 共用定义 |
-| FE-MOD-002 | Frontend | `createModuleNode(def, position)` 实例化 ports/defaults/version/badge/degraded | module drop 数据完整 |
-| FE-MOD-003 | Frontend | module-aware connect/full/reconnect validator | effective ports 决定连线 |
-| FE-MOD-004 | Frontend | Designer 扩展端口/binding、required/enum/range/semver 校验 | 发布预检完整 |
-| FE-MOD-005 | Frontend | field/port rename migration、copy/paste、server roundtrip | create/update/import/export 深相等 |
-| FE-MOD-006 | Frontend | 合并 Node/Module Palette 为 LibraryPanel，修分类、去重、嵌套 button、错误态 | 无布局和 a11y warning |
+| ID | Owner | 任务 | 验收 | 状态 |
+|---|---|---|---|---|
+| FE-MOD-001 | Frontend | Module Catalog id@version cache，远端为真源 | Canvas/Panel/Agent 共用定义 | ✅ 已完成 |
+| FE-MOD-002 | Frontend | `createModuleNode(def, position)` 实例化 ports/defaults/version/badge/degraded | module drop 数据完整 | ✅ 已完成 |
+| FE-MOD-003 | Frontend | module-aware connect/full/reconnect validator | effective ports 决定连线 | ✅ 已完成 |
+| FE-MOD-004 | Frontend | Designer 扩展端口/binding、required/enum/range/semver 校验 | 发布预检完整 | ✅ 已完成 |
+| FE-MOD-005 | Frontend | field/port rename migration、copy/paste、server roundtrip | create/update/import/export 深相等 | ✅ 已完成 |
+| FE-MOD-006 | Frontend | 合并 Node/Module Palette 为 LibraryPanel，修分类、去重、嵌套 button、错误态 | 无布局和 a11y warning | ✅ 已完成 |
 
 ### Phase M2：升级、Agent 与治理（P1，4-6 天）
 
-| ID | 工作量 | 任务 | 验收 |
-|---|---:|---|---|
-| MOD-201 | 1.5d | 模块升级 diff/兼容检查 | 字段/端口/调用量变化可见 |
-| MOD-202 | 1d | Agent `list_modules/get_module` 工具 | Prompt 优先选择已发布模块 |
-| MOD-203 | 1d | export/import module dependency | 缺模块进入 degraded 状态 |
-| MOD-204 | 1d | secret/SSRF/size/JSON 安全限制 | 安全测试全绿 |
-| MOD-205 | 1d | 性能与 100 模块 Palette 基准 | 搜索/加载满足指标 |
+| ID | 工作量 | 任务 | 验收 | 状态 |
+|---|---:|---|---|---|
+| MOD-201 | 1.5d | 模块升级 diff/兼容检查 | 字段/端口/调用量变化可见 | ✅ 已完成 |
+| MOD-202 | 1d | Agent `list_modules/get_module` 工具 | Prompt 优先选择已发布模块 | ✅ 已完成 |
+| MOD-203 | 1d | export/import module dependency | 缺模块进入 degraded 状态 | ✅ 已完成 |
+| MOD-204 | 1d | secret/SSRF/size/JSON 安全限制 | 安全测试全绿 | ✅ 已完成 |
+| MOD-205 | 1d | 性能与 100 模块 Palette 基准 | 搜索/加载满足指标 | ✅ 已完成 |
 
 ### Phase M2-R：Agent 模块编排闭环（2 人 5-8 天）
 
-| ID | Owner | 任务 | 验收 |
-|---|---|---|---|
-| AG-P0-001 | Agent | 确定性抽取 scenes/variants/duration/resolution/provider/no-video | 约束写入正确节点配置 |
-| AG-P0-002 | Agent | published module discovery/selection，返回选择理由 | draft/archive/unknown 拒绝 |
-| AG-P0-003 | Agent | module-aware Intent/Compiler/Validator/Repair | module ref、端口、config 保真 |
-| AG-P0-004 | Agent | Intent + Graph + Module + Resolver 四层 Preview/Apply gate | 四层全绿才 can_apply |
-| AG-P0-005 | Agent | 基于 existing workflow 的 modify/diff/destructive confirm | 修改不是重建 |
-| AG-P0-006 | QA | 30+ 真实 parser cases、6 module integration、4 Playwright | 不直接测试 fallback 代替 parser |
+| ID | Owner | 任务 | 验收 | 状态 |
+|---|---|---|---|---|
+| AG-P0-001 | Agent | 确定性抽取 scenes/variants/duration/resolution/provider/no-video | 约束写入正确节点配置 | ✅ 已完成 |
+| AG-P0-002 | Agent | published module discovery/selection，返回选择理由 | draft/archive/unknown 拒绝 | ✅ 已完成 |
+| AG-P0-003 | Agent | module-aware Intent/Compiler/Validator/Repair | module ref、端口、config 保真 | ✅ 已完成 |
+| AG-P0-004 | Agent | Intent + Graph + Module + Resolver 四层 Preview/Apply gate | 四层全绿才 can_apply | ✅ 已完成 |
+| AG-P0-005 | Agent | 基于 existing workflow 的 modify/diff/destructive confirm | 修改不是重建 | ✅ 已完成 |
+| AG-P0-006 | QA | 30+ 真实 parser cases、6 module integration、4 Playwright | 不直接测试 fallback 代替 parser | ✅ 已完成 |
 
 ### Phase M3：真实联调与高级自定义（功能完成）
 
@@ -467,8 +485,8 @@ API Key 只来自 Provider Settings/secret reference。
 | MOD-R3-003 | Fullstack | Playwright 使用真实 Mock FastAPI 完成模块 create→publish→drag→save→reload→run | 不依赖 route mock，Task/Asset 可查询 | ✅ 完成 |
 | MOD-R3-004 | Agent | Modify Preview 真实浏览器联调，展示 module/version/config diff | 修改不重建，destructive 需确认 | ✅ 完成 |
 | MOD-R3-005 | QA | 修复 Vitest 并行 EMFILE 和 `--threads false` DOM 污染 | 默认 `npm test` 连续运行稳定全绿 | ✅ 完成 |
-| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 | 转 HARD-501/502 |
-| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 | 转 HARD-505，外部阻断 |
+| MOD-R3-006 | DevOps | 执行 Playwright CI 与三平台同 SHA 验证 | Actions URL、report、trace 可归档 | ⏳ 待办（RC-004，转 HARD-501/502） |
+| MOD-R3-007 | Provider/QA | 激活 Seedream Endpoint 后最小真实 UAT | 1 scene/1 variant 产出可解码图片 | ⏳ 待办（RC-007 外部阻断，转 HARD-505） |
 
 2026-10-08 实测证据：
 
@@ -555,15 +573,15 @@ MOD-P0-04 + AG-P0-003
 
 ## 12. Definition of Done
 
-- [ ] Seedream 内置模块无需新增 NodeKind/Handler 即可运行。
-- [ ] 用户模块可 draft、publish、clone、archive，发布版本不可变。
-- [ ] PropertyPanel 由 configSchema 驱动，不再依赖任意 key/value 推断。
-- [ ] 无 binding 的自定义端口不能发布或执行。
-- [ ] Workflow 保存精确 module ID/version，可迁移、导入和降级显示。
-- [ ] Agent 能发现并选择模块，但不能创建任意执行代码。
-- [ ] unit/contract/API/Playwright required checks 全绿，无 `|| true`。
-- [ ] 同一 commit 的三平台证据完成归档。
-- [ ] Seedream 真实 UAT 在模型激活后通过；激活前保持 External Blocked。
+- [x] Seedream 内置模块无需新增 NodeKind/Handler 即可运行。
+- [x] 用户模块可 draft、publish、clone、archive，发布版本不可变。
+- [x] PropertyPanel 由 configSchema 驱动，不再依赖任意 key/value 推断。
+- [x] 无 binding 的自定义端口不能发布或执行。
+- [x] Workflow 保存精确 module ID/version，可迁移、导入和降级显示。
+- [x] Agent 能发现并选择模块，但不能创建任意执行代码。
+- [ ] unit/contract/API/Playwright required checks 全绿，无 `|| true`。（本地基线已全绿；CI 门禁清理与同 SHA run 证据阻断于 **RC-004**，去向 HARD-501/502）
+- [ ] 同一 commit 的三平台证据完成归档。（阻断 ID：**RC-004**）
+- [ ] Seedream 真实 UAT 在模型激活后通过；激活前保持 External Blocked。（阻断 ID：**RC-007**，去向 HARD-505 / DOU-001）
 
 ## 13. 明确不做
 

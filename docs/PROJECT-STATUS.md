@@ -1,11 +1,11 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-10-10
-> 状态版本：19.0
-> 代码基线：`44d2227`
+> 基线日期：2026-10-12
+> 状态版本：20.0
+> 代码基线：`869672b`（自 `44d2227` 以来仅文档变更；测试数字为 2026-10-10 实测，待同 SHA CI 复证）
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
-> RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
-> 当前硬化计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)
+> 当前推进计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)（Epic H0-H6）
+> 历史 RC 收敛计划（已被 PLATFORM-HARDENING-PLAN 取代）：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
 
 ## 1. 结论
@@ -14,7 +14,7 @@
 
 本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
 
-本轮校准以当前工作区实测为准：Playwright 全量 142 passed / 0 failed（含 8 项真实 Mock FastAPI 浏览器链路），前端 387 passed，后端干净 venv 2123 passed / 0 failed。尚不能替代同一 SHA 的 CI run 和真实 Provider UAT。
+本轮校准以当前工作区实测为准：Playwright 全量 142 passed / 1 skipped / 0 failed（含 8 项真实 Mock FastAPI 浏览器链路；1 skipped 为 Scene JSON roundtrip），前端 387 passed，后端干净 venv 2123 passed / 8 skipped / 0 failed。尚不能替代同一 SHA 的 CI run 和真实 Provider UAT。
 
 ### 当前评分
 
@@ -33,7 +33,7 @@
 
 ## 2. 当前可重复测试基线
 
-当前环境：Windows、Node 22.21.1、npm 10.9.4、Python 3.12.3。
+当前环境：Windows、Node 22.21.1、npm 10.9.4、Python 3.12.3。以下数字为 2026-10-10 实测（代码基线 `44d2227`，其后仅文档变更），**待同 SHA CI 复证**。
 
 | 验证项 | 当前结果 | 状态 |
 |---|---:|---|
@@ -66,7 +66,7 @@
 - 发现并修复双层限流缺口：`DISABLE_RATE_LIMIT=1` 此前只对 `RateLimitMiddleware` 生效，`SecurityMiddleware` 仍返回 429，导致全量 E2E 失败；现已两层一致尊重该开关，并补 2 项回归测试。
 - 发现并修复 handler 只写文件不写 `assets` 表的问题（`GET /api/assets` 此前恒为空），以及 `item_key` 为 None 时的崩溃。
 
-### 2.2 后端环境与测试
+### 2.3 后端环境与测试
 
 - Pillow/cryptography 已进入 requirements；仍需要干净 venv 和三平台 CI 证明依赖可复现。
 - 第二轮 module_usage/registry/parser/resolver 定向集 173 passed。
@@ -87,7 +87,7 @@
 
 第二轮新增：Workflow create/update/import/duplicate/delete 同步 module_usage；capability 过滤按 Provider Policy；Seedream 模块展示→拖入→override→刷新保真和 Designer create/save/publish 浏览器通过；Agent image-only、2 scenes×2 variants×5s、Seedream module ref、unknown/draft module gate 通过。
 
-剩余关闭项：扩展端口 Binding Designer、module-aware 前端连接校验、真实 Mock Backend 浏览器联调、Modify E2E、Vitest EMFILE/串行污染治理、同 SHA CI 证据和真实 Seedream UAT。
+剩余关闭项（与 §3.2 / §6 一致）：同 SHA CI 证据（RC-004）、真实 Qwen/Wan3 当前证据（RC-008）和真实 Seedream UAT（RC-007，外部阻断）。扩展端口 Binding、effective-ports 校验、真实 Mock Backend 联调、Modify E2E、Vitest 隔离治理已由 Phase M3 关闭。
 
 ### 3.0.1 2026-09-22 历史实现说明
 
@@ -166,7 +166,7 @@ FE-R3-001～004 完成要点：
 | Wan3 Video | async job/poll/persist 完成 | 有历史 UAT；当前媒体依赖门禁未复现 |
 | Doubao Seedream/Seedance 2.5 | image/video adapter、UI、Contract 完成 | Key/目录成功，账号未激活模型，External Blocked |
 | ComfyUI | T2I 基础存在 | 当前环境未验证；I2V 仍非发布主路径 |
-| Mock | 全能力基础 | 大部分测试通过；旧 Agent acceptance 3 项失败 |
+| Mock | 全能力基础 | 大部分测试通过；「旧 Agent acceptance 3 项失败」为 2026-09 历史记录，当前是否仍存在待复证 |
 
 Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOUBAO-SEEDANCE-PLAN.md)。
 
@@ -174,14 +174,14 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 
 | ID | 优先级 | 阻断项 | 当前证据 | 关闭标准 | 状态 |
 |---|---:|---|---|---|---|
-| RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（干净 venv 2096 passed / 0 failed） |
+| RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（2026-10-08 干净 venv 2096 passed / 0 failed） |
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
-| RC-004 | P0 | 无同一 commit CI 证据 | Playwright job 已配置 | 三平台 required checks + report URL | ⏳ 待办（MOD-R3-006） |
+| RC-004 | P0 | 无同一 commit CI 证据 | Playwright job 已配置 | 三平台 required checks + report URL | ⏳ 待办（HARD-501/502） |
 | RC-007 | P1 | Doubao 模型未激活 | 两模型真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⏳ 外部阻断 |
 | RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 | ⏳ 待办 |
 
-RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。
+RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。此后 2026-10-10 的干净 venv 复测为 **2123 passed / 8 skipped / 0 failed**（新增 Phase M3 测试所致，非回退）；§2 基线表采用后者。
 
 本轮顺带修复的已存在缺陷（非本轮引入，但已闭环）：
 
@@ -192,50 +192,46 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 
 ## 7. 后续开发路线
 
-### Sprint RC-0：恢复可信门禁（1-2 天）
+当前主战场是平台硬化（Epic H0-H6），不再按旧 RC-0/RC-1/RC-2 节奏推进。工单明细、工作量与验收以 [`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md) 为准；主交付计划中的里程碑见 [`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md) §8。
 
-- 声明 `cryptography`，使用干净 venv 安装 requirements。
-- 修复旧 Agent v1 Mock acceptance 或将其迁移到 v2 契约。
-- 全套复跑 Playwright，启用 Scene roundtrip。
-- 删除 CI `|| true`；external 测试单独 job/手工触发。
+### Sprint H1：可复现工具链 + 共享契约 + 迁移账本（3-4 天）
 
-出口：backend full pytest、frontend unit/type/build、Chromium E2E 全绿。
+范围：Epic H0（HARD-001～004）、H1（HARD-101～104）、H2（HARD-201～204）。
 
-### Sprint RC-1：CI 与联调证据（1-2 天）
+- Node 22 / Python 3.12 工具链一致，可重复安装，清理未审批 warning。
+- Node/Module/Workflow/Agent Catalog 共享同一来源，parity test 阻断漂移。
+- `schema_migrations` ledger、checksum、事务化 runner、旧库无损升级与中断恢复。
 
-- 新增 Playwright CI job，同时启动 Mock FastAPI 和 Vite。
-- Windows/macOS/Linux 运行 unit/type/build；Linux 运行浏览器和媒体 smoke。
-- 归档 junit、Playwright report、trace、构建产物和安全报告。
-- 修正 health probe，只使用存在的 `/api/health`。
+出口：全新 venv 一次安装成功；前后端 Schema 单一来源；migration 有 ledger 与恢复证据。
 
-出口：同一 commit 的 CI run 可追溯且没有吞错。
+### Sprint H2：Provider 持久化 + Agent 兼容层（3-4 天）
 
-### Sprint RC-2：Provider 与发布决策（1-2 天）
+范围：Epic H3（HARD-301～304）、H4（HARD-401～404）。
 
-- 复测 MiMo、Qwen、Wan3；真实外部测试保持显式、限额和非 PR 默认。
-- Doubao 未激活时保持 Optional/Blocked，不阻断 Qwen+Wan3 RC。
-- 生成 CHANGELOG、已知问题、安装/升级/回滚检查单。
-- 冻结 `v1.0.0-rc.1` 范围并执行发布演练。
+- Provider 非秘密配置与 secret reference 持久化，重启恢复，GET 不回显 Key。
+- 多 Provider CRUD、默认选择、测试连接；Workflow/Module 只保存 provider config ID。
+- Agent v2 冻结、v1 弃用策略、Modify/Apply 审计、节点/费用限额前置阻断。
 
-出口：所有 P0 阻断关闭，P1 有明确延期批准和用户可见说明。
+出口：UI 保存的 Provider 设置重启后仍在；Agent v1/v2 行为明确。
 
-### Product Sprint M0：模块化节点与 Seedream 薄切片（RC 后优先）
+### Sprint H3：CI/UAT 与发布演练（2-3 天）
 
-当前节点已经支持实例级字段/端口编辑，但还不是可复用模块。下一步不应继续增加硬编码 NodeKind，而应实现版本化 `ModuleDefinition → NodeInstance`：
+范围：Epic H5（HARD-501～506）、H6（HARD-601～604）。
 
-1. 先冻结 ModuleDefinition/ModuleInstance JSON Schema 和前后端共享 fixture。
-2. 将当前 `configSchema` 接入 Schema-driven PropertyPanel，统一 text/number/select/prompt/provider-model 等组件。
-3. 增加 Module Registry 和 Module Palette；NodeInstance 保存 `moduleId/moduleVersion`。
-4. 将自定义端口分为核心端口和有 binding 的扩展端口；无 binding 不得发布或执行。
-5. 以 `builtin.seedream.text-to-image` 为首个模块，复用 `textToImage` Handler 和 `doubao` image Provider，不新增 Handler/NodeKind。
-6. 模块发布版本不可变，升级必须生成 diff；缺少模块的旧工作流进入 degraded/read-only，而不是静默替换。
+- 触发同 SHA 三平台 CI + browser-e2e，归档 JUnit、Playwright report/trace、安全报告与 build。
+- MiMo/Qwen/Wan3 当前 commit 最小真实 UAT（真实 job 保持 manual/nightly，非 PR 默认）。
+- Doubao 未激活时保持 Optional/External Blocked，不阻断 Qwen+Wan3 RC。
+- 统一版本/CHANGELOG/Known Issues，执行安装、升级、回滚、备份恢复演练。
 
-详细任务、数据模型、API、组件设计和验收见 [`plans/active/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md)。
+出口：RC-004/RC-008 有同 SHA 证据；所有 P0 阻断关闭，P1 有明确延期批准和用户可见说明；`v1.0.0-rc.1` tag 只指向已验证 SHA。
+
+模块化节点与 Seedream 专项（Phase M0-M3）已完成，详见 [`plans/active/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md)；不再安排新的模块功能 Sprint。
 
 ## 8. 文档导航
 
 - 主交付计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
-- RC 收敛计划：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
+- 当前推进计划（平台硬化 H0-H6）：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)
+- 历史 RC 收敛计划（Superseded，见其头部说明）：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
 - React Flow/Agent：[`plans/active/REACT-FLOW-AGENT-PLAN.md`](plans/active/REACT-FLOW-AGENT-PLAN.md)
 - Flow/Scene：[`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
 - 滑雪验收：[`plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](plans/active/SKI-LESSON-WORKFLOW-PLAN.md)

@@ -1,16 +1,20 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.7
+> 计划版本：1.8
 > 制定日期：2026-10-10
+> 校准日期：2026-10-12
 > 计划状态：Active，后续开发的唯一主计划
+> 当前推进计划：`docs/plans/active/PLATFORM-HARDENING-PLAN.md`（Epic H0-H6，工单以 HARD-xxx 为准）
 > 状态基线：`docs/PROJECT-STATUS.md`
 > 产品基线：`docs/product/PRD.md`
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-10-10 执行检查点
+## 0. 2026-10-12 执行检查点
 
-项目主要功能模块、两轮模块化纵向开发和 Phase M3 已完成，当前重点切换为 Platform Hardening：共享契约、正式迁移、Provider 持久化、同 SHA CI、真实 Provider UAT 与 RC 发布。
+自 2026-10-10 状态基线（`docs/PROJECT-STATUS.md` 状态版本 19.0，代码基线 `44d2227`）以来 **无代码变更**：git 工作区干净，其后仅有文档提交。本节测试数字沿用 2026-10-10 实测，**均待同 SHA CI 复证**，不得直接作为 RC 证据。
+
+项目主要功能模块、两轮模块化纵向开发和 Phase M3 已完成，当前重点是 Platform Hardening（Epic H0-H6）：共享契约、正式迁移、Provider 持久化、同 SHA CI、真实 Provider UAT 与 RC 发布。后续 Sprint/里程碑统一指向 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)，本文件不再重复展开已关闭的 AVC/FE-R3/MOD-R3 旧工单。
 
 ### 已完成
 
@@ -25,46 +29,47 @@
 | AVC-401 Asset 表/API 基础 | Done/需深化 | Migration 003、Repository 和 API 存在 |
 | AVC-501 capability 独立 Provider | Done | image/video 可分别选择 DashScope/Wan3/ComfyUI |
 | Qwen Image 3.0 | Done（单次 UAT） | 真实生成 1280×720 PNG |
-| Wan3.0 480P Provider | Historical UAT Done/当前需复现 | 报告记录真实任务通过；当前 venv 缺 Pillow |
+| Wan3.0 480P Provider | Historical UAT Done/当前需复现 | 报告记录真实任务通过；当前证据待复现（RC-008） |
 | Xiaomi MiMo v2.5 Pro | Done（单次 UAT） | 自定义配置、Contract、`/models` 和真实 Chat Completions 已通过 |
 | AVC-201 NodeResult/ArtifactRef | Done | contracts 与 handlers 已接入 |
 | AVC-203 scene map/input assembly | Done | scene mapping integration tests |
 | AVC-205 取消竞态 | Done | 状态条件更新和递归取消 |
 | AVC-207 WorkerPool | Done | 多 Worker tests |
 | AVC-302/303 WebSocket executionStore | Done/需 E2E | 客户端与单元测试已通过，浏览器断线恢复待验收 |
-| AVC-508 Wan3 external job | Done/需复现 | Migration 006、UAT 报告存在，当前 venv 缺 Pillow |
+| AVC-508 Wan3 external job | Done/需复现 | Migration 006、UAT 报告存在；当前证据待复现（RC-008） |
 
-### 当前质量基线
+### 当前质量基线（2026-10-10 实测，待同 SHA CI 复证）
 
-- 前端：17 files / 295 passed；typecheck 和 production build 通过。
-- 生产构建：main 94.99 kB；最大 chunk 171.08 kB，无 500 kB 警告。
-- Chromium：132 passed、2 failed、1 skipped，共 135；失败集中在 deselect 和多节点拖拽。
-- 后端完整收集被当前 venv 缺 Pillow、cryptography 阻断；排除阻断文件后 1521 passed、3 failed、20 skipped。
-- 当前 Node 22.21.1；三平台 CI workflow 存在，但无本次 run 证据。
-- 当前综合产品完成度约 89%；内部 Beta，未达到 RC。
+- 前端 Vitest：22 files / 387 passed；TypeScript 0 errors。
+- 生产构建：index 138.51 kB；最大 chunk 185.73 kB，无 500 kB 警告。
+- Playwright 全量：142 passed / 1 skipped / 0 failed（含 Modules 5/5 与 Agent Modify 3/3 真实 Mock FastAPI，零 route mock）。
+- 后端干净 venv non-external：2123 passed / 8 skipped / 0 failed。
+- 当前 Node 22.21.1 / Python 3.12.3；本机默认 shell 可能解析到 Node 16，Playwright 需 Node 20+（见 HARD-001）。
+- 三平台 + browser-e2e CI workflow 已配置，尚无同 SHA run 证据。
+- 当前综合产品完成度约 91%；功能主链成熟，进入平台硬化与 RC 证据阶段，未达到 RC。
 
-### 前端驱动的当前关键路径
+### 当前关键路径：Platform Hardening（H0-H6）
 
 ```text
-TEST/ENV 门禁修复
-  → React Flow 拖入/移动/连线 Playwright 闭环
-  → 所有保存与运行入口执行权威图校验
-  → 自定义 Port CRUD + Edge inspector/reconnect
-  → Agent v2 frontend preview/apply/save/run
-  → 滑雪场景 Mock/真实 Provider 纵向验收
+H0 可复现工具链
+  → H1 共享契约单一来源
+  → H2 migration ledger
+  → H3 Provider 配置持久化
+  → H4 Agent 兼容层收口
+  → H5 同 SHA CI + 真实 Provider UAT
+  → H6 RC 发布演练
 ```
 
-当前已实现但不得误标为产品完成：
+已实现但不得误标为产品完成：
 
-- Handle 命中区、overflow、`isValidConnection`、Toast、EdgeInspector、PortEditorDialog、SceneEditor 和连接高亮已有，主矩阵已在 Chromium 实跑。
-- 自定义字段/端口、Edge 级联、Agent v2 preview/apply 和 Scene UI 已有真实浏览器证据；联调后端仍需单独 job。
-- 主要剩余工作是依赖可复现、旧 Agent v1 acceptance、2 项浏览器失败、Scene roundtrip skip 和 CI 生命周期。
+- 模块 Palette/Designer、扩展端口 Binding、effective-ports 校验、真实 Mock Backend 浏览器链、Agent Modify 增量 diff/破坏性确认均已关闭（Phase M3），但同 SHA CI 与真实 Provider UAT 证据仍缺。
+- 发布阻断：RC-001/002/003 已关闭；RC-004（同 SHA CI run 证据）、RC-008（真实 Qwen/Wan3 当前证据）待办；RC-007（Doubao 模型未激活）外部阻断。
+- 剩余工作是 H 系列工单（HARD-xxx）与发布证据，不是新功能。
 
-### 剩余工作量重估
+### 剩余工作量重估（对齐 H 系列）
 
-- 2 人工程团队 + 0.5 QA：约 5-7 周。
-- 单人全栈：约 9-13 周。
-- 最大不确定性：WorkflowSpec 2.0 migration、Scene Bundle 交互、FFmpeg 跨平台和浏览器 E2E。
+- 两人并行约 7-10 个工作日；单人约 12-16 个工作日（外部模型激活等待不计入工程工期）。
+- 最大不确定性：共享契约收敛、migration ledger 旧库升级与中断恢复、同 SHA CI 证据、真实 Provider UAT。
 
 ## 1. 计划目标
 
@@ -414,32 +419,37 @@ E7 安全加固完成清单：
 
 ## 8. Sprint 与里程碑安排
 
-### 已完成 Sprint F0-F4：产品能力开发（门禁仍待 RC 收敛）
+### 已完成 Sprint F0-F4：产品能力开发（功能完成，门禁按 RC/H 系列收口）
 
 Sprint F0-F4 已全部完成：
-- ✅ F0：恢复基础门禁 — 前端 295 tests 全绿；后端完整门禁需依赖修复
+- ✅ F0：恢复基础门禁 — 前端基础测试全绿（当时 295 tests）
 - ✅ F1：React Flow 人工编辑闭环 — 连线/拖拽/EdgeInspector/undo-redo
 - ✅ F2：字段与端口产品化 — CRUD/Edge 级联/WorkflowSpec 2.0 roundtrip
 - ✅ F3：Workflow Agent v2 前端闭环 — v2 API adapter + 37 golden case
 - ✅ F4：Scene/安全加固 — E7 7/7 项完成 + SKI-009 预览/重试
 
-### 当前 Sprint：RC 收敛（2-3 天）
+### 当前 Sprint 阵列：Platform Hardening（见 PLATFORM-HARDENING-PLAN）
 
-范围：RC-001 至 RC-006（依赖、Mock acceptance、浏览器 E2E、CI 联调）
+范围：Epic H0-H6，工单明细、工作量和验收以 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) 为准，本文件不重复展开。
 
-1. ✅ E7 Security 7/7 项全部完成（257 tests）
-2. ✅ R0-8 三平台 CI 已配置（ci.yml + security-scan.yml）
-3. ✅ SKI-009 场景预览 + 单项重试 UI 已实现（23 tests）
-4. ⚠️ Playwright 本轮真实结果为 132 passed / 2 failed / 1 skipped
-5. ⏳ requirements 增加 cryptography，干净 venv 完整收集
-6. ⏳ 修复旧 Agent v1 acceptance 的 3 项失败
-7. ⏳ 修复 Chromium deselect/multi-drag，取消 Scene roundtrip skip
-8. ⏳ CI 启动 FastAPI + Vite 执行 Playwright，移除 integration `|| true`
-9. ⏳ 三平台同一 commit 证据和 Release checklist
+| Sprint | 范围 | 出口 |
+|---|---|---|
+| H1（3-4 天） | H0 工具链 + H1 共享契约 + H2 migration ledger | Node/Python 一致、Schema 单一来源、旧库无损升级 |
+| H2（3-4 天） | H3 Provider 持久化 + H4 Agent 兼容层 | 设置重启恢复、Key 不回显、Agent v2 冻结 |
+| H3（2-3 天） | H5 CI/UAT + H6 发布演练 | 同 SHA required checks、最小真实 UAT、可回滚发布 |
 
-Demo：CI 全绿，Playwright 7 个 spec 文件通过，三平台证据归档。
+RC 门禁现状（2026-10-12，与 `PROJECT-STATUS.md` §6 一致）：
 
-里程碑：`v1.0.0-rc.1`，验收通过后发布 `v1.0.0`。
+1. ✅ RC-001 干净环境依赖证据（干净 venv non-external 通过）
+2. ✅ RC-002 模块真实 Backend 浏览器链路（Modules 5/5 零 route mock）
+3. ✅ RC-003 Vitest 资源/隔离治理（连续两次与串行全绿）
+4. ⏳ RC-004 同一 commit CI 证据 → HARD-501/502
+5. ⏳ RC-008 真实 Qwen/Wan3 当前证据 → HARD-503/504
+6. ⏳ RC-007 Doubao 模型激活（外部阻断）→ HARD-505
+
+Demo：按 HARD 工单验收；H3 出口对齐 PLATFORM-HARDENING-PLAN §11 Definition of Done。
+
+里程碑：`v1.0.0-rc.1`（tag 只指向已验证 SHA），验收通过后发布 `v1.0.0`。
 
 ### 已完成：React Flow 交互修复（2026-09-16）
 
@@ -454,23 +464,23 @@ Demo：CI 全绿，Playwright 7 个 spec 文件通过，三平台证据归档。
 
 里程碑：画布可平移、节点可拖拽、可从侧栏拖入节点。
 
-### 当前最高前端优先级：连线恢复与 Workflow Agent 2.0
+### 已完成：连线恢复与 Workflow Agent 2.0
 
 计划：[`REACT-FLOW-AGENT-PLAN.md`](REACT-FLOW-AGENT-PLAN.md)
 
-该专项的主要功能已完成，后续只保留共享契约、Agent v1/v2 兼容策略和 E2E/CI 收口，不再重复排期 Handle、PortEditor 或 Agent adapter 的开发。
+该专项的主要功能已完成，后续只保留共享契约（H1）、Agent v1/v2 兼容策略（H4）和 E2E/CI 收口（H5），不再重复排期 Handle、PortEditor 或 Agent adapter 的开发。
 
-### 已完成：React Flow 与 Scene Prompt 产品化（功能已实现，证据待收口）
+### 已完成：React Flow 与 Scene Prompt 产品化（功能已实现）
 
 专项计划：[`FRONTEND-FLOW-SCENE-PLAN.md`](FRONTEND-FLOW-SCENE-PLAN.md)
 
 1. F1 端口图契约、连接校验和 WorkflowSpec 2.0 已实现。
 2. F2 Scene Bundle、Draft/lock、Scene Editor、导入导出已实现。
-3. F3 Provider Prompt、画布交互和浏览器 E2E 已实现基础版，当前补真实 backend 联调。
+3. F3 Provider Prompt、画布交互和浏览器 E2E 已实现，真实 Mock Backend 联调已在 Phase M3 关闭。
 
 Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导入的 Prompt Bundle 与 Provider 请求预览。
 
-里程碑：功能里程碑已完成，版本发布依赖 RC-CLOSURE-PLAN。
+里程碑：功能里程碑已完成，版本发布依赖 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) 的 H5/H6 与 RC 门禁。
 
 ### 首条真实验收工作流：冬季滑雪教学
 
@@ -478,24 +488,9 @@ Demo：用户连接多端口节点，编辑每个 scene，并导出可重新导�
 
 该工作流作为 Flow/Scene 专项的纵向验收：一个 Scene 生成两个图片变体，每张图片生成 3 秒 Wan3 视频，再由 FFmpeg 合成为约 6 秒视频。所需 `variantCount`、scene+variant 血缘和 aggregate 顺序必须实现为通用可插拔能力。
 
-### Release Candidate Sprint（1-2 周）— 进行中
+### 发布收敛（原 Release Candidate Sprint，已并入 H 系列）
 
-已完成：
-- ✅ E7 Security 7/7 项（Rate Limiting/SSRF/CORS/Headers/Audit/Scanner/Encryption）
-- ✅ R0-8 三平台 CI 已配置
-- ✅ SKI-009 场景预览 + 重试 UI
-- ⚠️ Playwright 本轮 132 passed / 2 failed / 1 skipped
-- ⚠️ Backend 当前依赖阻断；排除阻断文件后 1521 passed / 3 failed / 20 skipped
-
-待完成：
-- ⏳ CI 环境 Node 20+，Playwright CI 执行
-- ⏳ 三平台 CI 同一 commit 绿色证据
-- ⏳ Playwright 2 项 pre-existing 修复（deselect + multi-drag）
-- ⏳ 安全、恢复、磁盘满、Provider 超时和迁移演练
-- ⏳ 安装、升级、回滚与故障排查手册
-- ⏳ 版本号、CHANGELOG、README 更新
-
-里程碑：`v1.0.0-rc.1`，验收通过后发布 `v1.0.0`。
+原 RC Sprint 中的 E7 安全、三平台 CI 配置、SKI-009 预览/重试、Playwright 失败修复与干净 venv 证据均已完成（见 §0 与 `PROJECT-STATUS.md`）。剩余发布工作不再单列 Sprint，全部纳入 Sprint H3（H5 CI/UAT + H6 发布演练），见 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)。
 
 ## 9. API 交付契约
 
@@ -713,3 +708,7 @@ Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider pol
 ### 2026-09-28 第二轮验收与下一阶段
 
 第二轮已完成 Seedream 前端模块纵向 E2E、module_usage 持久化和 structured Agent Parser/module gate。下一阶段切换为 Phase M3：扩展端口 Binding Designer、module-aware 前端图校验、真实 Mock Backend Playwright、Modify E2E、测试隔离、同 SHA CI 和 Seedream External UAT。
+
+### 2026-10-12 校准
+
+Phase M3（MOD-R3-001～005）已完成并有自动化证据；MOD-R3-006/007 已转入 HARD-501/502 与 HARD-505。模块化功能停止扩展，后续按 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) 的 Epic H0-H6 收敛为 `v1.0.0-rc.1`。本专项（MODULAR-NODE-SEEDREAM-PLAN）不再是当前主战场。

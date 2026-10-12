@@ -1,9 +1,48 @@
 # React Flow 与 Scene Prompt 产品化计划
 
-> 状态：Active 子计划  
-> 日期：2026-09-21
+> 状态：Active 子计划（2026-10-12 已校准）  
+> 日期：2026-09-21（内容快照）；校准：2026-10-12
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
 > 目标：把现有线性六节点画布升级为端口明确、可验证、可编辑、可导出的工作流与 Scene Prompt 系统。
+
+## 0.0 2026-10-12 状态校准
+
+端口图与 Scene Prompt 产品化**主链已在 Phase M0-M3 落地**。连线校验、端口/字段 CRUD、Scene Editor、Import/Export、Agent preview/apply 等能力已在 [`PROJECT-STATUS.md`](../../PROJECT-STATUS.md) §3.1 通过浏览器验证；§3.2 的前端剩余缺口 FE-R3-001～005 已于 Phase M3 全部关闭。当前测试基线：Frontend 387、Playwright 142 passed / 0 failed、Backend 干净 venv 2123 passed（PROJECT-STATUS §2；本机工作区基线，尚不能替代同一 SHA 的 CI run）。
+
+**权威关系（冲突时以后者为准）**：
+
+- 节点自定义、连线交互、字段/端口 CRUD 的细节规格以 [`REACT-FLOW-AGENT-PLAN.md`](REACT-FLOW-AGENT-PLAN.md) 为准；
+- 模块化节点、Seedream 纵向、模块端口 Binding 与 effective-ports 校验以 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 为准；
+- 本计划与上述两者冲突处**以后两者为准**。共享 Manifest/Bundle 单一来源、CI 同 SHA 证据、真实 Provider UAT 归 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)（HARD-101～104、HARD-501～505）。
+
+### 0.0.1 主链已落地（✅）
+
+| 工单/能力 | 状态 | 证据指针 |
+|---|---|---|
+| FLOW-002 多 Handle 端口图 | ✅ | PROJECT-STATUS §3.1「六条默认边和真实 Handle 拖线」 |
+| FLOW-003 连接校验（类型/自环/重复/环/基数） | ✅ | PROJECT-STATUS §3.1；FE-R3-002 effective-ports（MOD-R3-002） |
+| FLOW-004 连接交互（高亮/Toast/错误码） | ✅ | PROJECT-STATUS §3.1「端口高亮、Toast、错误码」 |
+| FLOW-006 WorkflowSpec 2.0 + v1 migration | ✅ | PROJECT-STATUS §3.1「保存刷新后端口和 Edge 保留」 |
+| FLOW-010 连线/字段端口 E2E 矩阵 | ✅ | Playwright 142 passed / 0 failed（PROJECT-STATUS §2；1 skipped 为 Scene roundtrip，见下） |
+| SCENE-002 materializer / SCENE-003 draft 持久化 | ✅ | PROJECT-STATUS §4「Scene Draft SQLite repository、Bundle materializer」 |
+| SCENE-004 Scene Editor | ✅ | PROJECT-STATUS §3.1「Scene Editor 编辑、锁定、添加」 |
+| SCENE-005/008 Import/Export | ✅ | PROJECT-STATUS §3.1「Import/Export Dialog 基础交互」；§4 导入导出 |
+| SCENE-006/007 Qwen/Wan3 JSONL 导出器 | ✅ 后端 | `backend/tests/test_scene_bundle.py`、`test_scene_api.py` |
+| SCENE-009 秘密/签名 URL/路径扫描 | ✅ | DELIVERY-PLAN F4（E7 Security 7/7）；secret scanner 测试 |
+
+### 0.0.2 剩余未关闭项（⏳，单独列出）
+
+| 项 | 状态 | 归口/证据指针 |
+|---|---|---|
+| SCENE-010：Scene JSON roundtrip 纳入 required checks | ⏳ | PROJECT-STATUS §2.1（当前门禁）；历史工单号 RC-CLOSURE-PLAN RC-003C |
+| FLOW-001/SCENE-001：前后端共享 Node Manifest / Bundle 单一来源 | ⏳ | PROJECT-STATUS §4 架构债务 1；HARD-101～104 |
+| CI 同 SHA 归档证据（FLOW-004/007 的 CI 出口） | ⏳ | PROJECT-STATUS §6 RC-004；HARD-501～502 |
+| FLOW-005：Edge reconnect 与执行语义验收 | ⏳ 待复证 | 本计划 §5；无当前报告覆盖 |
+| FLOW-007：viewport 持久化 roundtrip | ⏳ 待复证 | 本计划 §5 |
+| FLOW-008/009：语义 Undo/Redo、多选/复制专项 E2E 深化 | ⏳ 待复证 | 本计划 §5 |
+| SCENE-006/007：Provider 参数完整性与前端下载预览 | ⏳ 待复证 | 后端导出器已有；前端预览 UI 无当前证据 |
+
+下方「0. 2026-09-21 实现检查点」为历史快照，**当前状态以本节为准**；§5/§6 工单表已补状态列。
 
 ## 0. 2026-09-21 实现检查点
 
@@ -280,33 +319,37 @@ POST /api/scene-bundles/{id}/validate
 
 ## 5. React Flow 详细工单
 
-| ID | 优先级 | 工作量 | 任务 | 主要文件 | 验收 |
-|---|---|---:|---|---|---|
-| FLOW-001 | P0 | 2d | Node Manifest 与 Port TS/Pydantic Schema | `schemas/*`, `types.ts`, `domain/*` | 前后端共用 fixtures |
-| FLOW-002 | P0 | 1.5d | 多 Handle 节点渲染，稳定 port ID/label/type | `StudioNode.tsx` | Edge 保存 handle ID |
-| FLOW-003 | P0 | 2d | 连接校验器：方向、类型、基数、自环、重复边 | `graphValidation.ts`, backend validator | 错误码/文案一致 |
-| FLOW-004 | P0 | 1d | 连接交互：兼容端口高亮、失败提示、连线预览 | `Canvas.tsx`, CSS | 键鼠均可完成 |
-| FLOW-005 | P1 | 1.5d | Edge label、mode、order、选择/删除/重连 | `FlowEdge.tsx`, store | reconnect 保留数据 |
-| FLOW-006 | P0 | 1.5d | WorkflowSpec 2.0 与 1.0 migration | schemas、models、migration | 旧工作流无损打开 |
-| FLOW-007 | P1 | 1d | viewport 持久化、fit/center/auto-layout | `CanvasToolbar.tsx` | 刷新恢复视角 |
-| FLOW-008 | P1 | 1.5d | 语义 Undo/Redo：拖动、连线、配置各一步 | `workflowStore.ts` | 连续拖动不刷爆历史 |
-| FLOW-009 | P1 | 1d | 复制/粘贴、多选、键盘连线可访问性 | Canvas/store | ID 重写且边正确 |
-| FLOW-010 | P0 | 2d | 图校验测试与 Playwright 连线 E2E | unit/e2e | 关键矩阵全覆盖 |
+> 状态列说明（2026-10-12 校准）：✅ 主链已落地；⏳ 未关闭或待复证。连线/字段端口细节以 [REACT-FLOW-AGENT-PLAN.md](REACT-FLOW-AGENT-PLAN.md) 为准。
+
+| ID | 优先级 | 工作量 | 任务 | 主要文件 | 验收 | 状态（证据指针） |
+|---|---|---:|---|---|---|---|
+| FLOW-001 | P0 | 2d | Node Manifest 与 Port TS/Pydantic Schema | `schemas/*`, `types.ts`, `domain/*` | 前后端共用 fixtures | ⏳ TS/Pydantic 已有；共享单一来源转 HARD-101～104（PROJECT-STATUS §4 债务 1） |
+| FLOW-002 | P0 | 1.5d | 多 Handle 节点渲染，稳定 port ID/label/type | `StudioNode.tsx` | Edge 保存 handle ID | ✅ PROJECT-STATUS §3.1 Handle 拖线/端口保留 |
+| FLOW-003 | P0 | 2d | 连接校验器：方向、类型、基数、自环、重复边 | `graphValidation.ts`, backend validator | 错误码/文案一致 | ✅ §3.1 校验拒绝；FE-R3-002 effective-ports |
+| FLOW-004 | P0 | 1d | 连接交互：兼容端口高亮、失败提示、连线预览 | `Canvas.tsx`, CSS | 键鼠均可完成 | ✅ §3.1 高亮/Toast/错误码；CI 归档出口转 RC-004 |
+| FLOW-005 | P1 | 1.5d | Edge label、mode、order、选择/删除/重连 | `FlowEdge.tsx`, store | reconnect 保留数据 | ⏳ EdgeInspector 存在；reconnect 与执行语义验收待复证 |
+| FLOW-006 | P0 | 1.5d | WorkflowSpec 2.0 与 1.0 migration | schemas、models、migration | 旧工作流无损打开 | ✅ §3.1 保存刷新端口/Edge 保留；viewport 见 FLOW-007 |
+| FLOW-007 | P1 | 1d | viewport 持久化、fit/center/auto-layout | `CanvasToolbar.tsx` | 刷新恢复视角 | ⏳ 组件存在；roundtrip 验收待复证 |
+| FLOW-008 | P1 | 1.5d | 语义 Undo/Redo：拖动、连线、配置各一步 | `workflowStore.ts` | 连续拖动不刷爆历史 | ⏳ begin/endBatchHistory 存在；专项 E2E 深化待复证 |
+| FLOW-009 | P1 | 1d | 复制/粘贴、多选、键盘连线可访问性 | Canvas/store | ID 重写且边正确 | ⏳ 基础操作存在；专项 E2E 深化待复证 |
+| FLOW-010 | P0 | 2d | 图校验测试与 Playwright 连线 E2E | unit/e2e | 关键矩阵全覆盖 | ✅ Playwright 142 passed / 0 failed（1 skipped 为 Scene roundtrip，见 SCENE-010） |
 
 ## 6. Scene Prompt 详细工单
 
-| ID | 优先级 | 工作量 | 任务 | 主要文件 | 验收 |
-|---|---|---:|---|---|---|
-| SCENE-001 | P0 | 1.5d | Scene Prompt Bundle JSON Schema + TS/Pydantic | `schemas/*`, contracts | roundtrip fixture |
-| SCENE-002 | P0 | 2d | Storyboard materializer：execution result → bundle | service/repository | scene_id/order 稳定 |
-| SCENE-003 | P1 | 2d | Scene draft/override/lock 持久化 | migration/repository/API | 重启后恢复 |
-| SCENE-004 | P1 | 3d | Scene Editor：列表/卡片、批量编辑、校验 | `SceneEditor/*` | 1-20 scenes 可编辑 |
-| SCENE-005 | P0 | 1.5d | JSON/Markdown/CSV/Text 导入导出 | export service/API | roundtrip + UTF-8 |
-| SCENE-006 | P1 | 1.5d | Qwen Image JSONL 请求预览 | exporter | 每 scene 一行，无 Key |
-| SCENE-007 | P1 | 1.5d | Wan3 JSONL 请求预览 | exporter | first frame 用 Asset ID |
-| SCENE-008 | P1 | 1d | 导出 UI：来源、格式、下载和错误 | toolbar/dialog | 文件名/版本正确 |
-| SCENE-009 | P0 | 1d | 安全：秘密/签名 URL/绝对路径扫描 | validators/tests | 敏感字段拒绝导出 |
-| SCENE-010 | P0 | 2d | Scene import/export API + 浏览器 E2E | api/e2e | 导入编辑再导出等价 |
+> 状态列说明（2026-10-12 校准）：✅ 主链已落地；⏳ 未关闭或待复证。模块化/Seedream 纵向以 [MODULAR-NODE-SEEDREAM-PLAN.md](MODULAR-NODE-SEEDREAM-PLAN.md) 为准。
+
+| ID | 优先级 | 工作量 | 任务 | 主要文件 | 验收 | 状态（证据指针） |
+|---|---|---:|---|---|---|---|
+| SCENE-001 | P0 | 1.5d | Scene Prompt Bundle JSON Schema + TS/Pydantic | `schemas/*`, contracts | roundtrip fixture | ⏳ Schema/契约已有；共用 fixture 与版本兼容转 HARD-102 |
+| SCENE-002 | P0 | 2d | Storyboard materializer：execution result → bundle | service/repository | scene_id/order 稳定 | ✅ PROJECT-STATUS §4 Bundle materializer |
+| SCENE-003 | P1 | 2d | Scene draft/override/lock 持久化 | migration/repository/API | 重启后恢复 | ✅ PROJECT-STATUS §4 Scene Draft SQLite repository |
+| SCENE-004 | P1 | 3d | Scene Editor：列表/卡片、批量编辑、校验 | `SceneEditor/*` | 1-20 scenes 可编辑 | ✅ PROJECT-STATUS §3.1 Scene Editor 编辑/锁定/添加 |
+| SCENE-005 | P0 | 1.5d | JSON/Markdown/CSV/Text 导入导出 | export service/API | roundtrip + UTF-8 | ✅ §3.1/§4 导入导出；roundtrip 门禁见 SCENE-010 |
+| SCENE-006 | P1 | 1.5d | Qwen Image JSONL 请求预览 | exporter | 每 scene 一行，无 Key | ✅ 后端导出器（`test_scene_bundle.py`）；前端下载预览待复证 |
+| SCENE-007 | P1 | 1.5d | Wan3 JSONL 请求预览 | exporter | first frame 用 Asset ID | ✅ 后端导出器（`test_scene_bundle.py`）；firstFrame/media 映射待复证 |
+| SCENE-008 | P1 | 1d | 导出 UI：来源、格式、下载和错误 | toolbar/dialog | 文件名/版本正确 | ✅ §3.1 Import/Export Dialog 基础交互 |
+| SCENE-009 | P0 | 1d | 安全：秘密/签名 URL/绝对路径扫描 | validators/tests | 敏感字段拒绝导出 | ✅ DELIVERY-PLAN F4（E7 Security 7/7） |
+| SCENE-010 | P0 | 2d | Scene import/export API + 浏览器 E2E | api/e2e | 导入编辑再导出等价 | ⏳ UI E2E 通过，JSON roundtrip 仍 skip；纳入 required checks 待关闭（PROJECT-STATUS §2.1 / RC-003C） |
 
 ## 7. 实施顺序
 
