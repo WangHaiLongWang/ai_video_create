@@ -161,9 +161,9 @@ FE-R3-001～004 完成要点：
 
 | Provider | 代码状态 | 真实验证状态 |
 |---|---|---|
-| MiMo `mimo-v2.5-pro` | adapter/config 完成 | 有历史真实调用证据；当前未复测 |
-| Qwen Image 3.0 | adapter/config 完成 | 有历史生图证据；当前未复测 |
-| Wan3 Video | async job/poll/persist 完成 | 有历史 UAT；当前媒体依赖门禁未复现 |
+| MiMo `mimo-v2.5-pro` | adapter/config 完成 | **2026-10-12 当前链路复测通过**（`scripts/smoke_real_chain.py`，1 次文本调用 6.2s） |
+| Qwen Image 3.0 | adapter/config 完成 | **2026-10-12 当前链路复测通过**（1 张 1280×720 PNG，1.47 MB，72.4s） |
+| Wan3 Video | async job/poll/persist 完成 | **2026-10-12 当前链路复测通过**（2s/480P 图生视频，2.24 MB MP4，44.3s，external_job_id 已生成） |
 | Doubao Seedream/Seedance 2.5 | image/video adapter、UI、Contract 完成 | Key/目录成功，账号未激活模型，External Blocked |
 | ComfyUI | T2I 基础存在 | 当前环境未验证；I2V 仍非发布主路径 |
 | Mock | 全能力基础 | 大部分测试通过；「旧 Agent acceptance 3 项失败」为 2026-09 历史记录，当前是否仍存在待复证 |
@@ -179,7 +179,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
 | RC-004 | P0 | 无同一 commit CI 证据 | Playwright job 已配置 | 三平台 required checks + report URL | ⏳ 待办（HARD-501/502） |
 | RC-007 | P1 | Doubao 模型未激活 | 两模型真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⏳ 外部阻断 |
-| RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 | ⏳ 待办 |
+| RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 | 🔶 主链已通（2026-10-12 MiMo→Qwen→Wan3 最小链路全绿），待归档正式 UAT 报告 |
 
 RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。此后 2026-10-10 的干净 venv 复测为 **2123 passed / 8 skipped / 0 failed**（新增 Phase M3 测试所致，非回退）；§2 基线表采用后者。
 
@@ -189,6 +189,25 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 2. 双层限流缺口——`DISABLE_RATE_LIMIT=1` 只对 `RateLimitMiddleware` 生效，`SecurityMiddleware` 仍返回 429，导致全量 Playwright 失败；现已一致尊重该开关并补 2 项回归测试。
 3. `imageToVideo` 输出基数契约漂移——统一为 FE `node-manifest.ts` 权威（`video` 输出 `cardinality='one'`），后端对齐并加契约 parity 测试。
 4. `test_wan3_uat` 配置断言被本地 `.env` 影响（`AI_VIDEO_WAN3_MODEL=wan3.0-video-prime` 覆盖默认值）——改为构造不加载 `.env` 的 `Settings(_env_file=None)` 验证声明默认值。
+
+### 6.1 真实链路 UAT 证据（2026-10-12）
+
+最小真实链路 **MiMo → Qwen Image → Wan3** 已在当前工作区跑通，命令：`python scripts/smoke_real_chain.py chain`（脚本本轮新增，支持 `health` / `models` / `chain` 三种模式，调用量上限 1 文本 + 1 图 + 1 视频）。
+
+| 步骤 | 结果 | 耗时 | 产物 |
+|---|---|---:|---|
+| MiMo `mimo-v2.5-pro` 文本 | ✅ | 6.23s | 1 条 image_prompt |
+| Qwen `qwen-image-3.0` 生图 | ✅ | 72.43s | `data/uat/20261012-112731/scene-001-variant-01.png`（1280×720，1,471,278 bytes） |
+| Wan3 `wan3.0-video` 图生视频 | ✅ | 44.29s | `data/uat/20261012-112731/scene-001-variant-01.mp4`（2s / 480P，2,242,752 bytes，external_job_id `2951b7d9-…`） |
+
+前置健康探测（`health` 模式，调用各 Provider `health_check()`）三家均 `healthy: true`。
+
+**顺带发现的配置缺陷（需修复，见下）**：`.env` 中 `AI_VIDEO_OPENAI_COMPAT_MAX_TOKENS=1048576`，超过 MiMo 上限（completion tokens 最大 131072），导致 `chat/completions` 直接返回 **HTTP 400 "max_completion_tokens is too large"**。这意味着 **任何走 MiMo 的文本调用（分镜、Agent intent）在当前 `.env` 下都会失败**，与 Provider 代码无关。smoke 脚本已做钳位绕过（`min(settings, 8192)`），根治需二选一：
+
+1. 将 `.env` 中该值改为合理值（建议 4096，与 `Settings` 默认一致）；
+2. 在 `OpenAICompatProvider` 构造时按模型上限校验/钳位，非法值直接报配置错误而不是打到 API 才 400。
+
+RC-008 状态因此从「待办」改为「主链已通」；剩余是把本次证据整理为正式 UAT 报告（含成本、模型参数、SHA）归档到 `docs/reports/`。
 
 ## 7. 后续开发路线
 
@@ -229,6 +248,7 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 
 ## 8. 文档导航
 
+- 长远路线图（v1.0 后 12-18 个月，方向层）：[`plans/active/ROADMAP.md`](plans/active/ROADMAP.md)
 - 主交付计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 - 当前推进计划（平台硬化 H0-H6）：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)
 - 历史 RC 收敛计划（Superseded，见其头部说明）：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)

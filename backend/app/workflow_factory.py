@@ -1,6 +1,7 @@
 import re
 
 from .models import NodeData, Position, WorkflowEdge, WorkflowNode, WorkflowSpec
+from .schemas.node_catalog import load_node_catalog
 
 
 NODE_DEFS = [
@@ -12,16 +13,26 @@ NODE_DEFS = [
     ("output", "成片输出", "video", None, {"filename": "output.mp4"}),
 ]
 
-# V2 端口 ID（与 agent_tools._NODE_CATALOG_V2 一致）: kind -> (输入端口, 输出端口)
-# 边必须携带 sourceHandle/targetHandle 才能命中必填端口。
-NODE_PORT_IDS: dict[str, tuple[str | None, str | None]] = {
-    "textInput": (None, "text"),
-    "storyboard": ("prompt", "scenes"),
-    "textToImage": ("scene", "image"),
-    "imageToVideo": ("image", "video"),
-    "videoConcat": ("video", "video"),
-    "output": ("video", None),
-}
+
+def _default_port_ids() -> dict[str, tuple[str | None, str | None]]:
+    """从共享 catalog 推导 kind -> (输入端口, 输出端口)。
+
+    HARD-101：端口 ID 来自 schemas/base-node-manifest.json。
+    选第一个必填输入（若无则第一个输入）与第一个输出。
+    边必须携带 sourceHandle/targetHandle 才能命中必填端口。
+    """
+    catalog = load_node_catalog()
+    result: dict[str, tuple[str | None, str | None]] = {}
+    for kind, manifest in catalog.items():
+        inputs = manifest.ports.inputs
+        outputs = manifest.ports.outputs
+        in_id = next((p.id for p in inputs if p.required), inputs[0].id if inputs else None)
+        out_id = outputs[0].id if outputs else None
+        result[kind] = (in_id, out_id)
+    return result
+
+
+NODE_PORT_IDS: dict[str, tuple[str | None, str | None]] = _default_port_ids()
 
 
 def create_prompt_to_video(prompt: str) -> WorkflowSpec:

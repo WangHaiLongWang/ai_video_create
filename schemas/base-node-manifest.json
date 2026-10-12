@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "base-node-manifest-v1",
+  "title": "Base Node Manifest",
+  "description": "HARD-101 单一事实来源：节点端口 id/type/cardinality/required 与节点元数据的权威定义。文件同时是 JSON Schema（$defs 定义结构）与目录数据（nodeKinds）。端口字段以 frontend/src/schemas/node-manifest.ts 历史权威表为准冻结；前后端均从本文件加载。",
+  "type": "object",
+  "required": ["schemaVersion", "nodeKinds"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version identifier"
+    },
+    "nodeKinds": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/NodeManifest" },
+      "description": "Authoritative node catalog entries, one per NodeKind"
+    }
+  },
+  "$defs": {
+    "PortType": {
+      "type": "string",
+      "enum": ["text", "scene", "image", "video", "audio", "asset", "any"],
+      "description": "Base type of a port"
+    },
+    "Cardinality": {
+      "type": "string",
+      "enum": ["one", "many"],
+      "description": "How many values a port carries"
+    },
+    "PortDefinition": {
+      "type": "object",
+      "required": ["id", "type", "cardinality", "required"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-zA-Z_]+$",
+          "description": "Stable handle ID, e.g. \"image\", \"scenes\", \"scene\""
+        },
+        "type": { "$ref": "#/$defs/PortType" },
+        "required": {
+          "type": "boolean",
+          "description": "Only meaningful for inputs; outputs must be false"
+        },
+        "cardinality": { "$ref": "#/$defs/Cardinality" },
+        "label": {
+          "type": "string",
+          "description": "Optional human-readable name; defaults to id"
+        }
+      }
+    },
+    "ExecutionHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mapOver": {
+          "type": "string",
+          "description": "Port ID to map over (e.g. \"scene\" for per-scene expansion)"
+        },
+        "aggregate": {
+          "type": "string",
+          "description": "Port ID to aggregate into"
+        }
+      }
+    },
+    "ConfigFieldSummary": {
+      "type": "object",
+      "description": "configSchema 摘要：字段名 -> {type, default?}",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "default": true
+        }
+      }
+    },
+    "NodeManifest": {
+      "type": "object",
+      "required": ["kind", "version", "category", "label", "ports"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Matches NodeKind"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "semver"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["input", "transform", "video", "output"],
+          "description": "Node display category"
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "ports": {
+          "type": "object",
+          "required": ["inputs", "outputs"],
+          "additionalProperties": false,
+          "properties": {
+            "inputs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/PortDefinition" }
+            },
+            "outputs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/PortDefinition" }
+            }
+          }
+        },
+        "configSchema": { "$ref": "#/$defs/ConfigFieldSummary" },
+        "execution": { "$ref": "#/$defs/ExecutionHints" }
+      }
+    }
+  },
+  "schemaVersion": "1.0",
+  "nodeKinds": [
+    {
+      "kind": "textInput",
+      "version": "1.0.0",
+      "category": "input",
+      "label": "主题输入",
+      "description": "输入创作主题与要求",
+      "ports": {
+        "inputs": [],
+        "outputs": [
+          { "id": "text", "type": "text", "required": false, "cardinality": "one" }
+        ]
+      },
+      "configSchema": {
+        "prompt": { "type": "string", "default": "" }
+      }
+    },
+    {
+      "kind": "storyboard",
+      "version": "1.0.0",
+      "category": "transform",
+      "label": "分镜生成",
+      "description": "将主题转换为结构化分镜",
+      "ports": {
+        "inputs": [
+          { "id": "prompt", "type": "text", "required": true, "cardinality": "one" }
+        ],
+        "outputs": [
+          { "id": "scenes", "type": "scene", "required": false, "cardinality": "many" }
+        ]
+      },
+      "configSchema": {
+        "scenes": { "type": "integer", "default": 5 },
+        "style": { "type": "string", "default": "cinematic" }
+      }
+    },
+    {
+      "kind": "textToImage",
+      "version": "1.0.0",
+      "category": "transform",
+      "label": "文生图",
+      "description": "逐镜生成关键帧",
+      "ports": {
+        "inputs": [
+          { "id": "scene", "type": "scene", "required": true, "cardinality": "one" }
+        ],
+        "outputs": [
+          { "id": "image", "type": "image", "required": false, "cardinality": "one" }
+        ]
+      },
+      "configSchema": {
+        "mapOver": { "type": "boolean", "default": true },
+        "variantCount": { "type": "integer", "default": 1 }
+      },
+      "execution": { "mapOver": "scene" }
+    },
+    {
+      "kind": "imageToVideo",
+      "version": "1.0.0",
+      "category": "video",
+      "label": "图生视频",
+      "description": "逐张图片生成视频片段",
+      "ports": {
+        "inputs": [
+          { "id": "image", "type": "image", "required": true, "cardinality": "one" },
+          { "id": "scene", "type": "scene", "required": false, "cardinality": "one" }
+        ],
+        "outputs": [
+          { "id": "video", "type": "video", "required": false, "cardinality": "one" }
+        ]
+      },
+      "configSchema": {
+        "mapOver": { "type": "boolean", "default": true },
+        "duration": { "type": "number", "default": 4 },
+        "resolution": { "type": "string", "default": "720P" }
+      },
+      "execution": { "mapOver": "image" }
+    },
+    {
+      "kind": "videoConcat",
+      "version": "1.0.0",
+      "category": "video",
+      "label": "视频合成",
+      "description": "按分镜顺序合并片段",
+      "ports": {
+        "inputs": [
+          { "id": "video", "type": "video", "required": true, "cardinality": "many" }
+        ],
+        "outputs": [
+          { "id": "video", "type": "video", "required": false, "cardinality": "one" }
+        ]
+      },
+      "configSchema": {
+        "filename": { "type": "string", "default": "output.mp4" }
+      }
+    },
+    {
+      "kind": "output",
+      "version": "1.0.0",
+      "category": "output",
+      "label": "成片输出",
+      "description": "预览与下载最终结果",
+      "ports": {
+        "inputs": [
+          { "id": "video", "type": "video", "required": true, "cardinality": "one" }
+        ],
+        "outputs": []
+      },
+      "configSchema": {}
+    }
+  ]
+}

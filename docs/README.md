@@ -8,6 +8,7 @@
 | [产品需求](product/PRD.md) | v1.0 范围、用户流程、验收要求 | 需求变化时 |
 | [系统架构](architecture/SYSTEM-DESIGN.md) | 模块边界、数据流、Provider 架构 | 架构决策变化时 |
 | [Active 交付计划](plans/active/DELIVERY-PLAN.md) | Sprint、工单、门禁和发布计划 | Planning/Review 后 |
+| [长远路线图](plans/active/ROADMAP.md) | v1.0 后 12-18 个月版本列车、工程支柱与待决策项 | 版本出口/决策拍板后 |
 | [Flow/Scene 专项计划](plans/active/FRONTEND-FLOW-SCENE-PLAN.md) | React Flow 连线、Scene 编辑与 Prompt 导出 | 专项 Review 后 |
 | [滑雪教学验收工作流](plans/active/SKI-LESSON-WORKFLOW-PLAN.md) | 2 张照片 → 2 段 3 秒视频 → 合成 | 作为真实端到端目标 |
 | [React Flow / Agent 计划](plans/active/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 已落地收口（2026-10-12 校准） |

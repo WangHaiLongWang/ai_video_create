@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from backend.app.services.agent_tools import _NODE_CATALOG_V2
+from backend.app.services.agent_tools import _NODE_CATALOG_V2  # HARD-101: 已指向共享 catalog
 from backend.app.schemas.module_definition import ModuleDefinition
 
 

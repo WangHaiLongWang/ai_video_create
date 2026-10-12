@@ -9,12 +9,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.app.schemas.node_manifest import (
-    ExecutionHints,
-    NodeManifest,
-    PortDefinition,
-    PortGroup,
-)
+from backend.app.schemas.node_catalog import load_node_catalog
+from backend.app.schemas.node_manifest import NodeManifest
 from backend.app.schemas.workflow_intent import (
     ConnectionIntent,
     NodeIntent,
@@ -25,115 +21,13 @@ from backend.app.schemas.workflow_intent import (
 # ---------------------------------------------------------------------------
 # V2 NODE_CATALOG -- rich manifests with typed ports
 #
-# Canonical contract: frontend/src/schemas/node-manifest.ts is the
-# human-facing source of truth. Port ids/types/cardinality/required must
-# match it exactly (MOD-R3-002 drift fix):
-#   - outputs carry required=False ("required" is only meaningful for inputs)
-#   - imageToVideo: optional "scene" input, "video" output cardinality "one"
+# HARD-101: 端口 id/type/cardinality/required 以 schemas/base-node-manifest.json
+# 为单一事实来源（历史权威表 frontend/src/schemas/node-manifest.ts 的冻结值）。
+# 本模块只做加载与 AgentToolResult 包装，不再手写端口表。
+# HARD-104 衔接点：Agent parser/compiler/validator 一律消费本 catalog，禁止私有 port map。
 # ---------------------------------------------------------------------------
 
-_NODE_CATALOG_V2: dict[str, NodeManifest] = {
-    "textInput": NodeManifest(
-        kind="textInput",
-        category="input",
-        label="TextInput",
-        description="输入提示词，作为工作流的起点",
-        ports=PortGroup(
-            inputs=[],
-            outputs=[
-                PortDefinition(id="text", type="text", required=False, label="Text"),
-            ],
-        ),
-        config_schema={"prompt": {"type": "string", "default": ""}},
-    ),
-    "storyboard": NodeManifest(
-        kind="storyboard",
-        category="generator",
-        label="Storyboard",
-        description="将文本拆分为多个场景（分镜），每个场景包含叙述、图片提示词、视频提示词",
-        ports=PortGroup(
-            inputs=[
-                PortDefinition(id="prompt", type="text", required=True, label="Prompt"),
-            ],
-            outputs=[
-                PortDefinition(id="scenes", type="scene", required=False, cardinality="many", label="Scenes"),
-            ],
-        ),
-        config_schema={
-            "scenes": {"type": "integer", "default": 5},
-            "style": {"type": "string", "default": "cinematic"},
-        },
-    ),
-    "textToImage": NodeManifest(
-        kind="textToImage",
-        category="generator",
-        label="TextToImage",
-        description="为每个场景生成一张图片（支持 mapOver 展开）",
-        ports=PortGroup(
-            inputs=[
-                PortDefinition(id="scene", type="scene", required=True, label="Scene"),
-            ],
-            outputs=[
-                PortDefinition(id="image", type="image", required=False, label="Image"),
-            ],
-        ),
-        config_schema={
-            "mapOver": {"type": "boolean", "default": True},
-            "variantCount": {"type": "integer", "default": 1},
-        },
-        execution=ExecutionHints(mapOver="scene"),
-    ),
-    "imageToVideo": NodeManifest(
-        kind="imageToVideo",
-        category="generator",
-        label="ImageToVideo",
-        description="将图片转为视频片段（支持 mapOver 展开）",
-        ports=PortGroup(
-            inputs=[
-                PortDefinition(id="image", type="image", required=True, label="Image"),
-                PortDefinition(id="scene", type="scene", required=False, label="Scene"),
-            ],
-            outputs=[
-                PortDefinition(id="video", type="video", required=False, cardinality="one", label="Video"),
-            ],
-        ),
-        config_schema={
-            "mapOver": {"type": "boolean", "default": True},
-            "duration": {"type": "number", "default": 4},
-            "resolution": {"type": "string", "default": "720P"},
-        },
-        execution=ExecutionHints(mapOver="image"),
-    ),
-    "videoConcat": NodeManifest(
-        kind="videoConcat",
-        category="compositor",
-        label="VideoConcat",
-        description="将多个视频片段拼接为一个完整视频",
-        ports=PortGroup(
-            inputs=[
-                PortDefinition(id="video", type="video", required=True, cardinality="many", label="Video"),
-            ],
-            outputs=[
-                PortDefinition(id="video", type="video", required=False, label="Video"),
-            ],
-        ),
-        config_schema={
-            "filename": {"type": "string", "default": "output.mp4"},
-        },
-    ),
-    "output": NodeManifest(
-        kind="output",
-        category="output",
-        label="Output",
-        description="工作流的终点，输出最终视频",
-        ports=PortGroup(
-            inputs=[
-                PortDefinition(id="video", type="video", required=True, label="Video"),
-            ],
-            outputs=[],
-        ),
-    ),
-}
+_NODE_CATALOG_V2: dict[str, NodeManifest] = load_node_catalog()
 
 
 # ---------------------------------------------------------------------------

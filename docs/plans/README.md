@@ -6,6 +6,7 @@
 
 ## Active
 
+- [`active/ROADMAP.md`](active/ROADMAP.md)：长远路线图（v1.0 后 12-18 个月），方向层，不用于领取工单。
 - [`active/DELIVERY-PLAN.md`](active/DELIVERY-PLAN.md)：主交付计划。所有新工单、Sprint、里程碑和发布门禁以此为准。
 - [`active/PLATFORM-HARDENING-PLAN.md`](active/PLATFORM-HARDENING-PLAN.md)：当前推进计划。平台硬化、共享契约、迁移、Provider 持久化和 RC 发布。
 - [`active/RC-CLOSURE-PLAN.md`](active/RC-CLOSURE-PLAN.md)：RC 收敛、CI、浏览器和发布门禁计划（部分门禁已关闭，剩余项已转入 HARD-5xx/HARD-6xx）。

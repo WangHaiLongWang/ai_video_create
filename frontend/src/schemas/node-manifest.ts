@@ -1,4 +1,7 @@
 import type { NodeKind } from '../types'
+// HARD-101：数据单一事实来源为 schemas/base-node-manifest.json（repo 根）。
+// 本文件只保留类型定义与从共享 JSON 构建的 NODE_CATALOG，禁止再手写端口表。
+import manifestDocument from '../../../schemas/base-node-manifest.json'
 
 // ---------------------------------------------------------------------------
 // Port types
@@ -32,101 +35,16 @@ export interface NodeManifest {
 }
 
 // ---------------------------------------------------------------------------
-// Catalog — one entry per NodeKind
+// Catalog — built from the shared JSON (single source of truth)
 // ---------------------------------------------------------------------------
-export const NODE_CATALOG: Record<NodeKind, NodeManifest> = {
-  textInput: {
-    kind: 'textInput',
-    version: '1.0.0',
-    category: 'input',
-    label: '主题输入',
-    description: '输入创作主题与要求',
-    ports: {
-      inputs: [],
-      outputs: [
-        { id: 'text', type: 'text', required: false, cardinality: 'one' },
-      ],
-    },
-  },
+export const NODE_MANIFEST_DOCUMENT = manifestDocument
 
-  storyboard: {
-    kind: 'storyboard',
-    version: '1.0.0',
-    category: 'transform',
-    label: '分镜生成',
-    description: '将主题转换为结构化分镜',
-    ports: {
-      inputs: [
-        { id: 'prompt', type: 'text', required: true, cardinality: 'one' },
-      ],
-      outputs: [
-        { id: 'scenes', type: 'scene', required: false, cardinality: 'many' },
-      ],
-    },
-  },
-
-  textToImage: {
-    kind: 'textToImage',
-    version: '1.0.0',
-    category: 'transform',
-    label: '文生图',
-    description: '逐镜生成关键帧',
-    ports: {
-      inputs: [
-        { id: 'scene', type: 'scene', required: true, cardinality: 'one' },
-      ],
-      outputs: [
-        { id: 'image', type: 'image', required: false, cardinality: 'one' },
-      ],
-    },
-    execution: { mapOver: 'scene' },
-  },
-
-  imageToVideo: {
-    kind: 'imageToVideo',
-    version: '1.0.0',
-    category: 'video',
-    label: '图生视频',
-    description: '逐张图片生成视频片段',
-    ports: {
-      inputs: [
-        { id: 'image', type: 'image', required: true, cardinality: 'one' },
-        { id: 'scene', type: 'scene', required: false, cardinality: 'one' },
-      ],
-      outputs: [
-        { id: 'video', type: 'video', required: false, cardinality: 'one' },
-      ],
-    },
-    execution: { mapOver: 'image' },
-  },
-
-  videoConcat: {
-    kind: 'videoConcat',
-    version: '1.0.0',
-    category: 'video',
-    label: '视频合成',
-    description: '按分镜顺序合并片段',
-    ports: {
-      inputs: [
-        { id: 'video', type: 'video', required: true, cardinality: 'many' },
-      ],
-      outputs: [
-        { id: 'video', type: 'video', required: false, cardinality: 'one' },
-      ],
-    },
-  },
-
-  output: {
-    kind: 'output',
-    version: '1.0.0',
-    category: 'output',
-    label: '成片输出',
-    description: '预览与下载最终结果',
-    ports: {
-      inputs: [
-        { id: 'video', type: 'video', required: true, cardinality: 'one' },
-      ],
-      outputs: [],
-    },
-  },
+function buildCatalog(): Record<NodeKind, NodeManifest> {
+  const catalog = {} as Record<NodeKind, NodeManifest>
+  for (const entry of manifestDocument.nodeKinds) {
+    catalog[entry.kind as NodeKind] = entry as unknown as NodeManifest
+  }
+  return catalog
 }
+
+export const NODE_CATALOG: Record<NodeKind, NodeManifest> = buildCatalog()

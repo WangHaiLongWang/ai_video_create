@@ -35,7 +35,8 @@ class TestListNodeManifests:
         assert result.success
         text_input = result.data["textInput"]
         assert text_input["kind"] == "textInput"
-        assert text_input["label"] == "TextInput"
+        # HARD-101: label 来自 schemas/base-node-manifest.json（与 FE 权威表一致）
+        assert text_input["label"] == "主题输入"
         assert len(text_input["outputs"]) == 1
         assert text_input["outputs"][0]["id"] == "text"
         assert text_input["outputs"][0]["type"] == "text"

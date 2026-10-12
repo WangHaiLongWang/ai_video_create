@@ -30,8 +30,8 @@ from backend.app.schemas.node_manifest import NodeManifest
 
 
 # ---------------------------------------------------------------------------
-# Default catalog -- imported from agent_tools where the authoritative
-# _NODE_CATALOG_V2 lives.
+# Default catalog -- HARD-101: loaded from schemas/base-node-manifest.json
+# via backend.app.schemas.node_catalog (single source of truth).
 # ---------------------------------------------------------------------------
 
 _default_catalog: dict[str, NodeManifest] | None = None
@@ -40,14 +40,14 @@ _default_catalog: dict[str, NodeManifest] | None = None
 def get_node_catalog() -> dict[str, NodeManifest]:
     """Return the authoritative node manifest catalog.
 
-    Lazy-imports from agent_tools to avoid circular imports at module load
-    time.
+    Port id/type/cardinality come from the shared base-node-manifest.json
+    (HARD-101). Lazy-loaded so module import order stays cheap.
     """
     global _default_catalog
     if _default_catalog is None:
-        from backend.app.services.agent_tools import _NODE_CATALOG_V2
+        from backend.app.schemas.node_catalog import load_node_catalog
 
-        _default_catalog = dict(_NODE_CATALOG_V2)
+        _default_catalog = dict(load_node_catalog())
     return _default_catalog
 
 
