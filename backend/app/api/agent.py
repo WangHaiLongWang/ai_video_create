@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from backend.app.domain.graph_validation import (
     extract_nodes_edges_from_spec,
@@ -18,10 +21,34 @@ from backend.app.services.agent_diff import (
     check_destructive as _check_destructive,
     generate_diff as _generate_diff,
 )
+from backend.app.services import agent_trace
 from backend.app.repositories.workflows import get_workflow, update_workflow
 from backend.app.db.connection import get_connection
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
+
+
+# ---------------------------------------------------------------------------
+# Trace query error envelopes (same shape as graph_validation.build_422_response)
+# ---------------------------------------------------------------------------
+
+def _trace_error_body(code: str, message: str, errors: list[dict] | None = None) -> dict:
+    """Build the structured error envelope reused from build_422_response."""
+    body: dict[str, Any] = {"error": {"code": code, "message": message}}
+    if errors is not None:
+        body["error"]["details"] = {"errors": errors}
+    return body
+
+
+def _trace_validation_error(errors: list[dict]) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content=_trace_error_body(
+            "TRACE_QUERY_INVALID",
+            f"轨迹查询参数无效（{len(errors)} 个错误）",
+            errors,
+        ),
+    )
 
 
 def _validate_patched_spec(spec: WorkflowSpec, patch: GraphPatch) -> None:
@@ -97,7 +124,9 @@ async def modify_workflow(request: ModifyRequest) -> dict:
     spec = WorkflowSpec(**spec_dict)
 
     service = get_agent_service()
-    patch = await service.modify_workflow(spec, request.instruction)
+    patch = await service.modify_workflow(
+        spec, request.instruction, workflow_id=request.workflow_id
+    )
 
     return {
         "status": "ok",
@@ -122,7 +151,9 @@ async def modify_preview(request: ModifyRequest) -> dict:
     spec = WorkflowSpec(**spec_dict)
 
     service = get_agent_service()
-    patch = await service.modify_workflow(spec, request.instruction)
+    patch = await service.modify_workflow(
+        spec, request.instruction, workflow_id=request.workflow_id
+    )
 
     # Validate the patched result before returning
     _validate_patched_spec(spec, patch)
@@ -163,6 +194,34 @@ async def explain_workflow(request: ExplainRequest) -> dict:
 @router.post("/apply-patch", response_model=WorkflowSpec)
 async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
     """应用 GraphPatch 到工作流。"""
+    patch = request.patch
+    diff_summary = agent_trace.summarize_graph_patch(patch)
+
+    with agent_trace.trace_operation(
+        agent_trace.TRACE_KIND_APPLY,
+        workflow_id=request.workflow_id,
+        prompt=patch.description or "",
+    ) as tr:
+        tr.set_module_diff_summary(diff_summary)
+        try:
+            new_spec = _apply_patch_impl(request)
+        except HTTPException as exc:
+            tr.set_status("error", error_code=f"HTTP_{exc.status_code}")
+            raise
+
+        agent_trace.safe_finish(tr, module_diff_summary=diff_summary)
+        agent_trace.emit_agent_audit(
+            agent_trace.AUDIT_APPLY,
+            prompt_hash=tr.prompt_hash,
+            module_diff_summary=diff_summary,
+            repair_count=tr.repair_count,
+            trace_id=tr.trace_id or None,
+        )
+        return new_spec
+
+
+def _apply_patch_impl(request: ApplyPatchRequest) -> WorkflowSpec:
+    """Apply a GraphPatch to a workflow (persistence + validation)."""
     conn = get_connection()
     row = conn.execute(
         "SELECT spec_json, version FROM workflows WHERE id = ?", (request.workflow_id,)
@@ -224,7 +283,14 @@ async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
     # Validate the patched graph before saving
     new_spec_dict = new_spec.model_dump()
     nodes, edges = extract_nodes_edges_from_spec(new_spec_dict)
-    raise_if_invalid(nodes, edges)
+    try:
+        raise_if_invalid(nodes, edges)
+    except HTTPException:
+        agent_trace.safe_add_step(
+            None, "validate", "graph_validation", "error", 0, {}
+        )
+        raise
+    agent_trace.safe_add_step(None, "validate", "graph_validation", "ok", 0, {})
 
     # 保存到数据库
     try:
@@ -233,3 +299,61 @@ async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
         raise HTTPException(500, f"保存失败: {e}")
 
     return new_spec
+
+
+# ---------------------------------------------------------------------------
+# Agent Trace queries (pinned contract)
+# ---------------------------------------------------------------------------
+
+@router.get("/traces")
+async def list_agent_traces(
+    workflow_id: str | None = None,
+    kind: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Any:
+    """列出 agent 轨迹摘要。
+
+    Query: workflow_id?  kind?  limit? (default 50, max 200)  offset? (default 0)
+    200 -> { "traces": [TraceSummary], "total": int }
+    """
+    errors: list[dict] = []
+    if kind is not None and kind not in agent_trace.TRACE_KINDS:
+        errors.append({
+            "code": "TRACE_KIND_INVALID",
+            "message": f"kind 必须是 {'/'.join(agent_trace.TRACE_KINDS)} 之一",
+        })
+    if limit < 1 or limit > 200:
+        errors.append({
+            "code": "TRACE_LIMIT_INVALID",
+            "message": "limit 必须在 1..200 之间",
+        })
+    if offset < 0:
+        errors.append({
+            "code": "TRACE_OFFSET_INVALID",
+            "message": "offset 不能为负数",
+        })
+    if errors:
+        return _trace_validation_error(errors)
+
+    return agent_trace.list_traces(
+        workflow_id=workflow_id, kind=kind, limit=limit, offset=offset
+    )
+
+
+@router.get("/traces/{trace_id}")
+async def get_agent_trace(trace_id: str) -> Any:
+    """获取单条轨迹详情。
+
+    200 -> TraceDetail
+    404 -> { "error": { "code": "TRACE_NOT_FOUND", "message": str } }
+    """
+    detail = agent_trace.get_trace(trace_id)
+    if detail is None:
+        return JSONResponse(
+            status_code=404,
+            content=_trace_error_body(
+                "TRACE_NOT_FOUND", f"轨迹不存在: {trace_id}"
+            ),
+        )
+    return detail

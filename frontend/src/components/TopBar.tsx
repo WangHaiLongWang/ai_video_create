@@ -6,13 +6,14 @@
  */
 
 import { Suspense, lazy, useMemo, useState, useCallback } from 'react'
-import { CaretDown, Export, FileArrowUp, FloppyDisk, FilmStrip, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
+import { CaretDown, Clock, Export, FileArrowUp, FloppyDisk, FilmStrip, Folder, GearSix, List, Pause, Play, SquaresFour, TreeStructure } from '@phosphor-icons/react'
 import { useStudioStore } from '../store'
 import { useExecutionStore } from '../stores/executionStore'
 import { computeCallEstimate } from '../utils/callEstimate'
 import { ExportDialog } from './ExportDialog'
 import { ImportDialog } from './ImportDialog'
 
+const AgentTracePanel = lazy(() => import('./AgentTracePanel').then(m => ({ default: m.AgentTracePanel })))
 const AssetPanel = lazy(() => import('./AssetPanel').then(m => ({ default: m.AssetPanel })))
 const SettingsPanel = lazy(() => import('./SettingsPanel'))
 const TemplateSelector = lazy(() => import('./TemplateSelector'))
@@ -33,6 +34,7 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
   const [showTemplates, setShowTemplates] = useState(false)
   const [showWorkflowList, setShowWorkflowList] = useState(false)
   const [showAssets, setShowAssets] = useState(false)
+  const [showAgentTrace, setShowAgentTrace] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
@@ -90,6 +92,9 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
           </button>
           <button className="icon-button" onClick={() => setShowAssets(true)} aria-label="资产">
             <Folder size={18} />
+          </button>
+          <button className="icon-button" onClick={() => setShowAgentTrace(true)} aria-label="Agent 执行轨迹">
+            <Clock size={18} />
           </button>
           <button className="icon-button" onClick={onToggleSceneEditor} aria-label="场景编辑器">
             <FilmStrip size={18} />
@@ -154,6 +159,11 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
       {showAssets && (
         <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
           <AssetPanel onClose={() => setShowAssets(false)} />
+        </Suspense>
+      )}
+      {showAgentTrace && (
+        <Suspense fallback={<div className="loading-overlay">加载中...</div>}>
+          <AgentTracePanel onClose={() => setShowAgentTrace(false)} />
         </Suspense>
       )}
       {showExport && <ExportDialog workflowId={workflow.id} onClose={() => setShowExport(false)} />}

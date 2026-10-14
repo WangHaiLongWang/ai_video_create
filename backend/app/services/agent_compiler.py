@@ -20,6 +20,7 @@ from backend.app.schemas.workflow_intent import (
     NodeIntent,
     WorkflowIntent,
 )
+from backend.app.services import agent_trace
 from backend.app.services.agent_tools import _NODE_CATALOG_V2
 
 # ---------------------------------------------------------------------------
@@ -61,6 +62,30 @@ def _node_position(index: int) -> dict[str, float]:
 
 
 def compile_intent(intent: WorkflowIntent) -> dict[str, Any]:
+    """Compile a :class:`WorkflowIntent` into a WorkflowSpecV2 dict.
+
+    Records a ``compile`` step on the active agent trace (if any).  The
+    compilation result is identical with or without an active trace.
+    """
+    try:
+        spec = _compile_intent_impl(intent)
+    except Exception as exc:
+        agent_trace.safe_add_step(
+            None, "compile", "compile_workflow", "error", 0,
+            {"error_type": type(exc).__name__},
+        )
+        raise
+    agent_trace.safe_add_step(
+        None, "compile", "compile_workflow", "ok", 0,
+        {
+            "node_count": len(spec.get("nodes", [])),
+            "edge_count": len(spec.get("edges", [])),
+        },
+    )
+    return spec
+
+
+def _compile_intent_impl(intent: WorkflowIntent) -> dict[str, Any]:
     """Compile a :class:`WorkflowIntent` into a WorkflowSpecV2 dict.
 
     Parameters

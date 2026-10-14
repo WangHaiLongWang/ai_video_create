@@ -13,6 +13,7 @@ from backend.app.models import (
 )
 from backend.app.providers import get_provider
 from backend.app.providers.base import ProviderError
+from backend.app.services import agent_trace
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,25 @@ class AgentService:
         """
         config = config or {}
         provider = self._get_provider()
+        provider_name = getattr(provider, "name", None) if provider else None
+        model_name = getattr(provider, "model", None) if provider else None
 
+        # 每次 generate 写一条 trace（trace 失败绝不影响生成本身）
+        with agent_trace.trace_operation(
+            agent_trace.TRACE_KIND_GENERATE,
+            workflow_id=None,
+            prompt=prompt,
+            provider=provider_name,
+            model=model_name,
+        ) as tr:
+            spec = await self._generate_with_provider(prompt, config, provider)
+            self._record_validate_step(spec)
+            return spec
+
+    async def _generate_with_provider(
+        self, prompt: str, config: dict, provider: Any
+    ) -> WorkflowSpec:
+        """Generate a spec via the provider (or template fallback)."""
         if not provider or not provider.capabilities.text:
             logger.warning("No text provider available, using template fallback")
             return self._template_fallback(prompt, config)
@@ -141,27 +160,76 @@ class AgentService:
                 SYSTEM_PROMPT + "\n\n" + user_message,
                 {"temperature": 0.7, "max_tokens": 4096},
             )
-
             return self._parse_workflow_response(response_text, prompt)
 
         except ProviderError as e:
             logger.error(f"Agent generation failed: {e}")
             return self._template_fallback(prompt, config)
 
+    def _record_validate_step(self, spec: WorkflowSpec) -> None:
+        """Record a ``validate`` step with the graph validation result."""
+        try:
+            from backend.app.domain.graph_validation import (
+                extract_nodes_edges_from_spec,
+                validate_graph,
+            )
+
+            nodes, edges = extract_nodes_edges_from_spec(spec.model_dump())
+            errors = validate_graph(nodes, edges)
+            agent_trace.safe_add_step(
+                None,
+                "validate",
+                "graph_validation",
+                "ok" if not errors else "error",
+                0,
+                {"error_count": len(errors)},
+            )
+        except Exception as exc:  # pragma: no cover - validation must never break generate
+            logger.error("agent validate step failed: %s", exc)
+
     async def modify_workflow(
-        self, spec: WorkflowSpec, instruction: str
+        self, spec: WorkflowSpec, instruction: str, workflow_id: str | None = None
     ) -> GraphPatch:
         """修改现有工作流。
 
         Args:
             spec: 当前工作流
             instruction: 修改指令
+            workflow_id: 关联工作流 ID（用于 trace）
 
         Returns:
             GraphPatch（待用户确认）
         """
         provider = self._get_provider()
+        provider_name = getattr(provider, "name", None) if provider else None
+        model_name = getattr(provider, "model", None) if provider else None
 
+        with agent_trace.trace_operation(
+            agent_trace.TRACE_KIND_MODIFY,
+            workflow_id=workflow_id,
+            prompt=instruction,
+            provider=provider_name,
+            model=model_name,
+        ) as tr:
+            patch = await self._modify_with_provider(spec, instruction, provider)
+            diff_summary = agent_trace.summarize_graph_patch(patch)
+            agent_trace.safe_finish(
+                tr,
+                module_diff_summary=diff_summary,
+            )
+            agent_trace.emit_agent_audit(
+                agent_trace.AUDIT_MODIFY,
+                prompt_hash=tr.prompt_hash,
+                module_diff_summary=diff_summary,
+                repair_count=tr.repair_count,
+                trace_id=tr.trace_id or None,
+            )
+            return patch
+
+    async def _modify_with_provider(
+        self, spec: WorkflowSpec, instruction: str, provider: Any
+    ) -> GraphPatch:
+        """Produce a GraphPatch via the provider (or simple-patch fallback)."""
         if not provider or not provider.capabilities.text:
             return self._simple_patch_fallback(spec, instruction)
 
@@ -234,6 +302,10 @@ class AgentService:
             if not nodes:
                 raise ValueError("No nodes in response")
 
+            agent_trace.safe_add_step(
+                None, "parse", "structured_intent", "ok", 0,
+                {"node_count": len(nodes), "edge_count": len(edges)},
+            )
             return WorkflowSpec(
                 id=f"wf-{uuid.uuid4().hex[:8]}",
                 name=prompt[:30] or "Generated Workflow",
@@ -243,6 +315,10 @@ class AgentService:
 
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logger.warning(f"Failed to parse workflow response: {e}")
+            agent_trace.safe_add_step(
+                None, "parse", "structured_intent", "error", 0,
+                {"error_type": type(e).__name__},
+            )
             return self._template_fallback(prompt, {})
 
     def _parse_patch_response(self, text: str) -> GraphPatch:
@@ -254,7 +330,7 @@ class AgentService:
                 text = text.split("```")[1].split("```")[0]
 
             data = json.loads(text)
-            return GraphPatch(
+            patch = GraphPatch(
                 description=data.get("description", ""),
                 add_nodes=[self._dict_to_node(n) for n in data.get("add_nodes", [])],
                 remove_nodes=data.get("remove_nodes", []),
@@ -262,9 +338,22 @@ class AgentService:
                 add_edges=[self._dict_to_edge(e) for e in data.get("add_edges", [])],
                 remove_edges=data.get("remove_edges", []),
             )
+            agent_trace.safe_add_step(
+                None, "parse", "structured_intent", "ok", 0,
+                {
+                    "added": len(patch.add_nodes),
+                    "removed": len(patch.remove_nodes),
+                    "updated": len(patch.update_nodes),
+                },
+            )
+            return patch
 
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(f"Failed to parse patch response: {e}")
+            agent_trace.safe_add_step(
+                None, "parse", "structured_intent", "error", 0,
+                {"error_type": type(e).__name__},
+            )
             return GraphPatch(description="解析失败，未应用修改")
 
     def _serialize_workflow_for_llm(self, spec: WorkflowSpec) -> str:
@@ -286,6 +375,10 @@ class AgentService:
 
     def _template_fallback(self, prompt: str, config: dict) -> WorkflowSpec:
         """模板降级方案 — 解析 prompt 中的场景数并应用。"""
+        agent_trace.safe_add_step(
+            None, "fallback", "template_fallback", "ok", 0,
+            {"reason": "llm_unavailable_or_parse_failed"},
+        )
         import re
         # 从 prompt 中提取场景数
         match = re.search(r"(\d+)\s*镜头", prompt)
@@ -311,6 +404,10 @@ class AgentService:
 
     def _simple_patch_fallback(self, spec: WorkflowSpec, instruction: str) -> GraphPatch:
         """简单 patch 降级。"""
+        agent_trace.safe_add_step(
+            None, "fallback", "simple_patch_fallback", "ok", 0,
+            {"reason": "llm_unavailable_or_parse_failed"},
+        )
         return GraphPatch(description=f"无法处理指令: {instruction}")
 
     @staticmethod

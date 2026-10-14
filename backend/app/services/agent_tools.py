@@ -17,6 +17,7 @@ from backend.app.schemas.workflow_intent import (
     PortRef,
     WorkflowIntent,
 )
+from backend.app.services import agent_trace
 
 # ---------------------------------------------------------------------------
 # V2 NODE_CATALOG -- rich manifests with typed ports
@@ -75,6 +76,9 @@ def list_node_manifests() -> AgentToolResult:
             ],
             "configSchema": manifest.config_schema,
         }
+    agent_trace.safe_add_step(
+        None, "tool", "list_node_manifests", "ok", 0, {"kind_count": len(catalog)},
+    )
     return AgentToolResult(success=True, data=catalog)
 
 
@@ -88,6 +92,9 @@ def list_templates() -> AgentToolResult:
         from backend.app.services.templates import get_template_service
         svc = get_template_service()
         templates = svc.list_templates()
+        agent_trace.safe_add_step(
+            None, "tool", "list_templates", "ok", 0, {"template_count": len(templates)},
+        )
         return AgentToolResult(
             success=True,
             data={
@@ -104,6 +111,9 @@ def list_templates() -> AgentToolResult:
             },
         )
     except Exception as exc:
+        agent_trace.safe_add_step(
+            None, "tool", "list_templates", "error", 0, {"error_type": type(exc).__name__},
+        )
         return AgentToolResult(success=False, error=f"Failed to list templates: {exc}")
 
 
@@ -116,10 +126,16 @@ def get_node_manifest(kind: str) -> AgentToolResult:
     manifest = _NODE_CATALOG_V2.get(kind)
     if manifest is None:
         available = list(_NODE_CATALOG_V2.keys())
+        agent_trace.safe_add_step(
+            None, "tool", "get_node_manifest", "error", 0, {"found": False},
+        )
         return AgentToolResult(
             success=False,
             error=f"Unknown node kind '{kind}'. Available: {available}",
         )
+    agent_trace.safe_add_step(
+        None, "tool", "get_node_manifest", "ok", 0, {"found": True},
+    )
     return AgentToolResult(
         success=True,
         data={
@@ -378,6 +394,9 @@ def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
     if variant_count > 3:
         warnings.append(f"Variant count ({variant_count}) is high. Each variant multiplies image and video calls.")
 
+    agent_trace.safe_add_step(
+        None, "tool", "estimate_calls", "ok", 0, {"total_calls": total},
+    )
     return AgentToolResult(
         success=True,
         data={

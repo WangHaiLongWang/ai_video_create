@@ -18,6 +18,7 @@ from backend.app.schemas.workflow_intent import (
     PortRef,
     WorkflowIntent,
 )
+from backend.app.services import agent_trace
 
 logger = logging.getLogger(__name__)
 
@@ -522,6 +523,10 @@ def _apply_intent_constraints(intent: WorkflowIntent) -> WorkflowIntent:
 
 def _template_fallback(prompt: str) -> WorkflowIntent:
     """Build a default WorkflowIntent matching the standard 6-node pipeline."""
+    agent_trace.safe_add_step(
+        None, "fallback", "template_fallback", "ok", 0,
+        {"reason": "llm_unavailable_or_parse_failed"},
+    )
     scene_count = _extract_scene_count(prompt) or 5
     variant_count = _extract_variant_count(prompt)
 
@@ -606,6 +611,9 @@ async def parse_workflow_intent(
     """
     if provider is None:
         logger.info("No provider available, using template fallback")
+        agent_trace.safe_add_step(
+            None, "parse", "structured_intent", "skipped", 0, {"reason": "no_provider"},
+        )
         return _template_fallback(prompt)
 
     system_prompt = _build_system_prompt()
@@ -618,19 +626,34 @@ async def parse_workflow_intent(
         )
     except Exception as exc:
         logger.warning(f"Provider call failed: {exc}, using template fallback")
+        agent_trace.safe_add_step(
+            None, "parse", "structured_intent", "error", 0,
+            {"error_type": type(exc).__name__},
+        )
         return _template_fallback(prompt)
 
     # Parse JSON
     data = _parse_json_response(response_text)
     if data is None:
         logger.warning("Failed to parse provider response as JSON, using template fallback")
+        agent_trace.safe_add_step(
+            None, "parse", "structured_intent", "error", 0, {"reason": "invalid_json"},
+        )
         return _template_fallback(prompt)
 
     # Build intent
     intent = _dict_to_intent(data, prompt)
     if intent is None:
         logger.warning("Invalid intent data from provider, using template fallback")
+        agent_trace.safe_add_step(
+            None, "parse", "structured_intent", "error", 0, {"reason": "invalid_intent"},
+        )
         return _template_fallback(prompt)
+
+    agent_trace.safe_add_step(
+        None, "parse", "structured_intent", "ok", 0,
+        {"node_count": len(intent.nodes), "connection_count": len(intent.connections)},
+    )
 
     # Add reasoning as a warning if present
     reasoning = data.get("reasoning")

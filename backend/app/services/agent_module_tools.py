@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.app.services import agent_trace
 from backend.app.services.module_registry import get_module_registry
 
 
@@ -46,6 +47,10 @@ def list_modules_for_agent(
             "outputPorts": output_ports,
         })
 
+    agent_trace.safe_add_step(
+        None, "tool", "list_modules_for_agent", "ok", 0,
+        {"module_count": len(result)},
+    )
     return result
 
 
@@ -60,7 +65,14 @@ def get_module_for_agent(module_id: str, version: str | None = None) -> dict | N
     registry = get_module_registry()
     module = registry.get_module(module_id, version=version)
     if module is None:
+        agent_trace.safe_add_step(
+            None, "tool", "get_module_for_agent", "error", 0, {"found": False},
+        )
         return None
+
+    agent_trace.safe_add_step(
+        None, "tool", "get_module_for_agent", "ok", 0, {"found": True},
+    )
 
     return {
         "id": module.id,

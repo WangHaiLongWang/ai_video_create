@@ -3846,3 +3846,250 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   margin-top: 1px;
 }
 
+
+/* ==================== AgentTracePanel ==================== */
+/* Reuses .asset-panel-overlay / .asset-panel shell + exec-* status chips.
+   Inner list / timeline follow the ExecutionPanel event-row pattern. */
+
+.agent-trace-panel {
+  width: min(860px, calc(100% - 40px));
+}
+
+.agent-trace-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.agent-trace-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.agent-trace-filter select,
+.agent-trace-filter input {
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 8px;
+  color: #c5c9be;
+  background: #171916;
+  font-size: 11px;
+}
+
+.agent-trace-filter input {
+  width: 140px;
+}
+
+.agent-trace-total {
+  margin-left: auto;
+  font-size: 10px;
+  color: #737a6e;
+  font-family: "Cascadia Code", monospace;
+}
+
+.agent-trace-body {
+  padding: 0;
+}
+
+.agent-trace-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-trace-group {
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-trace-group:last-child {
+  border-bottom: 0;
+}
+
+.agent-trace-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 18px;
+  border: 0;
+  background: transparent;
+  color: #c5c9be;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-trace-row:hover {
+  background: #282c24;
+}
+
+.agent-trace-row.is-selected {
+  background: #1a2e1a;
+}
+
+.agent-trace-row--error {
+  color: #e8b4ae;
+}
+
+.agent-trace-kind {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #2a2d27;
+  color: #8b9286;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.agent-trace-provider {
+  flex-shrink: 0;
+  color: #8fa88a;
+  font-family: "Cascadia Code", monospace;
+  font-size: 10px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-trace-hash {
+  flex-shrink: 0;
+  color: #737a6e;
+  font-family: "Cascadia Code", monospace;
+  font-size: 10px;
+}
+
+.agent-trace-meta {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #737a6e;
+  font-family: "Cascadia Code", monospace;
+  font-size: 10px;
+}
+
+.agent-trace-detail {
+  padding: 4px 18px 12px;
+  background: rgba(21, 23, 20, 0.4);
+  border-top: 1px solid #2a2e27;
+}
+
+.agent-trace-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 6px 0 8px;
+  font-size: 10px;
+  color: #9aa193;
+}
+
+.agent-trace-detail-meta code {
+  font-family: "Cascadia Code", monospace;
+  color: #8b9286;
+}
+
+.agent-trace-step {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-trace-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 4px;
+  border: 0;
+  background: transparent;
+  color: #c5c9be;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-trace-step-row:hover {
+  background: #282c24;
+}
+
+.agent-trace-step-row--error {
+  color: #e8b4ae;
+}
+
+.agent-trace-step-row--skipped {
+  color: #8b9286;
+}
+
+.agent-trace-step-seq {
+  flex-shrink: 0;
+  color: #737a6e;
+  font-family: "Cascadia Code", monospace;
+  font-size: 10px;
+  min-width: 28px;
+}
+
+.agent-trace-step-kind {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #2a2d27;
+  color: #9aa193;
+  font-size: 9px;
+  text-transform: lowercase;
+}
+
+.agent-trace-step-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Cascadia Code", monospace;
+  font-size: 10px;
+}
+
+.agent-trace-step-detail {
+  margin: 0 4px 6px 32px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #151714;
+  color: #9aa193;
+  font-family: "Cascadia Code", monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.agent-trace-section {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.agent-trace-diff,
+.agent-trace-tokens {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-family: "Cascadia Code", monospace;
+  color: #9aa193;
+}
+
+.agent-trace-diff-modules {
+  color: #737a6e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -19,6 +19,7 @@ from backend.app.schemas.workflow_intent import (
     PortRef,
     WorkflowIntent,
 )
+from backend.app.services import agent_trace
 from backend.app.services.agent_tools import validate_intent
 
 
@@ -319,6 +320,13 @@ def repair_intent(
         # If no repairs were applied this round, stop early
         if not round_logs:
             break
+
+        # One repair pass ran — record it on the active trace (HARD-403).
+        agent_trace.safe_increment_repair(None, 1)
+        agent_trace.safe_add_step(
+            None, "repair", f"repair_pass_{attempt}", "ok", 0,
+            {"repairs_applied": len(round_logs), "attempt": attempt},
+        )
 
     # Final validation after all rounds
     final_intent = WorkflowIntent(

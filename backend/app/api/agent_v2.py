@@ -33,6 +33,7 @@ from backend.app.schemas.agent_preview import (
     RepairStep,
 )
 from backend.app.schemas.workflow_intent import WorkflowIntent
+from backend.app.services import agent_trace
 from backend.app.services.agent_tools import estimate_calls, validate_intent
 
 logger = logging.getLogger(__name__)
@@ -492,47 +493,61 @@ async def generate_preview_v2(request: GeneratePreviewRequest) -> AgentPreviewRe
     - Cost estimate
     - Whether the workflow can be applied
     """
-    # 1. Generate intent
-    intent = await _generate_intent_from_prompt(request.prompt)
+    with agent_trace.trace_operation(
+        agent_trace.TRACE_KIND_GENERATE,
+        workflow_id=request.workflow_id,
+        prompt=request.prompt,
+    ) as tr:
+        # 1. Generate intent
+        intent = await _generate_intent_from_prompt(request.prompt)
+        agent_trace.safe_add_step(
+            None, "intent", "build_intent", "ok", 0,
+            {"node_count": len(intent.nodes)},
+        )
 
-    # 2. Compile (if compiler available)
-    compiled, compile_error = _compile_intent(intent)
+        # 2. Compile (if compiler available)
+        compiled, compile_error = _compile_intent(intent)
 
-    # 3. Validate
-    val = validate_intent(intent)
-    errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
-    warnings = list(val.data.get("warnings", []))
-
-    # 4. Repair if there are errors
-    repair_steps: list[RepairStep] = []
-    if errors:
-        intent, repair_steps, errors = _repair_intent(intent, errors)
-
-        # Re-validate after repair
+        # 3. Validate
         val = validate_intent(intent)
         errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
-        warnings.extend(val.data.get("warnings", []))
+        warnings = list(val.data.get("warnings", []))
 
-    # Always compile the final intent.  The previous code only recompiled
-    # while errors remained, returning the stale pre-repair graph on success.
-    compiled, compile_error = _compile_intent(intent)
-    errors.extend(_compiled_gate_errors(compiled, compile_error))
+        # 4. Repair if there are errors
+        repair_steps: list[RepairStep] = []
+        if errors:
+            intent, repair_steps, errors = _repair_intent(intent, errors)
 
-    # 5. Cost estimate
-    cost = _build_cost_estimate(intent)
-    warnings.extend(cost.warnings)
+            # Re-validate after repair
+            val = validate_intent(intent)
+            errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
+            warnings.extend(val.data.get("warnings", []))
 
-    can_apply = len(errors) == 0
+        # Always compile the final intent.  The previous code only recompiled
+        # while errors remained, returning the stale pre-repair graph on success.
+        compiled, compile_error = _compile_intent(intent)
+        errors.extend(_compiled_gate_errors(compiled, compile_error))
+        agent_trace.safe_add_step(
+            None, "validate", "compiled_gate",
+            "ok" if not errors else "error", 0,
+            {"error_count": len(errors)},
+        )
 
-    return AgentPreviewResponse(
-        intent=intent,
-        compiled_workflow=compiled,
-        validation_errors=errors,
-        repair_steps=repair_steps,
-        cost_estimate=cost,
-        warnings=warnings,
-        can_apply=can_apply,
-    )
+        # 5. Cost estimate
+        cost = _build_cost_estimate(intent)
+        warnings.extend(cost.warnings)
+
+        can_apply = len(errors) == 0
+
+        return AgentPreviewResponse(
+            intent=intent,
+            compiled_workflow=compiled,
+            validation_errors=errors,
+            repair_steps=repair_steps,
+            cost_estimate=cost,
+            warnings=warnings,
+            can_apply=can_apply,
+        )
 
 
 @router.post("/modify-preview-v2", response_model=AgentPreviewResponse)
@@ -543,70 +558,94 @@ async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewRespon
     incremental change vs the existing workflow: ``patch`` / ``diff`` /
     ``destructive`` / ``module_diffs``.
     """
-    # 1. Modify intent
-    intent = await _modify_intent_from_prompt(request.workflow_id, request.instruction)
+    with agent_trace.trace_operation(
+        agent_trace.TRACE_KIND_MODIFY,
+        workflow_id=request.workflow_id,
+        prompt=request.instruction,
+    ) as tr:
+        # 1. Modify intent
+        intent = await _modify_intent_from_prompt(request.workflow_id, request.instruction)
+        agent_trace.safe_add_step(
+            None, "intent", "build_intent", "ok", 0,
+            {"node_count": len(intent.nodes)},
+        )
 
-    # 2. Compile (if compiler available)
-    compiled, compile_error = _compile_intent(intent)
+        # 2. Compile (if compiler available)
+        compiled, compile_error = _compile_intent(intent)
 
-    # 3. Validate
-    val = validate_intent(intent)
-    errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
-    warnings = list(val.data.get("warnings", []))
-
-    # 4. Repair if there are errors
-    repair_steps: list[RepairStep] = []
-    if errors:
-        intent, repair_steps, errors = _repair_intent(intent, errors)
-
-        # Re-validate after repair
+        # 3. Validate
         val = validate_intent(intent)
         errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
-        warnings.extend(val.data.get("warnings", []))
+        warnings = list(val.data.get("warnings", []))
 
-    compiled, compile_error = _compile_intent(intent)
-    errors.extend(_compiled_gate_errors(compiled, compile_error))
+        # 4. Repair if there are errors
+        repair_steps: list[RepairStep] = []
+        if errors:
+            intent, repair_steps, errors = _repair_intent(intent, errors)
 
-    # 5. Cost estimate
-    cost = _build_cost_estimate(intent)
-    warnings.extend(cost.warnings)
+            # Re-validate after repair
+            val = validate_intent(intent)
+            errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
+            warnings.extend(val.data.get("warnings", []))
 
-    # 6. Incremental diff vs the existing workflow (MOD-R3-004)
-    from backend.app.services.agent_diff import (
-        check_destructive,
-        compute_graph_patch,
-        compute_module_diffs,
-        generate_diff,
-        is_destructive,
-    )
+        compiled, compile_error = _compile_intent(intent)
+        errors.extend(_compiled_gate_errors(compiled, compile_error))
+        agent_trace.safe_add_step(
+            None, "validate", "compiled_gate",
+            "ok" if not errors else "error", 0,
+            {"error_count": len(errors)},
+        )
 
-    patch = None
-    diff_text = None
-    destructive = False
-    module_diffs: list[dict] = []
-    existing_spec = _load_existing_spec(request.workflow_id)
-    if existing_spec is not None and compiled is not None:
-        patch = compute_graph_patch(existing_spec, compiled)
-        diff_text = generate_diff(existing_spec, patch)
-        destructive = is_destructive(patch)
-        module_diffs = compute_module_diffs(existing_spec, compiled)
-        warnings.extend(check_destructive(patch))
+        # 5. Cost estimate
+        cost = _build_cost_estimate(intent)
+        warnings.extend(cost.warnings)
 
-    can_apply = len(errors) == 0
+        # 6. Incremental diff vs the existing workflow (MOD-R3-004)
+        from backend.app.services.agent_diff import (
+            check_destructive,
+            compute_graph_patch,
+            compute_module_diffs,
+            generate_diff,
+            is_destructive,
+        )
 
-    return AgentPreviewResponse(
-        intent=intent,
-        compiled_workflow=compiled,
-        validation_errors=errors,
-        repair_steps=repair_steps,
-        cost_estimate=cost,
-        warnings=warnings,
-        can_apply=can_apply,
-        patch=patch,
-        diff=diff_text,
-        destructive=destructive,
-        module_diffs=module_diffs,
-    )
+        patch = None
+        diff_text = None
+        destructive = False
+        module_diffs: list[dict] = []
+        existing_spec = _load_existing_spec(request.workflow_id)
+        if existing_spec is not None and compiled is not None:
+            patch = compute_graph_patch(existing_spec, compiled)
+            diff_text = generate_diff(existing_spec, patch)
+            destructive = is_destructive(patch)
+            module_diffs = compute_module_diffs(existing_spec, compiled)
+            warnings.extend(check_destructive(patch))
+
+        can_apply = len(errors) == 0
+
+        diff_summary = agent_trace.summarize_module_diffs(module_diffs)
+        agent_trace.safe_finish(tr, module_diff_summary=diff_summary)
+        agent_trace.emit_agent_audit(
+            agent_trace.AUDIT_MODIFY,
+            prompt_hash=tr.prompt_hash,
+            module_diff_summary=diff_summary,
+            repair_count=tr.repair_count,
+            trace_id=tr.trace_id or None,
+        )
+
+        return AgentPreviewResponse(
+            intent=intent,
+            compiled_workflow=compiled,
+            validation_errors=errors,
+            repair_steps=repair_steps,
+            cost_estimate=cost,
+            warnings=warnings,
+            can_apply=can_apply,
+            patch=patch,
+            diff=diff_text,
+            destructive=destructive,
+            module_diffs=module_diffs,
+        )
 
 
 @router.post("/apply-v2", response_model=AgentApplyResponse)
@@ -618,14 +657,54 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
     - Uses expected_version for optimistic concurrency (409 on conflict).
     """
     intent = request.intent
+    prompt_for_hash = intent.description or intent.name or ""
+
+    with agent_trace.trace_operation(
+        agent_trace.TRACE_KIND_APPLY,
+        workflow_id=request.workflow_id,
+        prompt=prompt_for_hash,
+    ) as tr:
+        try:
+            response, diff_summary = _apply_v2_impl(request)
+        except HTTPException as exc:
+            tr.set_status("error", error_code=f"HTTP_{exc.status_code}")
+            raise
+
+        if diff_summary is not None:
+            agent_trace.safe_finish(tr, module_diff_summary=diff_summary)
+        if response.success:
+            agent_trace.emit_agent_audit(
+                agent_trace.AUDIT_APPLY,
+                prompt_hash=tr.prompt_hash,
+                module_diff_summary=diff_summary,
+                repair_count=tr.repair_count,
+                trace_id=tr.trace_id or None,
+            )
+        else:
+            tr.set_status("error", error_code="APPLY_FAILED")
+        return response
+
+
+def _apply_v2_impl(
+    request: AgentApplyRequest,
+) -> tuple[AgentApplyResponse, dict | None]:
+    """Run the apply-v2 pipeline.  Returns (response, module_diff_summary)."""
+    intent = request.intent
 
     # Validate before applying
     val = validate_intent(intent)
     errors = val.data.get("errors", []) if not val.success else val.data.get("errors", [])
     if errors:
-        return AgentApplyResponse(
-            success=False,
-            error=f"Validation failed with {len(errors)} error(s): {errors[0].get('message', '')}",
+        agent_trace.safe_add_step(
+            None, "validate", "intent_validation", "error", 0,
+            {"error_count": len(errors)},
+        )
+        return (
+            AgentApplyResponse(
+                success=False,
+                error=f"Validation failed with {len(errors)} error(s): {errors[0].get('message', '')}",
+            ),
+            None,
         )
 
     # Compile the intent into a WorkflowSpec
@@ -638,18 +717,31 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
             spec = service._template_fallback(intent.name, {})
             compiled = spec.model_dump()
         except Exception as exc:
-            return AgentApplyResponse(
-                success=False,
-                error=f"Failed to compile intent: {compile_error or exc}",
+            return (
+                AgentApplyResponse(
+                    success=False,
+                    error=f"Failed to compile intent: {compile_error or exc}",
+                ),
+                None,
             )
 
     # Graph/module/resolver validation on the compiled workflow
     gate_errors = _compiled_gate_errors(compiled, compile_error)
     if gate_errors:
-        return AgentApplyResponse(
-            success=False,
-            error=f"Validation failed with {len(gate_errors)} error(s): {gate_errors[0].get('message', '')}",
+        agent_trace.safe_add_step(
+            None, "validate", "compiled_gate", "error", 0,
+            {"error_count": len(gate_errors)},
         )
+        return (
+            AgentApplyResponse(
+                success=False,
+                error=f"Validation failed with {len(gate_errors)} error(s): {gate_errors[0].get('message', '')}",
+            ),
+            None,
+        )
+    agent_trace.safe_add_step(
+        None, "validate", "compiled_gate", "ok", 0, {"error_count": 0},
+    )
 
     # Keep the HTTP 422 graph contract for callers that depend on it.
     nodes, edges = extract_nodes_edges_from_spec(compiled)
@@ -658,6 +750,7 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
         detail = build_422_response(graph_errors)
         raise HTTPException(status_code=422, detail=detail)
 
+    diff_summary: dict | None = None
     try:
         if request.workflow_id:
             # Update existing workflow
@@ -681,6 +774,7 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
             from backend.app.services.agent_diff import (
                 apply_graph_patch,
                 compute_graph_patch,
+                compute_module_diffs,
             )
 
             existing_spec = wf["spec"]
@@ -698,15 +792,22 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
             patched_nodes, patched_edges = extract_nodes_edges_from_spec(patched)
             raise_if_invalid(patched_nodes, patched_edges)
 
+            diff_summary = agent_trace.summarize_module_diffs(
+                compute_module_diffs(existing_spec, compiled)
+            )
+
             try:
                 result = update_workflow(request.workflow_id, patched, expected_version)
             except OptimisticLockError as exc:
                 raise HTTPException(409, str(exc))
 
-            return AgentApplyResponse(
-                success=True,
-                workflow_id=result["id"],
-                version=result["version"],
+            return (
+                AgentApplyResponse(
+                    success=True,
+                    workflow_id=result["id"],
+                    version=result["version"],
+                ),
+                diff_summary,
             )
         else:
             # Create new workflow
@@ -719,17 +820,30 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
 
             result = create_workflow(compiled, name=intent.name)
 
-            return AgentApplyResponse(
-                success=True,
-                workflow_id=result["id"],
-                version=result["version"],
+            diff_summary = agent_trace.build_diff_summary(
+                added=len(compiled.get("nodes", []) or []),
+                removed=0,
+                updated=0,
+                modules=[],
+            )
+
+            return (
+                AgentApplyResponse(
+                    success=True,
+                    workflow_id=result["id"],
+                    version=result["version"],
+                ),
+                diff_summary,
             )
 
     except HTTPException:
         raise
     except Exception as exc:
         logger.error(f"Apply failed: {exc}")
-        return AgentApplyResponse(
-            success=False,
-            error=f"Apply failed: {exc}",
+        return (
+            AgentApplyResponse(
+                success=False,
+                error=f"Apply failed: {exc}",
+            ),
+            diff_summary,
         )
