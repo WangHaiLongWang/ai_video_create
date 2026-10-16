@@ -24,25 +24,20 @@ import backend.app.db.connection as conn_module
 # ---------------------------------------------------------------------------
 
 def _safe_copy_db(src: Path, dst: Path) -> None:
-    """Copy a SQLite database and its WAL/SHM sidecar files safely.
+    """Create a consistent SQLite online backup.
 
-    This opens a fresh connection, checkpoints the WAL to the main file,
-    then copies only the main file. This avoids issues with stale WAL files
-    on Windows.
+    Copying the live database file is invalid under WAL and can fail with
+    WinError 33. This mirrors the production ``db-maintenance.py`` strategy.
     """
-    conn = sqlite3.connect(str(src))
+    source = sqlite3.connect(str(src), timeout=30)
+    target = sqlite3.connect(str(dst), timeout=30)
     try:
-        conn.execute("PRAGMA wal_checkpoint(FULL)")
-    except Exception:
-        pass
+        source.execute("PRAGMA busy_timeout=30000")
+        source.backup(target)
+        target.commit()
     finally:
-        conn.close()
-    shutil.copy2(src, dst)
-    # Also copy WAL/SHM if present (they may reappear briefly)
-    for suffix in ("-wal", "-shm"):
-        sidecar = Path(str(src) + suffix)
-        if sidecar.exists():
-            shutil.copy2(sidecar, Path(str(dst) + suffix))
+        target.close()
+        source.close()
 
 
 def _create_test_data(conn: sqlite3.Connection, workflow_id: str = "wf-1") -> None:
