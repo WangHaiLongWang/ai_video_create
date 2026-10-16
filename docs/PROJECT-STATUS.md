@@ -12,6 +12,8 @@
 
 项目的**本地可控 Platform Hardening 工程项已全部实现**：共享 Schema/Catalog、migration ledger、持久化多 Provider 配置、Agent 资源/费用门禁、失败演练、版本/备份恢复/发布工件均已落地。React Flow、模块化节点、Agent generate/modify/apply 和真实 Mock Backend 浏览器主链完成全量验收。
 
+当前本机持久化默认路径已校准为 `openai_compat`（MiMo）→ `dashscope`（Qwen Image 3.0）→ `wan3`；三者 `/api/config/test-provider` 均返回 healthy，真实 Agent preview 返回六节点、`can_apply=true`、零校验错误。Doubao 保留为可选配置，未激活时不影响默认路径。
+
 本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
 
 2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 已在实现提交 `78a99ac` 受控复证；剩余发布边界只有远端同 SHA CI/制品归档和 Doubao 模型激活。

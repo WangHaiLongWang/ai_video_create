@@ -19,6 +19,7 @@
 | Ruff blocking rules | syntax/undefined-name gate passed |
 | Release/DB/version | 6 passed；metadata/preflight/backup-restore passed |
 | Security scan | 0 critical；6 个命中均为构造参数名或脱敏测试夹具，报告可归档 |
+| 默认生产路径 | MiMo / Qwen Image 3.0 / Wan3 三 Provider healthy；Agent 六节点 preview 可应用 |
 
 全量验证中额外修复：
 

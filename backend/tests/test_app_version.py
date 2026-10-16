@@ -12,3 +12,4 @@ def test_fastapi_and_health_use_canonical_version():
 def test_health_uses_canonical_version():
     payload = asyncio.run(health())
     assert payload["version"] == APP_VERSION
+    assert payload["ffmpeg"] is True

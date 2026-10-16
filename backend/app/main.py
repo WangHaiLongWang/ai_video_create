@@ -1,7 +1,6 @@
 """FastAPI application entry point."""
 
 import logging
-import shutil
 import sys
 from contextlib import asynccontextmanager
 
@@ -28,6 +27,7 @@ from .config import get_settings
 from .providers import init_providers
 from .handlers import init_handlers
 from .services.asset_manager import get_asset_manager
+from .services.ffmpeg import get_ffmpeg_path
 from .middleware import SecurityMiddleware, InputSanitizeMiddleware, SecretsMaskingFilter
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
@@ -267,7 +267,7 @@ async def health() -> dict[str, object]:
     return {
         "status": "ok",
         "python": sys.version.split()[0],
-        "ffmpeg": shutil.which(settings.FFMPEG_PATH) is not None,
+        "ffmpeg": get_ffmpeg_path() is not None,
         "mode": "local",
         "version": APP_VERSION,
     }
