@@ -572,11 +572,11 @@ class TestModuleDiffAPI:
 
     def test_diff_endpoint_identical_version(self):
         """GET /modules/{id}/diff with same from/to returns empty diff."""
-        client = TestClient(app)
-        resp = client.get(
-            "/api/modules/builtin.seedream.text-to-image/diff",
-            params={"from": "1.0.0", "to": "1.0.0"},
-        )
+        with TestClient(app) as client:
+            resp = client.get(
+                "/api/modules/builtin.seedream.text-to-image/diff",
+                params={"from": "1.0.0", "to": "1.0.0"},
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["versionFrom"] == "1.0.0"
@@ -585,28 +585,28 @@ class TestModuleDiffAPI:
 
     def test_diff_endpoint_version_not_found(self):
         """GET /modules/{id}/diff with nonexistent version returns 404."""
-        client = TestClient(app)
-        resp = client.get(
-            "/api/modules/builtin.seedream.text-to-image/diff",
-            params={"from": "1.0.0", "to": "99.99.99"},
-        )
+        with TestClient(app) as client:
+            resp = client.get(
+                "/api/modules/builtin.seedream.text-to-image/diff",
+                params={"from": "1.0.0", "to": "99.99.99"},
+            )
         assert resp.status_code == 404
 
     def test_diff_endpoint_module_not_found(self):
         """GET /modules/{id}/diff for nonexistent module returns 404."""
-        client = TestClient(app)
-        resp = client.get(
-            "/api/modules/nonexistent.module/diff",
-            params={"from": "1.0.0", "to": "2.0.0"},
-        )
+        with TestClient(app) as client:
+            resp = client.get(
+                "/api/modules/nonexistent.module/diff",
+                params={"from": "1.0.0", "to": "2.0.0"},
+            )
         assert resp.status_code == 404
 
     def test_compat_check_endpoint(self):
         """POST /modules/{id}/compat-check returns compatibility results."""
-        client = TestClient(app)
-        resp = client.post(
-            "/api/modules/test.module/compat-check",
-            json={
+        with TestClient(app) as client:
+            resp = client.post(
+                "/api/modules/test.module/compat-check",
+                json={
                 "oldConfig": {"model": "gpt-4", "extra": "value"},
                 "oldSchema": {
                     "properties": {
@@ -617,8 +617,8 @@ class TestModuleDiffAPI:
                 "newSchema": {
                     "properties": {"model": {"type": "string"}}
                 },
-            },
-        )
+                },
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["compatible"] is False

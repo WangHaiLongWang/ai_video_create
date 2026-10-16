@@ -81,6 +81,12 @@ def fresh_scene_service():
 
 client = TestClient(app)
 
+
+@pytest.fixture(scope="module", autouse=True)
+def managed_client():
+    with client:
+        yield
+
 WORKFLOW_ID = "wf-test"
 
 

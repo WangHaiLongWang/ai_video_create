@@ -2,10 +2,10 @@
 
 > 基线日期：2026-10-16
 > 状态版本：22.0
-> 代码基线：工作树（父提交 `ef8ad99`；最终提交待创建）
+> 代码基线：Platform Hardening `78a99ac` + UAT 文档 `3241e93` + 当前验收收口变更
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > 当前推进计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)（Epic H0-H6）
-> 历史 RC 收敛计划（已被 PLATFORM-HARDENING-PLAN 取代）：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
+> 历史 RC 收敛计划（已归档并被 PLATFORM-HARDENING-PLAN 取代）：[`plans/archive/RC-CLOSURE-PLAN.md`](plans/archive/RC-CLOSURE-PLAN.md)
 > 评估原则：区分代码存在、自动测试通过和真实外部服务可用；只记录当前环境可重复证据。
 
 ## 1. 结论
@@ -14,7 +14,7 @@
 
 本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
 
-2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 已在实现提交 `78a99ac` 受控复证；剩余发布边界只有远端同 SHA CI/制品归档和 Doubao 模型激活。
+2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 已在实现提交 `78a99ac` 受控复证；剩余发布边界只有远端同 SHA CI/制品归档和 Doubao 模型激活。
 
 ### 当前评分
 
@@ -47,7 +47,7 @@
 | Vitest 串行模式 | 375 passed | 通过 |
 | Backend 广覆盖回归 | 677 passed | 通过 |
 | Agent structured parser/module gate | 341 passed | 通过 |
-| Backend full non-external | 2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning | 通过 |
+| Backend full non-external | 2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning | 通过 |
 | Backend 当前专项复测 | 153 passed / 1 warning | 本轮通过 |
 | Shared Catalog + Agent Trace | 119 passed / 1 warning | 本轮通过 |
 | Doubao Contract + Config | 16 passed | 通过 |
@@ -168,7 +168,7 @@ FE-R3-001～004 完成要点：
 | Wan3 Video | async job/poll/persist 完成 | **2026-10-12 当前链路复测通过**（2s/480P 图生视频，2.24 MB MP4，44.3s，external_job_id 已生成） |
 | Doubao Seedream/Seedance 2.5 | image/video adapter、UI、Contract 完成 | Key/目录成功，账号未激活模型，External Blocked |
 | ComfyUI | T2I 基础存在 | 当前环境未验证；I2V 仍非发布主路径 |
-| Mock | 全能力基础 | 大部分测试通过；「旧 Agent acceptance 3 项失败」为 2026-09 历史记录，当前是否仍存在待复证 |
+| Mock | 全能力基础 | 当前 Frontend/Backend/Chromium/acceptance 全量门禁通过；旧 Agent 失败仅为历史记录 |
 
 Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOUBAO-SEEDANCE-PLAN.md)。
 
@@ -179,9 +179,10 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（2026-10-08 干净 venv 2096 passed / 0 failed） |
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
-| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | 本地 2177 backend + 414 frontend + 143 Chromium 全绿；CI/artifact 配置完成 | push 后三平台 required checks + run/artifact URL | ⛔ 外部发布动作（HARD-501/502） |
+| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | 本地 2181 backend + 414 frontend + 143 Chromium 全绿；CI/artifact 配置完成 | push 后三平台 required checks + run/artifact URL | ⛔ GitHub 443 超时（HARD-501/502） |
 | RC-007 | P1 | Doubao 模型未激活 | 合同/配置/Mock 已完成；真实请求 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
 | RC-008 | P1 | 最终实现 commit 真实 Qwen/Wan3 证据 | `78a99ac` MiMo→Qwen→Wan3 全绿，产物 SHA-256、耗时、job ID、估算费用已归档 | 最终实现 SHA 受控 UAT | ✅ 关闭（2026-10-16） |
+| RC-009 | P1 内容 | 滑雪教学固定器/后脚姿态不稳定 | 3 批 6 张真实 Qwen 图片人工检查；技术 2图→2视频→6.06s 合成通过 | 两张首帧同时满足“前脚固定、后脚踩雪、空后固定器可见” | ⛔ External Content Blocked（需局部重绘/ControlNet/换模型） |
 
 RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。此后 2026-10-10 的干净 venv 复测为 **2123 passed / 8 skipped / 0 failed**（新增 Phase M3 测试所致，非回退）；§2 基线表采用后者。
 
@@ -246,19 +247,19 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 
 出口：RC-004/RC-008 有同 SHA 证据；所有 P0 阻断关闭，P1 有明确延期批准和用户可见说明；`v1.0.0-rc.1` tag 只指向已验证 SHA。
 
-模块化节点与 Seedream 专项（Phase M0-M3）已完成，详见 [`plans/active/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md)；不再安排新的模块功能 Sprint。
+模块化节点与 Seedream 专项（Phase M0-M3）已完成并归档，详见 [`plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md)；不再安排新的模块功能 Sprint。
 
 ## 8. 文档导航
 
 - 长远路线图（v1.0 后 12-18 个月，方向层）：[`plans/active/ROADMAP.md`](plans/active/ROADMAP.md)
 - 主交付计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 - 当前推进计划（平台硬化 H0-H6）：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)
-- 历史 RC 收敛计划（Superseded，见其头部说明）：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
-- React Flow/Agent：[`plans/active/REACT-FLOW-AGENT-PLAN.md`](plans/active/REACT-FLOW-AGENT-PLAN.md)
-- Flow/Scene：[`plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](plans/active/FRONTEND-FLOW-SCENE-PLAN.md)
+- 历史 RC 收敛计划：[`plans/archive/RC-CLOSURE-PLAN.md`](plans/archive/RC-CLOSURE-PLAN.md)
+- React Flow/Agent 历史专项：[`plans/archive/REACT-FLOW-AGENT-PLAN.md`](plans/archive/REACT-FLOW-AGENT-PLAN.md)
+- Flow/Scene 历史专项：[`plans/archive/FRONTEND-FLOW-SCENE-PLAN.md`](plans/archive/FRONTEND-FLOW-SCENE-PLAN.md)
 - 滑雪验收：[`plans/active/SKI-LESSON-WORKFLOW-PLAN.md`](plans/active/SKI-LESSON-WORKFLOW-PLAN.md)
 - Doubao：[`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOUBAO-SEEDANCE-PLAN.md)
-- 模块化节点与 Seedream：[`plans/active/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md)
+- 模块化节点与 Seedream 历史专项：[`plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md)
 - 测试报告：[`reports/`](reports/)
 
 当前状态必须在 P0 门禁关闭后才能升级为 Release Candidate。

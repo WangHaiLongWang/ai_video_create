@@ -52,9 +52,9 @@ Scene image_prompt
 | 步骤 | 内容 | 状态 | 证据/阻断 |
 |---|---|---|---|
 | DOU-UAT-001 | 认证与目录 | ✅ 通过（2026-09-21） | Key/Ark `/models` 访问成功；`reports/doubao-uat-2026-09-21.md` |
-| DOU-UAT-002 | 文字生成图片 | ⏳ 外部阻断 | 账号未激活 Seedream，HTTP 404（RC-007） |
-| DOU-UAT-003 | 图片生成视频 | ⏳ 外部阻断 | 上游生图未成功且视频模型权限阻断（RC-007） |
-| DOU-UAT-004 | Workflow 纵向验收 | ⏳ 外部阻断 | 依赖 002/003（RC-007） |
+| DOU-UAT-002 | 文字生成图片 | ⛔ External Blocked | 账号未激活 Seedream，HTTP 404（RC-007） |
+| DOU-UAT-003 | 图片生成视频 | ⛔ External Blocked | 上游生图未成功且视频模型权限阻断（RC-007） |
+| DOU-UAT-004 | Workflow 纵向验收 | ⛔ External Blocked | 依赖 002/003（RC-007） |
 
 ### DOU-UAT-001：认证与目录
 
@@ -107,7 +107,7 @@ textInput → storyboard(1 scene)
 
 ## 6. 发布门禁
 
-在以下条件满足前，Doubao 只能标记为 `Contract Ready / External Blocked`（当前即此状态，见 PROJECT-STATUS §6 **RC-007**：模型未激活，⏳ 外部阻断）：
+在以下条件满足前，Doubao 只能标记为 `Contract Ready / External Blocked`（当前即此状态，见 PROJECT-STATUS §6 **RC-007**：模型未激活，⛔ 外部阻断）：
 
 - DOU-UAT-002、003、004 全部通过；
 - 真实结果经过人工内容验收；

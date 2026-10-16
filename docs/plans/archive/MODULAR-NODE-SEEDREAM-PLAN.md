@@ -2,8 +2,8 @@
 
 > 状态：Active（功能侧冻结，见 §0.1）
 > 日期：2026-10-10（最近校准：2026-10-12）
-> 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
-> 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](DOUBAO-SEEDANCE-PLAN.md)、[PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md)
+> 上级计划：[DELIVERY-PLAN.md](../active/DELIVERY-PLAN.md)
+> 关联计划：[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)、[DOUBAO-SEEDANCE-PLAN.md](../active/DOUBAO-SEEDANCE-PLAN.md)、[PLATFORM-HARDENING-PLAN.md](../active/PLATFORM-HARDENING-PLAN.md)
 
 ## 0.0 2026-10-10 Phase M3 关闭检查点
 
@@ -20,11 +20,11 @@ MOD-R3-001～005 已完成：扩展端口 Binding Designer、effective module po
 | 同 SHA CI 运行证据 | Pending | 需要 Actions URL/artifact |
 | Seedream 真实 UAT | External Blocked | 账号模型未激活 |
 
-模块化专项进入维护状态；后续平台任务转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)。
+模块化专项进入维护状态；后续平台任务转入 [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md)。
 
 ## 0.1 2026-10-12 收敛检查点
 
-Phase M3（MOD-R3-001～005）关闭后无新功能代码提交，功能侧冻结，不再扩展模块/节点能力。后续工作全部转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)（共享契约、迁移、Provider 持久化、CI/UAT、RC 发布），本计划只维护状态与证据指针。
+Phase M3（MOD-R3-001～005）关闭后无新功能代码提交，功能侧冻结，不再扩展模块/节点能力。后续工作全部转入 [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md)（共享契约、迁移、Provider 持久化、CI/UAT、RC 发布），本计划只维护状态与证据指针。
 
 当前测试基线（详见 [`PROJECT-STATUS.md`](../../PROJECT-STATUS.md) §2）：Frontend 387、Playwright 142 passed（含 modules E2E 5 项 + agent-modify E2E 3 项，零 route mock）、Backend 干净 venv 2123 passed。
 
@@ -385,7 +385,7 @@ API Key 只来自 Provider Settings/secret reference。
 
 ### 8.3 当前外部阻断
 
-2026-09-21 验证确认（与 [`DOUBAO-SEEDANCE-PLAN.md`](DOUBAO-SEEDANCE-PLAN.md) §2/§3 表述一致）：API Key 加载与 Ark `/models` 访问正常，Seedream 正式 ID `doubao-seedream-5-0-pro-260628`、Seedance 2.5 正式 ID `doubao-seedance-2-5-260628` 均已确认；但账号尚未激活上述模型服务，真实生图/生视频请求返回 HTTP 404（未激活），当前状态 `Contract Ready / External Blocked`。
+2026-09-21 验证确认（与 [`DOUBAO-SEEDANCE-PLAN.md`](../active/DOUBAO-SEEDANCE-PLAN.md) §2/§3 表述一致）：API Key 加载与 Ark `/models` 访问正常，Seedream 正式 ID `doubao-seedream-5-0-pro-260628`、Seedance 2.5 正式 ID `doubao-seedance-2-5-260628` 均已确认；但账号尚未激活上述模型服务，真实生图/生视频请求返回 HTTP 404（未激活），当前状态 `Contract Ready / External Blocked`。
 
 模块侧可以完成 Mock/Contract/编辑闭环；真实 Seedream UAT（1 scene/1 variant 产出可解码图片）前置条件为：在火山方舟控制台激活 `doubao-seedream-5-0-pro-260628`（及 Seedance 对应模型），或为模型创建在线推理 Endpoint 并将 Endpoint ID 写入 `.env`。阻断 ID：RC-007 / HARD-505 / DOU-001。
 
@@ -432,7 +432,7 @@ API Key 只来自 Provider Settings/secret reference。
 
 剩余：MOD-P0-03 全路径发布校验复核、MOD-P0-07 image-only 输出产品决策、模块纵向 Playwright、CI 和真实 Prompt/Modify 验收。expectedVersion API/前端消费已完成，需浏览器冲突验收。
 
-> 2026-10-12 校准：上表 MOD-P0-01～08 已全部交付关闭；原“剩余”段落为 2026-09-23 时点记录，保留作历史。MOD-P0-07 的 image-only 终点产品决策不在本计划收口，转入 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) HARD-402；CI/真实 UAT 缺口见 §0.1（RC-004/007/008）。
+> 2026-10-12 校准：上表 MOD-P0-01～08 已全部交付关闭；原“剩余”段落为 2026-09-23 时点记录，保留作历史。MOD-P0-07 的 image-only 终点产品决策不在本计划收口，转入 [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md) HARD-402；CI/真实 UAT 缺口见 §0.1（RC-004/007/008）。
 
 ### Phase M1：用户模块设计器（P1，5-7 天）
 

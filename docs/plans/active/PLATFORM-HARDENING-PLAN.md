@@ -4,8 +4,8 @@
 > 日期：2026-10-10
 > 校准：2026-10-16
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
-> 前置专项：[MODULAR-NODE-SEEDREAM-PLAN.md](MODULAR-NODE-SEEDREAM-PLAN.md)
-> 取代关系：取代 [RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)（2026-09-21，基线 `cc61b46`），见 §13
+> 前置专项：[MODULAR-NODE-SEEDREAM-PLAN.md](../archive/MODULAR-NODE-SEEDREAM-PLAN.md)
+> 取代关系：取代 [RC-CLOSURE-PLAN.md](../archive/RC-CLOSURE-PLAN.md)（2026-09-21，基线 `cc61b46`），见 §13
 
 ## 1. 目标
 
@@ -29,7 +29,7 @@ Phase M3 的模块化、真实 Mock Backend E2E 和 Agent Modify 已完成。下
 |---|---|---|
 | Frontend unit | 24 files / 414 passed | 待同 SHA CI |
 | Frontend type/build | passed；最大 chunk 185.73 kB | 待同 SHA CI |
-| Backend non-external | 2177 passed / 11 skipped / 21 deselected / 0 warning | 待同 SHA CI |
+| Backend non-external | 2181 passed / 8 skipped / 21 deselected / 0 warning | 待同 SHA CI |
 | Playwright | 143 passed / 0 skipped / 0 failed | 待同 SHA CI 复证 |
 | Module real-Mock E2E | 5 passed，零 route mock | 待同 SHA CI |
 | Agent Modify E2E | 3 passed，零 route mock | 待同 SHA CI |
@@ -183,7 +183,7 @@ Sprint H3（2-3 天）
 
 ## 13. 与 RC-CLOSURE-PLAN 的关系
 
-[RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)（2026-09-21，基线 `cc61b46`）已 **Superseded by PLATFORM-HARDENING-PLAN（2026-10-12）**。取代边界如下：
+[RC-CLOSURE-PLAN.md](../archive/RC-CLOSURE-PLAN.md)（2026-09-21，基线 `cc61b46`）已 **Superseded by PLATFORM-HARDENING-PLAN（2026-10-12）** 并归档。取代边界如下：
 
 1. **推进主线**：Epic H0-H6（HARD-xxx）是当前唯一推进主线；RC-CLOSURE-PLAN 的工单表、基线数字和 Day 1-4 执行顺序均为历史快照，不再用于领取任务或判断完成度。
 2. **发布阻断登记**：剩余未关闭项以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §6 为准——RC-001/002/003/008 已关闭；RC-004 为远端同 SHA 证据、RC-007 为账号激活，两项均已推进到外部执行边界。工程承接见 §10（HARD-501/502/505）。

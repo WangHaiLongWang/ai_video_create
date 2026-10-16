@@ -12,7 +12,7 @@
 
 ## 0. 2026-10-16 执行检查点
 
-本地可控 Platform Hardening H0-H4/H6 已实现并通过全量门禁：Backend 2177 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过。MiMo/Qwen/Wan3 已在实现提交 `78a99ac` 复证；当前执行主线只剩最终提交同 SHA Actions/制品归档与 Doubao 账号激活，完成前不创建 RC tag。
+本地可控 Platform Hardening H0-H4/H6 已实现并通过全量门禁：Backend 2181 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过。MiMo/Qwen/Wan3 已在实现提交 `78a99ac` 复证；当前执行主线只剩最终提交同 SHA Actions/制品归档与 Doubao 账号激活，完成前不创建 RC tag。
 
 自 2026-10-12 校准后已有 `332950f`（共享 Node Manifest/真实链路 smoke）和 `ef8ad99`（Agent Trace UI/API）等代码变更。本轮已重新执行前端 unit/type/build 和 Backend 关键专项；测试数字不再沿用 10 月 10 日旧基线。
 
@@ -45,7 +45,7 @@
 - 前端 Vitest：24 files / 414 passed；TypeScript 0 errors。
 - 生产构建：index 143.29 kB；最大 chunk 185.73 kB，无 500 kB 警告。
 - Playwright 全量：143 passed / 0 skipped / 0 failed（真实 Mock FastAPI）。
-- 后端 non-external：2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning。
+- 后端 non-external：2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning。
 - 当前 Node 22.21.1 / Python 3.12.3，runtime preflight/constraints/CI 已统一。
 - 三平台 + browser-e2e CI workflow 已配置，尚无同 SHA run 证据。
 - 本地可控产品/工程任务 100%；外部发布证据未关闭，因此尚未达到 RC。
@@ -66,6 +66,7 @@ H0 可复现工具链
 
 - 模块 Palette/Designer、扩展端口 Binding、effective-ports 校验、真实 Mock Backend 浏览器链、Agent Modify 增量 diff/破坏性确认均已关闭（Phase M3），但同 SHA CI 与真实 Provider UAT 证据仍缺。
 - 发布阻断：RC-001/002/003/008 已关闭；RC-004（同 SHA CI run/制品证据）与 RC-007（Doubao 模型未激活）仍为外部边界。
+- 内容验收：滑雪工作流技术链已 100%，RC-009 的固定器/后脚姿态属于模型内容遵循外部阻断，不回退工程完成度。
 - 剩余工作是 H 系列工单（HARD-xxx）与发布证据，不是新功能。
 
 ### 剩余工作量重估（2026-10-16）
@@ -402,10 +403,10 @@ Worker 只负责租约和运行 Handler；Scheduler 负责依赖、输入组装�
 | AVC-701 | P0 | 2.0 | 注册安全中间件、流式 body limit、CORS/headers | `main.py`, `middleware.py` | ✅ 完成 |
 | AVC-702 | P0 | 2.0 | SSRF、重定向、URL allow policy 和下载限制 | `middleware/ssrf.py` | ✅ 完成 |
 | AVC-703 | P0 | 1.5 | 密钥/日志/导出脱敏测试 | `tests/security/*` | ✅ 完成 |
-| AVC-704 | P0 | 2.0 | DB 备份恢复、磁盘满、资产丢失和 Worker 崩溃演练 | `scripts/backup*`, recovery tests | ⏳ P2 |
+| AVC-704 | P0 | 2.0 | DB 备份恢复、磁盘满、资产丢失和 Worker 崩溃演练 | `scripts/backup*`, recovery tests | ✅ 55 recovery passed |
 | AVC-705 | P0 | 2.0 | Windows/macOS/Linux release smoke matrix | CI workflows | ✅ 已配置 |
-| AVC-706 | P1 | 1.5 | 性能与资源基准，形成可重复报告 | performance tests, `docs/benchmarks.md` | ⏳ P2 |
-| AVC-707 | P0 | 2.0 | 安装、升级、回滚、故障排查和发布说明 | `README.md`, `docs/operations/*` | ⏳ RC Sprint |
+| AVC-706 | P1 | 1.5 | 性能与资源基准，形成可重复报告 | performance tests, `docs/benchmarks.md` | ✅ 19 performance passed + 报告 |
+| AVC-707 | P0 | 2.0 | 安装、升级、回滚、故障排查和发布说明 | `README.md`, `docs/operations/*` | ✅ 完成并通过 release preflight |
 
 E7 安全加固完成清单：
 - ✅ Rate Limiting（滑动窗口，60/min default，20/min for /api/agent/*）
@@ -445,9 +446,9 @@ RC 门禁现状（2026-10-12，与 `PROJECT-STATUS.md` §6 一致）：
 1. ✅ RC-001 干净环境依赖证据（干净 venv non-external 通过）
 2. ✅ RC-002 模块真实 Backend 浏览器链路（Modules 5/5 零 route mock）
 3. ✅ RC-003 Vitest 资源/隔离治理（连续两次与串行全绿）
-4. ⏳ RC-004 同一 commit CI 证据 → HARD-501/502
-5. ⏳ RC-008 真实 Qwen/Wan3 当前证据 → HARD-503/504
-6. ⏳ RC-007 Doubao 模型激活（外部阻断）→ HARD-505
+4. ⛔ RC-004 同一 commit CI 证据 → HARD-501/502（等待 push/Actions）
+5. ✅ RC-008 真实 Qwen/Wan3 当前证据 → HARD-503/504
+6. ⛔ RC-007 Doubao 模型激活（外部阻断）→ HARD-505
 
 Demo：按 HARD 工单验收；H3 出口对齐 PLATFORM-HARDENING-PLAN §11 Definition of Done。
 
@@ -468,13 +469,13 @@ Demo：按 HARD 工单验收；H3 出口对齐 PLATFORM-HARDENING-PLAN §11 Defi
 
 ### 已完成：连线恢复与 Workflow Agent 2.0
 
-计划：[`REACT-FLOW-AGENT-PLAN.md`](REACT-FLOW-AGENT-PLAN.md)
+历史计划：[`REACT-FLOW-AGENT-PLAN.md`](../archive/REACT-FLOW-AGENT-PLAN.md)
 
 该专项的主要功能已完成，后续只保留共享契约（H1）、Agent v1/v2 兼容策略（H4）和 E2E/CI 收口（H5），不再重复排期 Handle、PortEditor 或 Agent adapter 的开发。
 
 ### 已完成：React Flow 与 Scene Prompt 产品化（功能已实现）
 
-专项计划：[`FRONTEND-FLOW-SCENE-PLAN.md`](FRONTEND-FLOW-SCENE-PLAN.md)
+历史专项计划：[`FRONTEND-FLOW-SCENE-PLAN.md`](../archive/FRONTEND-FLOW-SCENE-PLAN.md)
 
 1. F1 端口图契约、连接校验和 WorkflowSpec 2.0 已实现。
 2. F2 Scene Bundle、Draft/lock、Scene Editor、导入导出已实现。
@@ -686,11 +687,11 @@ Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider pol
 
 执行顺序：
 
-1. 先关闭 [`RC-CLOSURE-PLAN.md`](RC-CLOSURE-PLAN.md) 的 P0 门禁；
+1. 历史 RC P0 门禁见 [`RC-CLOSURE-PLAN.md`](../archive/RC-CLOSURE-PLAN.md)；
 2. 再交付 ModuleDefinition、Registry、Schema-driven PropertyPanel 和 Seedream Mock/Contract 薄切片；
 3. 最后实现用户 Module Designer、版本发布/升级和 Agent 模块发现。
 
-详细计划见 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md)。预计两人约 3 周，单人约 4-5 周；首个 Seedream M0 薄切片为 5-7 天。
+历史详细计划见 [`MODULAR-NODE-SEEDREAM-PLAN.md`](../archive/MODULAR-NODE-SEEDREAM-PLAN.md)。该阶段已完成并归档。
 
 ### 2026-09-22 验证结论
 
@@ -705,7 +706,7 @@ Seedream 作为首个内置模块复用 `textToImage` Handler，将 Provider pol
 
 虽然 MOD-101～205 已提交，但 Subagent 复核和专项回归确认 10 个模块/Agent tools 测试失败，并存在 ExecutionResolver 不回写 Compiler、Designer API 不匹配、Agent Compiler 丢 module reference、RepairResult 契约错误等 P0。当前模块化成熟度下调为约 50%–55%。
 
-后续任务按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 的 Phase M0-R → M1-R → M2-R 执行；禁止继续以“文件/类已存在”作为完成标准，必须用 create→publish→drag→configure→save→reload→run 纵向证据关闭工单。
+Phase M0-R → M2-R 的历史任务见 [`MODULAR-NODE-SEEDREAM-PLAN.md`](../archive/MODULAR-NODE-SEEDREAM-PLAN.md)；其纵向证据已经关闭。
 
 ### 2026-09-28 第二轮验收与下一阶段
 

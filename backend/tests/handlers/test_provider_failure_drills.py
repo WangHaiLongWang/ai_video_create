@@ -149,3 +149,25 @@ async def test_cancelled_provider_call_propagates_without_asset():
             },
             {},
         )
+
+
+@pytest.mark.asyncio
+async def test_real_concat_without_ffmpeg_never_creates_fake_asset(monkeypatch):
+    from backend.app.handlers.real_handlers import RealVideoConcatHandler
+
+    class MissingFFmpeg:
+        async def check_ffmpeg_available(self):
+            return False
+
+    monkeypatch.setattr(
+        "backend.app.handlers.real_handlers.get_ffmpeg_service",
+        lambda: MissingFFmpeg(),
+    )
+    result = await RealVideoConcatHandler().execute(
+        {"id": "concat", "config": {"video_paths": ["videos/a.mp4"]}},
+        {},
+    )
+    assert result.status == "failed"
+    assert result.error.code == "FFMPEG_UNAVAILABLE"
+    assert result.output is None
+    assert result.artifacts == []

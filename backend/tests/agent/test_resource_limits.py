@@ -46,16 +46,16 @@ def test_apply_v2_rejects_over_limit_before_create(monkeypatch):
     from backend.app.config import reset_settings
     reset_settings()
     try:
-        client = TestClient(app, raise_server_exceptions=False)
-        preview = client.post(
-            "/api/agent/generate-preview-v2",
-            json={"prompt": "生成一个场景的视频"},
-        ).json()
-        assert any(e["code"] == "NODE_LIMIT_EXCEEDED" for e in preview["validation_errors"])
-        applied = client.post("/api/agent/apply-v2", json={"intent": preview["intent"]})
-        assert applied.status_code == 200
-        assert applied.json()["success"] is False
-        assert "limit" in applied.json()["error"].lower()
+        with TestClient(app, raise_server_exceptions=False) as client:
+            preview = client.post(
+                "/api/agent/generate-preview-v2",
+                json={"prompt": "生成一个场景的视频"},
+            ).json()
+            assert any(e["code"] == "NODE_LIMIT_EXCEEDED" for e in preview["validation_errors"])
+            applied = client.post("/api/agent/apply-v2", json={"intent": preview["intent"]})
+            assert applied.status_code == 200
+            assert applied.json()["success"] is False
+            assert "limit" in applied.json()["error"].lower()
     finally:
         monkeypatch.delenv("AI_VIDEO_AGENT_MAX_NODES", raising=False)
         reset_settings()

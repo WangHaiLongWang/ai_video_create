@@ -80,4 +80,4 @@ Prompt
 
 ## 6. 下一步
 
-以 [`MODULAR-NODE-SEEDREAM-PLAN.md`](../plans/active/MODULAR-NODE-SEEDREAM-PLAN.md) 的 Phase M0-R 为最高优先级。最终验收必须检查 Task.config 和 Handler input 中确实包含模块 defaults + overrides，不能只检查 UI 或数据库保存。
+以 [`MODULAR-NODE-SEEDREAM-PLAN.md`](../plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md) 的 Phase M0-R 为最高优先级。最终验收必须检查 Task.config 和 Handler input 中确实包含模块 defaults + overrides，不能只检查 UI 或数据库保存。

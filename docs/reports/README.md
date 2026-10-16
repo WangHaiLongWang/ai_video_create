@@ -13,6 +13,8 @@
 | [项目验证 2026-10-15](project-validation-2026-10-15.md) | Frontend 387、Backend专项153、共享Catalog/Trace119；真实主链已通 | 当前最新状态基线 |
 | [项目全量验证 2026-10-16](project-validation-2026-10-16.md) | 本地 H0-H4/H6 收口；Backend 2177、Frontend 414、Chromium 143 全绿 | 当前最新本地验收基线 |
 | [真实链路 UAT 2026-10-12](real-chain-uat-2026-10-12.md) | MiMo/Qwen Image/Wan3 最小链路成功，含产物哈希 | 历史真实证据；执行 SHA/费用未捕获，不能替代当前提交复证 |
+| [滑雪教学真实工作流 UAT 2026-10-16](ski-lesson-uat-2026-10-16.md) | 2 图→2×3s 视频→6.06s 合成技术链通过；内容固定器硬约束未通过 | 技术通过 / 内容外部阻断 |
+| [Performance/Recovery 2026-10-16](performance-recovery-validation-2026-10-16.md) | Performance 19 passed；Recovery 55 passed | 当前本地基线 |
 
 ## 证据要求
 

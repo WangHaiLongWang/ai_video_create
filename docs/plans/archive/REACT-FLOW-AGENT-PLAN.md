@@ -2,12 +2,12 @@
 
 > 状态：已落地收口（2026-10-12 校准；后续以模块化/硬化计划为准）  
 > 日期：2026-09-21（校准：2026-10-12）
-> 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
-> 关联：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)、[MODULAR-NODE-SEEDREAM-PLAN.md](MODULAR-NODE-SEEDREAM-PLAN.md)、[PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md)
+> 上级计划：[DELIVERY-PLAN.md](../active/DELIVERY-PLAN.md)
+> 关联：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)、[MODULAR-NODE-SEEDREAM-PLAN.md](MODULAR-NODE-SEEDREAM-PLAN.md)、[PLATFORM-HARDENING-PLAN.md](../active/PLATFORM-HARDENING-PLAN.md)
 
 ## 0.0 2026-10-12 状态校准
 
-本文档写于 2026-09-21，其 §4 连线修复、§5 自定义字段 UI、§6 Workflow Agent 2.0 主链均已落地。后续不再以本计划为执行主线，一律以 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 与 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) 为准；§2 根因分析、§3 字段模型保留作历史设计参考，不随本次校准删除。
+本文档写于 2026-09-21，其 §4 连线修复、§5 自定义字段 UI、§6 Workflow Agent 2.0 主链均已落地。后续不再以本计划为执行主线，当前状态以 [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md) 为准；§2 根因分析、§3 字段模型保留作历史设计参考。
 
 ### 落地位置与验收证据
 
@@ -23,11 +23,11 @@
 
 | 条目 | 去向 | 阻断/备注 |
 |---|---|---|
-| AGENT-208 审计持久化、脱敏和限额 | [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) HARD-403 / HARD-404 | ⏳ 待办 |
+| AGENT-208 审计持久化、脱敏和限额 | [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md) HARD-403 / HARD-404 | ✅ 已完成 |
 | 同 SHA CI 证据归档 | RC-004 → HARD-501/502 | ⏳ 待办 |
 | 真实 Provider UAT（Seedream/Qwen/Wan3） | RC-007 / RC-008 → HARD-504/505、DOU-001 | RC-007 外部阻断 |
 
-功能侧自 Phase M3 后冻结，无新增模块/Agent 功能；下一步是平台硬化（见 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)）。
+功能侧自 Phase M3 后冻结，无新增模块/Agent 功能；平台硬化见 [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md)。
 
 ## 0. 2026-09-21 代码检查点
 

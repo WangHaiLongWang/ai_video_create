@@ -648,7 +648,7 @@ class RealImageToVideoHandler:
                 scene_id=scene_id,
                 variant_id=variant_id or None,
                 metadata={
-                    "path": f"data/assets/videos/{asset_id}.mp4",
+                    "path": relative_path,
                     "duration_seconds": duration,
                 },
             ),
@@ -668,25 +668,9 @@ class RealVideoConcatHandler:
         video_paths = config.get("video_paths", [])
 
         if not video_paths:
-            # No videos to concatenate
-            asset_id = f"final-{uuid.uuid4().hex[:8]}"
-            relative_path = f"final/{asset_id}.mp4"
-            _record_asset(
-                task,
-                "final",
-                relative_path,
-                metadata={"asset_id": asset_id, "path": relative_path, "filename": filename},
-            )
-            return NodeResult.ok(
-                output=ArtifactRef(
-                    type="video",
-                    asset_id=asset_id,
-                    metadata={
-                        "path": f"data/assets/final/{asset_id}.mp4",
-                        "filename": filename,
-                    },
-                ),
-                artifacts=[asset_id],
+            return NodeResult.fail(
+                code="NO_VIDEO_INPUTS",
+                message="No upstream video assets were provided for concatenation",
             )
 
         try:
@@ -694,7 +678,10 @@ class RealVideoConcatHandler:
 
             # Check if FFmpeg is available
             if not await ffmpeg.check_ffmpeg_available():
-                return self._mock_concat_output(filename, task)
+                return NodeResult.fail(
+                    code="FFMPEG_UNAVAILABLE",
+                    message="FFmpeg is required for real video concatenation",
+                )
 
             # Resolve absolute paths
             asset_manager = get_asset_manager()
@@ -731,30 +718,11 @@ class RealVideoConcatHandler:
 
         except FFmpegError as e:
             logger.error(f"FFmpeg concatenation failed: {e}")
-            return self._mock_concat_output(filename, task)
-
-    def _mock_concat_output(self, filename: str, task: dict | None = None) -> NodeResult:
-        """Generate mock concat output as fallback."""
-        asset_id = f"final-{uuid.uuid4().hex[:8]}"
-        relative_path = f"final/{asset_id}.mp4"
-        if task is not None:
-            _record_asset(
-                task,
-                "final",
-                relative_path,
-                metadata={"asset_id": asset_id, "path": relative_path, "filename": filename},
+            return NodeResult.fail(
+                code="FFMPEG_CONCAT_FAILED",
+                message=str(e),
+                details={"stderr": e.stderr or "", "returncode": e.returncode},
             )
-        return NodeResult.ok(
-            output=ArtifactRef(
-                type="video",
-                asset_id=asset_id,
-                metadata={
-                    "path": f"data/assets/final/{asset_id}.mp4",
-                    "filename": filename,
-                },
-            ),
-            artifacts=[asset_id],
-        )
 
 
 class RealOutputHandler:

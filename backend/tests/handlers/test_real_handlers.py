@@ -179,7 +179,7 @@ class TestRealVideoConcatHandler:
 
     @pytest.mark.asyncio
     async def test_execute_no_videos(self):
-        """Test concatenation with no videos (returns mock)."""
+        """Real concatenation never reports a synthetic success."""
         handler = get_handler("videoConcat")
         task = {
             "id": "task-1",
@@ -189,9 +189,10 @@ class TestRealVideoConcatHandler:
             },
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result.status == "succeeded"
-        assert result.output.type == "video"
-        assert result.output.metadata["filename"] == "output.mp4"
+        assert result.status == "failed"
+        assert result.error.code == "NO_VIDEO_INPUTS"
+        assert result.output is None
+        assert result.artifacts == []
 
 
 class TestRealOutputHandler:

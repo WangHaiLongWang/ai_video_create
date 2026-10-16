@@ -7,31 +7,59 @@ Produces:
     - 2 images (variant-01, variant-02)
     - 2 videos (3s each)
     - 1 final concatenated video (~6s)
-    All assets saved to data/assets/
+    All assets and the UAT database are isolated under data/uat/<timestamp>-ski-lesson/.
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
+import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 # Ensure backend is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-async def main():
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the isolated real ski-lesson UAT")
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="Isolated UAT directory (default: data/uat/<timestamp>-ski-lesson)",
+    )
+    parser.add_argument(
+        "--images-only",
+        action="store_true",
+        help="Stop after the two image variants for human content review",
+    )
+    return parser.parse_args()
+
+
+async def main(args: argparse.Namespace) -> None:
+    out_dir = (
+        args.out_dir
+        or (Path("data/uat") / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-ski-lesson")
+    ).resolve()
+    out_dir.mkdir(parents=True, exist_ok=False)
+    # Override paths before importing Settings/DB/asset singletons. Real UAT
+    # must never delete or write the developer's normal database/assets.
+    os.environ["AI_VIDEO_DB_PATH"] = str(out_dir / "uat.db")
+    os.environ["AI_VIDEO_ASSET_DIR"] = str(out_dir / "assets")
+
     from backend.app.config import get_settings
-    from backend.app.db.connection import close_connection, init_db, get_connection
+    from backend.app.db.connection import close_connection, get_connection, init_db
     from backend.app.engine.compiler import compile_workflow
-    from backend.app.engine.queue import get_tasks_by_execution
+    from backend.app.engine.queue import get_tasks_by_execution, get_upstream_results
     from backend.app.engine.scheduler import Scheduler
     from backend.app.handlers import init_real_handlers
-    from backend.app.handlers.contracts import NodeResult, ArtifactRef, NodeError
+    from backend.app.handlers.contracts import NodeError
     from backend.app.services.templates import get_template_service
-    from backend.app.engine.queue import get_upstream_results
 
     settings = get_settings()
     print("=" * 60)
@@ -43,18 +71,17 @@ async def main():
     print(f"Video Model:    {settings.WAN3_MODEL}")
     print()
 
-    # 1. Initialize DB (clean slate for this run)
+    # 1. Initialize an isolated DB (clean slate for this run)
     close_connection()
-    # Remove old database to start fresh
-    import os
     db_path = Path(settings.DB_PATH)
-    if db_path.exists():
-        os.remove(db_path)
+    if db_path.resolve() != (out_dir / "uat.db").resolve():
+        raise RuntimeError(f"Refusing to use non-UAT database: {db_path}")
     init_db()
-    print("[1/8] Database initialized (fresh)")
+    print(f"[1/8] Isolated database initialized: {db_path}")
 
     # 2. Initialize real providers and handlers
     from backend.app.providers import init_providers
+
     wan3_config = {
         "resolution": settings.WAN3_RESOLUTION,
         "ratio": settings.WAN3_RATIO,
@@ -169,8 +196,29 @@ async def main():
             break
 
         tasks = get_tasks_by_execution(execution_id)
+        if args.images_only:
+            image_tasks = [task for task in tasks if task["kind"] == "textToImage"]
+            if len(image_tasks) == 2 and all(
+                task["status"] == "completed" for task in image_tasks
+            ):
+                print(
+                    "\n       Images-only review gate reached; video calls were not submitted."
+                )
+                conn = get_connection()
+                conn.execute(
+                    "UPDATE tasks SET status = 'cancelled' "
+                    "WHERE execution_id = ? AND status = 'pending'",
+                    (execution_id,),
+                )
+                conn.execute(
+                    "UPDATE executions SET status = 'cancelled' WHERE id = ?",
+                    (execution_id,),
+                )
+                conn.commit()
+                break
         ready_tasks = [
-            t for t in tasks
+            t
+            for t in tasks
             if t["status"] == "pending"
             and all(
                 next((tt for tt in tasks if tt["id"] == d), None) is not None
@@ -189,7 +237,8 @@ async def main():
                 f"\r       [{elapsed:.0f}s] "
                 f"completed={len(completed)} running={len(running)} "
                 f"pending={len(pending)} failed={len(failed)}",
-                end="", flush=True,
+                end="",
+                flush=True,
             )
             await asyncio.sleep(2)
             continue
@@ -197,7 +246,6 @@ async def main():
         for task in ready_tasks:
             task_id = task["id"]
             kind = task["kind"]
-            item_key = task.get("item_key", "")
             variant = task.get("config", {}).get("variant_id", "")
             label = f"{kind}" + (f" ({variant})" if variant else "")
             print(f"\n       -> Executing: {task_id} [{label}]")
@@ -207,11 +255,14 @@ async def main():
 
             # Pass upstream results to handler context
             depends_on = task.get("depends_on", [])
-            upstream_results = get_upstream_results(execution_id, depends_on) if depends_on else {}
+            upstream_results = (
+                get_upstream_results(execution_id, depends_on) if depends_on else {}
+            )
             context = {"upstream_results": upstream_results}
 
             # Get handler
             from backend.app.handlers import get_handler
+
             handler = get_handler(kind)
             if not handler:
                 print(f"         ERROR: No handler for {kind}")
@@ -289,14 +340,20 @@ async def main():
         output = result.get("output", {})
         path = output.get("metadata", {}).get("path", "")
         asset_id = output.get("asset_id", "")
-        status_icon = "[OK]" if row["status"] == "completed" else "[FAIL]" if row["status"] == "failed" else "[..]"
+        status_icon = (
+            "[OK]"
+            if row["status"] == "completed"
+            else "[FAIL]"
+            if row["status"] == "failed"
+            else "[..]"
+        )
         detail = f"asset={asset_id}" if asset_id else ""
         if path:
             detail += f" path={path}"
         print(f"    {status_icon} {row['id']}: {row['status']} {detail}")
 
     # Print asset directory
-    asset_dir = Path("data/assets")
+    asset_dir = Path(settings.ASSET_DIR)
     if asset_dir.exists():
         print(f"\n  生成的文件 ({asset_dir}):")
         for f in sorted(asset_dir.rglob("*")):
@@ -310,4 +367,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(_parse_args()))

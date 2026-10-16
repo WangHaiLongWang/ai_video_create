@@ -41,11 +41,13 @@ def test_rate_limit_allows_under_threshold():
     try:
         app = _app_with_limiter(default_limit=5, agent_limit=3)
         client = TestClient(app, raise_server_exceptions=False)
+        client.__enter__()
 
         for _ in range(4):
             r = client.get("/")
             assert r.status_code == 200
     finally:
+        client.__exit__(None, None, None)
         if old is not None:
             os.environ["DISABLE_RATE_LIMIT"] = old
 
@@ -56,6 +58,7 @@ def test_rate_limit_blocks_at_threshold():
     try:
         app = _app_with_limiter(default_limit=3, agent_limit=2)
         client = TestClient(app, raise_server_exceptions=False)
+        client.__enter__()
 
         for _ in range(3):
             r = client.get("/")
@@ -65,6 +68,7 @@ def test_rate_limit_blocks_at_threshold():
         assert r.status_code == 429
         assert "Retry-After" in r.headers
     finally:
+        client.__exit__(None, None, None)
         if old is not None:
             os.environ["DISABLE_RATE_LIMIT"] = old
 
@@ -75,6 +79,7 @@ def test_rate_limit_agent_stricter():
     try:
         app = _app_with_limiter(default_limit=60, agent_limit=2, path="/api/agent/chat")
         client = TestClient(app, raise_server_exceptions=False)
+        client.__enter__()
 
         for _ in range(2):
             r = client.get("/api/agent/chat")
@@ -83,6 +88,7 @@ def test_rate_limit_agent_stricter():
         r = client.get("/api/agent/chat")
         assert r.status_code == 429
     finally:
+        client.__exit__(None, None, None)
         if old is not None:
             os.environ["DISABLE_RATE_LIMIT"] = old
 
@@ -94,12 +100,14 @@ def test_rate_limit_disabled_env_skips_rate_limiting():
     try:
         app = _app_with_limiter(default_limit=2, agent_limit=1)
         client = TestClient(app, raise_server_exceptions=False)
+        client.__enter__()
 
         # Far past the limit — must never 429 while the flag is set.
         for _ in range(20):
             r = client.get("/")
             assert r.status_code == 200
     finally:
+        client.__exit__(None, None, None)
         if old is None:
             os.environ.pop("DISABLE_RATE_LIMIT", None)
         else:
@@ -125,11 +133,13 @@ def test_security_middleware_rate_limit_blocks_over_threshold():
     try:
         app = _app_with_security(rate_limit=3)
         client = TestClient(app, raise_server_exceptions=False)
+        client.__enter__()
 
         for _ in range(3):
             assert client.get("/").status_code == 200
         assert client.get("/").status_code == 429
     finally:
+        client.__exit__(None, None, None)
         if old is not None:
             os.environ["DISABLE_RATE_LIMIT"] = old
 
@@ -145,10 +155,12 @@ def test_security_middleware_respects_disable_rate_limit():
     try:
         app = _app_with_security(rate_limit=3)
         client = TestClient(app, raise_server_exceptions=False)
+        client.__enter__()
 
         for _ in range(20):
             assert client.get("/").status_code == 200
     finally:
+        client.__exit__(None, None, None)
         if old is None:
             os.environ.pop("DISABLE_RATE_LIMIT", None)
         else:

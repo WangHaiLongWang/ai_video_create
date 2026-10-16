@@ -132,7 +132,7 @@ Storyboard NodeResult
 
 WorkflowSpec 描述“如何生成”，Scene Prompt Bundle 描述“本次具体生成什么”，二者不得混用。Provider-specific JSONL 只是请求预览，标准存储始终使用 Provider-neutral Bundle。
 
-详细 Schema、工单和验收见 [`../plans/active/FRONTEND-FLOW-SCENE-PLAN.md`](../plans/active/FRONTEND-FLOW-SCENE-PLAN.md)。
+历史 Schema、工单和验收见 [`../plans/archive/FRONTEND-FLOW-SCENE-PLAN.md`](../plans/archive/FRONTEND-FLOW-SCENE-PLAN.md)，当前状态以 PROJECT-STATUS 为准。
 
 ## 5. 后端分层
 

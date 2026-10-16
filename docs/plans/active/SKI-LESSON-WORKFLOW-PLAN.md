@@ -1,30 +1,30 @@
 # 写实冬季滑雪教学工作流开发计划
 
-> 状态：Active 验收工作流（2026-10-12 已校准）  
-> 日期：2026-09-17（内容快照）；校准：2026-10-12  
+> 状态：Active（技术链 100%，内容质量 External Blocked；2026-10-16）
+> 日期：2026-09-17（内容快照）；校准：2026-10-16
 > 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
-> 相关专项：[FRONTEND-FLOW-SCENE-PLAN.md](FRONTEND-FLOW-SCENE-PLAN.md)  
+> 相关历史专项：[FRONTEND-FLOW-SCENE-PLAN.md](../archive/FRONTEND-FLOW-SCENE-PLAN.md)
 > 目标：用一个可插拔模板跑通 MiMo → Qwen Image ×2 → Wan3 3 秒 ×2 → FFmpeg 合成。
 
-## 0. 2026-10-12 状态校准
+## 0. 2026-10-16 状态校准
 
 **variant fan-out 能力已实现**，且为通用可插拔能力（不在 Qwen Handler 中硬编码）：`variantCount/variants` 在 compiler/scheduler/handlers 层展开，`variant_id` 进入 NodeResult/Asset/Task 血缘，I2V 按 scene+variant 匹配图片与视频 prompt，aggregate 按 variant.index 排序。证据：`backend/tests/acceptance/test_uat_ski_001.py`（8 任务链与血缘查询链）、`test_ski_lesson_e2e.py`、`test_mock_full_chain.py`（SKI-010 1→2→2→1 收敛）、`backend/tests/fixtures/ski_lesson_bundle.py`、`realistic-ski-lesson` 模板；PROJECT-STATUS §4「scene/variant map 与 aggregate，资产血缘和 external job ID」；module-round2-validation-2026-09-28「两场景 × 两变体 × 5 秒配置正确写入节点」。
 
-**主链判定**：Mock/契约主链（SKI-001～010、SKI-014 导出）已落地；**真实出图/出视频 UAT 与最终成片合成未完成**，归口真实 Provider 受控 UAT（HARD-503/504/505）。
+**主链判定**：Mock/契约主链和真实 2 图→2×3 秒视频→6.06 秒合成技术链均已落地。三批共 6 张图片经过人工验收，“学员后脚明确踩雪且空后固定器同时可见”仍未达标，内容质量保持 External Content Blocked。证据见 [`../../reports/ski-lesson-uat-2026-10-16.md`](../../reports/ski-lesson-uat-2026-10-16.md)。
 
 | 阶段 | 状态 | 证据指针 |
 |---|---|---|
 | 模板/fixture、variant fan-out、血缘、I2V 匹配、aggregate 排序（SKI-001～007） | ✅ | PROJECT-STATUS §4；acceptance 测试集（见上） |
 | 模板参数 UI/调用量确认、Scene/Variant 预览与单项重试（SKI-008/009） | ✅ | `TemplateSelector.tsx`「预计调用量」；DELIVERY-PLAN F4「SKI-009 23 tests」 |
 | Mock 全链 1→2→2→1、导出无秘密（SKI-010/014 后端） | ✅ | `test_mock_full_chain.py` SKI-010；`test_scene_bundle.py`/`test_scene_api.py` |
-| 真实 Qwen 两图 UAT（SKI-011） | ⏳ | 仅历史报告（wan3-uat 等），当前 commit 未复测 → PROJECT-STATUS §6 **RC-008** |
-| 真实 Wan3 两段 + FFmpeg 成片（SKI-012） | ⏳ | 同上；`reports/ffmpeg-integration.md` 为历史证据且注明当前 venv 不可复现 → **RC-008** |
-| 内容约束人工验收表（SKI-013） | ⏳ | 依赖 SKI-011/012 真实产物 → **RC-008** |
-| 浏览器导出 roundtrip 门禁 | ⏳ | 归 SCENE-010（Scene JSON roundtrip 纳入 required checks）；历史工单号 RC-003C |
+| 真实 Qwen 两图 UAT（SKI-011） | ✅ 技术通过 | 2026-10-16 三批共 6 图；哈希与人工检查见 UAT 报告 |
+| 真实 Wan3 两段 + FFmpeg 成片（SKI-012） | ✅ 通过 | 2×3s MP4 + 6.06s 合成，全帧解码通过 |
+| 内容约束人工验收表（SKI-013） | ⛔ External Content Blocked | 两人/场景通过；“后脚踩雪+空后固定器”连续三批未达标 |
+| 浏览器导出 roundtrip 门禁 | ✅ 通过 | Chromium `scene-import-export.spec.ts` 第 107 项 |
 
 真实 Provider UAT 的排期与出口见 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md) HARD-503/504/505；Doubao 侧真实 UAT 另受 RC-007 外部阻断（模型未激活），与本工作流默认 Provider 无关但同属「真实 Provider 受控 UAT」批次。
 
-§6/§7/§11 已按上述结论补 ✅/⏳ 标注；§2～§5 内容规格、Prompt、Scene Bundle 等创作规格保持不变。
+§6/§7/§11 已按上述结论校准；§2～§5 内容规格、Prompt、Scene Bundle 等创作规格保持不变。
 
 ## 1. 业务目标
 
@@ -255,7 +255,7 @@ Task item key：`scene-001::variant-01`。Asset 同时记录 scene_id 与 varian
 
 ## 6. 缺口与开发工单
 
-> 状态列（2026-10-12 校准）：✅ 已落地（Mock/契约级）；⏳ 未完成，关联 RC-007/RC-008。
+> 状态列（2026-10-16 校准）：✅ 已落地；⛔ 为供应商内容遵循外部阻断。
 
 | ID | 优先级 | 工作量 | 任务 | 主要文件 | 验收 | 状态（证据指针） |
 |---|---|---:|---|---|---|---|
@@ -269,9 +269,9 @@ Task item key：`scene-001::variant-01`。Asset 同时记录 scene_id 与 varian
 | SKI-008 | P1 | 1d | 模板参数 UI 与调用量/成本确认 | TemplateSelector/dialog | 显示 2 图 + 2 视频调用 | ✅ `TemplateSelector.tsx`「预计调用量」 |
 | SKI-009 | P1 | 1d | Scene/Variant 预览与单项重试 | SceneEditor/AssetPanel | 可重试任一变体 | ✅ DELIVERY-PLAN F4「SKI-009 23 tests」 |
 | SKI-010 | P0 | 2d | Mock 全链验收 | acceptance/E2E | 1→2→2→1 任务链 | ✅ `test_mock_full_chain.py` SKI-010；8 任务收敛 |
-| SKI-011 | P0 | 1.5d | Qwen 真实两图 UAT | integration/report | 两张 PNG，均仅两人 | ⏳ 当前 commit 未复测 → **RC-008**（HARD-504） |
-| SKI-012 | P0 | 2d | Wan3 两段 3 秒 + FFmpeg UAT | integration/report | 两段可播放，最终约 6 秒 | ⏳ 同上 → **RC-008**（HARD-504）；FFmpeg 历史报告注明 venv 不可复现 |
-| SKI-013 | P1 | 1d | 内容约束人工验收表 | `docs/reports/` | 每张图片逐项签字 | ⏳ 依赖 SKI-011/012 真实产物 → **RC-008** |
+| SKI-011 | P0 | 1.5d | Qwen 真实两图 UAT | integration/report | 两张 PNG，均仅两人 | ✅ 三批 6 图均可解码、仅两人；哈希已归档 |
+| SKI-012 | P0 | 2d | Wan3 两段 3 秒 + FFmpeg UAT | integration/report | 两段可播放，最终约 6 秒 | ✅ 2×3 秒 + 6.06 秒成片，全帧解码通过 |
+| SKI-013 | P1 | 1d | 内容约束人工验收表 | `docs/reports/` | 每张图片逐项签字 | ⛔ 后脚踩雪/空后固定器连续三批不合格；需局部重绘/ControlNet/换模型 |
 | SKI-014 | P0 | 1d | Bundle/Qwen/Wan3 JSONL 导出验收 | scenes API/E2E | 无秘密，可重导入 | ✅ 后端导出（`test_scene_bundle.py`/`test_scene_api.py`）；浏览器 roundtrip 门禁归 SCENE-010 |
 
 总估算：17.5 人日，不含外部 API 排队和人工返工。2 人约 2 周，单人约 3-4 周。（SKI-001～010、SKI-014 后端已落地，剩余主要是真实 UAT 与人工验收。）
@@ -285,8 +285,9 @@ Task item key：`scene-001::variant-01`。Asset 同时记录 scene_id 与 varian
   → ✅ SKI-007（聚合合成，Mock/排序；真实 FFmpeg 成片见 SKI-012）
   → ✅ SKI-008/009（产品 UI）
   → ✅ SKI-010/014（Mock 与导出门禁；浏览器 roundtrip 门禁归 SCENE-010）
-  → ⏳ 用户确认成本（真实 UAT 前置，尚未执行）
-  → ⏳ SKI-011/012/013（真实 UAT → RC-008 / HARD-504）
+  → ✅ 受控成本执行（技术批次估算 USD 0.48，images-only 候选估算 USD 0.16）
+  → ✅ SKI-011/012 技术 UAT
+  → ⛔ SKI-013 内容姿态外部阻断
 ```
 
 真实 UAT 之前必须先用 Mock 验证任务数、输入内容、参数和资产血缘，防止错误批量计费。（Mock 段已完成；真实 UAT 段待 RC-008 关闭后执行。）
@@ -358,12 +359,12 @@ Task item key：`scene-001::variant-01`。Asset 同时记录 scene_id 与 varian
 
 只有同时满足以下条件才算该工作流跑通（2026-10-12 校准标注）：
 
-1. ✅ Mock E2E 全绿 — `test_mock_full_chain.py` SKI-010 / `test_uat_ski_001.py`；当前 SHA 复跑待复证；
-2. ⏳ 两张真实图片均通过内容硬约束 — 未执行，**RC-008**（HARD-504）；
-3. ⏳ 两段真实 3 秒视频均可播放并保持约束 — 未执行，**RC-008**（HARD-504）；
-4. ⏳ 最终合成视频可播放且资产血缘完整 — Mock 血缘链已验证（AC-9）；真实 FFmpeg 成片未复证（`reports/ffmpeg-integration.md` 注明当前 venv 不可复现），**RC-008**；
-5. ⏳ WorkflowSpec 与 Scene Bundle 均能导出、重新导入 — 导出器已有（SKI-014 ✅）；浏览器 JSON roundtrip 纳入 required checks 待关闭（SCENE-010；历史工单号 RC-003C）；
+1. ✅ Mock E2E 全绿 — `test_mock_full_chain.py` / `test_uat_ski_001.py`；
+2. ⛔ 两张真实图片均通过内容硬约束 — 三批均未稳定满足后脚/空固定器关系；
+3. ✅ 两段真实 3 秒视频均可播放 — FFmpeg 全帧解码通过；内容继承受第 2 项限制；
+4. ✅ 最终合成视频可播放且资产血缘完整 — 6.06 秒 H.264/480P，哈希与 UAT DB 已归档；
+5. ✅ WorkflowSpec 与 Scene Bundle 均能导出、重新导入 — Chromium roundtrip 第 107 项；
 6. ✅ Provider 可替换，模板无服务密钥和本机路径 — 模板/fixture 不含 Key 与绝对路径；Provider capability 分离（PROJECT-STATUS §4）；
-7. ✅ 当前环境完整测试、typecheck、build 和浏览器 E2E 全绿 — 本机基线 Frontend 387 / Playwright 142 passed / 0 failed / Backend 干净 venv 2123 passed（PROJECT-STATUS §2）；同 SHA CI 证据待补（RC-004）；
-8. ⏳ UAT 报告包含 commit、环境、命令、成本和产物哈希 — 依赖 2/3/4 真实产物；现有 `wan3-uat.md` 已自注缺 commit/环境锁，需在真实 UAT 复测时补齐。
+7. ✅ 当前环境完整测试、typecheck、build 和浏览器 E2E 全绿 — 当前数字见 PROJECT-STATUS §2；同 SHA CI 证据仍为 RC-004；
+8. ✅ UAT 报告包含实现基线、环境、命令、估算成本和产物哈希。
 

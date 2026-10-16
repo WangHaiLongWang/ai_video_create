@@ -14,7 +14,7 @@
 | Runtime | Node 22.21.1 preflight passed；Python 3.12 constraints + `pip check` passed |
 | Frontend unit | 24 files / 414 passed；无 React act warning |
 | Frontend type/build | passed；index 143.29 kB，最大 chunk 185.73 kB |
-| Backend non-external | 2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning |
+| Backend non-external | 2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning |
 | Chromium E2E | 143 passed / 0 failed / 0 skipped；真实 Mock FastAPI |
 | Ruff blocking rules | syntax/undefined-name gate passed |
 | Release/DB/version | 6 passed；metadata/preflight/backup-restore passed |
@@ -37,5 +37,8 @@
 | RC-008 / HARD-503/504 | `78a99ac` MiMo/Qwen/Wan3 受控 1+1+1 调用成功，产物哈希/job ID/配置估算费用已归档 | ✅ 技术 UAT 关闭；实际账单由供应商控制台财务核对 |
 | RC-007 / HARD-505 | Doubao adapter/配置/Mock/失败处理完成 | 账号激活 Seedream/Seedance 或提供 Endpoint ID 后运行真实 UAT |
 | HARD-601/604 tag | `v1.0.0-rc.1` metadata/checklist/manifest 完成 | 只在上述 required checks 全绿后创建 tag |
+| RC-009 滑雪内容 | 三批 6 图；2 图→2×3s 视频→6.06s 合成技术通过 | 后脚/空固定器硬约束未稳定满足；需局部重绘/ControlNet/换模型 |
+
+远端只读复核：`git push --dry-run origin main` 与 `git ls-remote` 均因 GitHub 443 超时失败；REST API 只能查询到旧 SHA `ef8ad99` 的 Security success / CI failure。因此本轮无法形成新 SHA Actions URL，属于可复现的网络/远端状态阻断。
 
 历史真实链路证据：[real-chain-uat-2026-10-12.md](real-chain-uat-2026-10-12.md)。

@@ -9,11 +9,11 @@
 | [系统架构](architecture/SYSTEM-DESIGN.md) | 模块边界、数据流、Provider 架构 | 架构决策变化时 |
 | [Active 交付计划](plans/active/DELIVERY-PLAN.md) | Sprint、工单、门禁和发布计划 | Planning/Review 后 |
 | [长远路线图](plans/active/ROADMAP.md) | v1.0 后 12-18 个月版本列车、工程支柱与待决策项 | 版本出口/决策拍板后 |
-| [Flow/Scene 专项计划](plans/active/FRONTEND-FLOW-SCENE-PLAN.md) | React Flow 连线、Scene 编辑与 Prompt 导出 | 专项 Review 后 |
+| [Flow/Scene 专项计划](plans/archive/FRONTEND-FLOW-SCENE-PLAN.md) | React Flow 连线、Scene 编辑与 Prompt 导出 | 已归档，当前结论见状态页 |
 | [滑雪教学验收工作流](plans/active/SKI-LESSON-WORKFLOW-PLAN.md) | 2 张照片 → 2 段 3 秒视频 → 合成 | 作为真实端到端目标 |
-| [React Flow / Agent 计划](plans/active/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 已落地收口（2026-10-12 校准） |
-| [RC 收敛计划](plans/active/RC-CLOSURE-PLAN.md) | 依赖、E2E、CI 和 v1.0.0-rc.1 门禁 | 已被 Platform Hardening 取代（历史快照） |
-| [模块化节点与 Seedream](plans/active/MODULAR-NODE-SEEDREAM-PLAN.md) | 可复用模块、Schema 属性组件和 Seedream 薄切片 | Phase M0-M3 完成，功能侧冻结 |
+| [React Flow / Agent 计划](plans/archive/REACT-FLOW-AGENT-PLAN.md) | 自定义字段、连线恢复、Prompt 生成完整流程 | 已归档（功能完成） |
+| [RC 收敛计划](plans/archive/RC-CLOSURE-PLAN.md) | 依赖、E2E、CI 和 v1.0.0-rc.1 门禁 | 已归档并被 Platform Hardening 取代 |
+| [模块化节点与 Seedream](plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md) | 可复用模块、Schema 属性组件和 Seedream 薄切片 | 已归档（Phase M0-M3 完成） |
 | [Platform Hardening](plans/active/PLATFORM-HARDENING-PLAN.md) | 共享契约、迁移、Provider 持久化、CI/UAT 和 RC 发布 | 当前唯一推进主线 |
 
 阅读顺序：状态 → Active 计划 → 对应的产品/架构章节。

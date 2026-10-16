@@ -1,13 +1,13 @@
 # v1.0.0-rc.1 收敛计划
 
-> **已被取代说明（2026-10-12）**：本计划已由 [PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md) 取代，不再是推进主线。当前发布阻断与关闭标准以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §6 为准（RC-001/002/003 已关闭；RC-004、RC-008 待办，RC-007 外部阻断），对应工程任务见 PLATFORM-HARDENING-PLAN Epic H0-H6（HARD-xxx，映射见其 §10）。以下正文保留 2026-09-21 时期的工单、基线数字与结论，仅作**历史快照**，不用于领取任务或判断完成度。
+> **已被取代说明（2026-10-12）**：本计划已由 [PLATFORM-HARDENING-PLAN.md](../active/PLATFORM-HARDENING-PLAN.md) 取代，不再是推进主线。当前发布阻断与关闭标准以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §6 为准；以下正文仅作**历史快照**，不用于领取任务或判断完成度。
 
 > 状态：Superseded by PLATFORM-HARDENING-PLAN（2026-10-12）
 > 日期：2026-09-21（历史快照）
 > 基线：`cc61b46`（历史快照）
-> 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)
+> 上级计划：[DELIVERY-PLAN.md](../active/DELIVERY-PLAN.md)
 > 事实基线：[PROJECT-STATUS.md](../../PROJECT-STATUS.md)
-> 取代计划：[PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md)
+> 取代计划：[PLATFORM-HARDENING-PLAN.md](../active/PLATFORM-HARDENING-PLAN.md)
 
 **处理方式说明**：采用「原地标注 Superseded + 历史快照」，而非把 RC-004/007/008 迁入 HARD-5xx 后改写本文件为归档指引。理由：(1) 剩余未关闭的发布阻断已在 PROJECT-STATUS §6 权威登记，工程承接已在 PLATFORM-HARDENING-PLAN HARD-501/502/504/505，再迁移一次只会制造第三处跟踪；(2) 本文件 §3 的 RC-001A/RC-002… 编号与 PROJECT-STATUS §6 的 RC-001… 并非同一套体系，迁移易混淆；(3) 原地标注完整保留 2026-09-21 决策上下文，符合不删历史、增量校准的约束。
 
@@ -93,7 +93,7 @@ external-provider (manual/nightly)
 
 ## 6. Definition of Done（历史快照，2026-09-21）
 
-> 勾选状态仅反映 2026-09-21 时期判断；当前 DoD 以 [PLATFORM-HARDENING-PLAN.md](PLATFORM-HARDENING-PLAN.md) §12 为准（勾选框保持未勾，待同 SHA 证据齐备后逐项确认）。
+> 勾选状态仅反映 2026-09-21 时期判断；当前 DoD 以 [PLATFORM-HARDENING-PLAN.md](../active/PLATFORM-HARDENING-PLAN.md) §12 为准。
 
 - [x] requirements 可在全新 Python 3.12 venv 安装。
 - [x] backend full non-external suite 全绿。

@@ -2,7 +2,7 @@
 
 > 状态：Active 子计划（2026-10-12 已校准）  
 > 日期：2026-09-21（内容快照）；校准：2026-10-12
-> 上级计划：[DELIVERY-PLAN.md](DELIVERY-PLAN.md)  
+> 上级计划：[DELIVERY-PLAN.md](../active/DELIVERY-PLAN.md)
 > 目标：把现有线性六节点画布升级为端口明确、可验证、可编辑、可导出的工作流与 Scene Prompt 系统。
 
 ## 0.0 2026-10-12 状态校准
@@ -13,7 +13,7 @@
 
 - 节点自定义、连线交互、字段/端口 CRUD 的细节规格以 [`REACT-FLOW-AGENT-PLAN.md`](REACT-FLOW-AGENT-PLAN.md) 为准；
 - 模块化节点、Seedream 纵向、模块端口 Binding 与 effective-ports 校验以 [`MODULAR-NODE-SEEDREAM-PLAN.md`](MODULAR-NODE-SEEDREAM-PLAN.md) 为准；
-- 本计划与上述两者冲突处**以后两者为准**。共享 Manifest/Bundle 单一来源、CI 同 SHA 证据、真实 Provider UAT 归 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)（HARD-101～104、HARD-501～505）。
+- 本计划与上述两者冲突处**以后两者为准**。共享 Manifest/Bundle 单一来源、CI 同 SHA 证据、真实 Provider UAT 归 [`PLATFORM-HARDENING-PLAN.md`](../active/PLATFORM-HARDENING-PLAN.md)（HARD-101～104、HARD-501～505）。
 
 ### 0.0.1 主链已落地（✅）
 

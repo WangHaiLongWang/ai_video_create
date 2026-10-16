@@ -66,4 +66,4 @@ Module Designer 的 create/save/publish 请求契约使用 route mock 验证，�
 
 ## 6. 下一步
 
-按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](../plans/active/MODULAR-NODE-SEEDREAM-PLAN.md) Phase M3 执行：真实 Mock Backend Playwright、端口 Binding Designer、module-aware graph validator、Modify E2E、测试隔离、CI 同 SHA 证据和真实 Seedream UAT。
+按 [`MODULAR-NODE-SEEDREAM-PLAN.md`](../plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md) Phase M3 执行：真实 Mock Backend Playwright、端口 Binding Designer、module-aware graph validator、Modify E2E、测试隔离、CI 同 SHA 证据和真实 Seedream UAT。

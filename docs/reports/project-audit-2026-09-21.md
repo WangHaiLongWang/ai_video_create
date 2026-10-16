@@ -39,4 +39,4 @@
 
 ## 判定
 
-项目处于内部 Beta / RC 前收敛，不能标记为 RC。关闭标准和工单见 [`RC-CLOSURE-PLAN.md`](../plans/active/RC-CLOSURE-PLAN.md)。
+项目处于内部 Beta / RC 前收敛，不能标记为 RC。历史关闭标准和工单见 [`RC-CLOSURE-PLAN.md`](../plans/archive/RC-CLOSURE-PLAN.md)。

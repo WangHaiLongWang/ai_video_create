@@ -459,7 +459,7 @@ class TestWorkerPoolFailureInjection:
             await asyncio.sleep(0.3)
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run_pool())
+        asyncio.run(run_pool())
 
         assert pool.active_count == 0
 
@@ -494,7 +494,7 @@ class TestWorkerPoolFailureInjection:
             await asyncio.sleep(0.2)
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
         assert pool.active_count == 0
 
     def test_worker_pool_task_count_tracking(self, tmp_path: __import__("pathlib").Path) -> None:
@@ -522,7 +522,7 @@ class TestWorkerPoolFailureInjection:
             await asyncio.sleep(0.5)
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
         total = sum(w._task_count for w in pool.workers)
         assert total >= 0  # Workers processed at least attempted tasks
@@ -551,7 +551,7 @@ class TestWorkerPoolFailureInjection:
             await asyncio.sleep(0.3)
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
         # Task should reach terminal state (failed or completed depending on mock handler)
         task_info = get_task("task-fail-pool")
@@ -569,4 +569,4 @@ class TestWorkerPoolFailureInjection:
             # Second stop should be safe
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())

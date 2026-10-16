@@ -12,6 +12,10 @@ filterwarnings = [
     # Starlette 0.41.3 imports AnyIO's compatibility alias. Keep this narrow
     # approval until FastAPI's supported Starlette range removes the alias.
     "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated.*:DeprecationWarning:starlette\\.testclient",
+    # Windows Proactor + Starlette TestClient can finalize an already-closed
+    # socket after a later test starts. All project TestClients are explicitly
+    # context-managed; approve only this upstream socket-finalizer warning.
+    "ignore:Exception ignored in.*socket\\.socket.*:pytest.PytestUnraisableExceptionWarning",
 ]
 markers = [
     "performance: performance benchmark tests (deselect with '-m not performance')",
