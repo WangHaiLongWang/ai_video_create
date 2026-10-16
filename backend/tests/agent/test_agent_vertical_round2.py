@@ -7,6 +7,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.db.connection import close_connection, init_db
 from backend.app.main import app
 from backend.app.services.workflow_intent_parser import parse_workflow_intent
 
@@ -22,6 +23,16 @@ class StructuredTextProvider:
         self.calls += 1
         assert "WorkflowIntent" in prompt
         return json.dumps(self.payload, ensure_ascii=False)
+
+
+@pytest.fixture(autouse=True)
+def isolated_db(tmp_path, monkeypatch):
+    """Every vertical test must work from a clean database like CI."""
+    monkeypatch.setattr("backend.app.db.connection._DB_PATH", tmp_path / "agent-round2.db")
+    close_connection()
+    init_db()
+    yield
+    close_connection()
 
 
 def _connection(source: str, source_port: str, target: str, target_port: str, mode="direct"):
