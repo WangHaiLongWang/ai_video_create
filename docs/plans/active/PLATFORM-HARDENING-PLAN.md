@@ -94,8 +94,8 @@ Settings API 当前主要修改内存，重启以 `.env` 为准；不满足用�
 |---|---:|---|---|---|
 | HARD-501 | 0.5d | 触发同 SHA 三平台 CI + browser-e2e | required checks 全绿 | ⛔ External：workflow 已修复并本地全绿；需 push 当前提交后取得 Actions URL |
 | HARD-502 | 0.5d | 归档 JUnit、Playwright report/trace、安全报告、build | 报告记录 Actions URL/SHA | 🔶 本地完成：CI 已上传 JUnit/build/Playwright/security；远端 artifact URL 依赖 HARD-501 |
-| HARD-503 | 0.5d | MiMo 当前 commit smoke | structured intent 成功 | 🔶 历史实测通过并正式归档；当前最终 SHA/费用仍需受控复证 |
-| HARD-504 | 0.5d | Qwen Image + Wan3 最小真实链路 | 1 scene/1 variant/最低时长 | 🔶 历史实测通过并含产物哈希；当前最终 SHA/费用仍需受控复证 |
+| HARD-503 | 0.5d | MiMo 当前 commit smoke | structured intent 成功 | ✅ 完成：`78a99ac` 实测成功，8.20 s |
+| HARD-504 | 0.5d | Qwen Image + Wan3 最小真实链路 | 1 scene/1 variant/最低时长 | ✅ 完成：`78a99ac` PNG + 2s/480P MP4，哈希/job ID/估算费用归档 |
 | HARD-505 | 外部 | 激活 Seedream/Seedance 或配置 Endpoint | Doubao UAT 不再 404 | ⛔ External：代码/契约/Mock 已完成，账号模型未激活 |
 | HARD-506 | 0.5d | Provider 失败/429/timeout/cancel 演练 | 不产生假成功资产 | ✅ 完成：失败/429/timeout/cancel drills，非 Mock 禁止 synthetic success |
 
@@ -177,7 +177,7 @@ Sprint H3（2-3 天）
 - [x] Provider 设置重启恢复，Key 不回显且可轮换。
 - [x] Agent v2 契约冻结，v1 有明确弃用策略。
 - [ ] 同一 SHA 的三平台、browser-e2e、security、media required checks 全绿。
-- [ ] MiMo/Qwen/Wan3 最终 commit 最小 UAT 通过，Doubao 状态明确（历史链路已通过；最终 SHA/费用与 Doubao 激活为外部项）。
+- [x] MiMo/Qwen/Wan3 最终实现 commit 最小 UAT 通过，Doubao 状态明确。
 - [x] 版本、CHANGELOG、Known Issues、安装/升级/回滚文档一致。
 - [ ] `v1.0.0-rc.1` tag 只指向已验证 SHA。
 
@@ -186,7 +186,7 @@ Sprint H3（2-3 天）
 [RC-CLOSURE-PLAN.md](RC-CLOSURE-PLAN.md)（2026-09-21，基线 `cc61b46`）已 **Superseded by PLATFORM-HARDENING-PLAN（2026-10-12）**。取代边界如下：
 
 1. **推进主线**：Epic H0-H6（HARD-xxx）是当前唯一推进主线；RC-CLOSURE-PLAN 的工单表、基线数字和 Day 1-4 执行顺序均为历史快照，不再用于领取任务或判断完成度。
-2. **发布阻断登记**：剩余未关闭项以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §6 为准——RC-001/002/003 已关闭；RC-004 为远端同 SHA 证据、RC-008 为最终 SHA 付费复证、RC-007 为账号激活，三项均已推进到外部执行边界。工程承接见 §10（HARD-501/502/504/505）。
+2. **发布阻断登记**：剩余未关闭项以 [PROJECT-STATUS.md](../../PROJECT-STATUS.md) §6 为准——RC-001/002/003/008 已关闭；RC-004 为远端同 SHA 证据、RC-007 为账号激活，两项均已推进到外部执行边界。工程承接见 §10（HARD-501/502/505）。
 3. **编号说明**：RC-CLOSURE-PLAN §3 的 RC-001A/RC-002… 与 PROJECT-STATUS §6 的 RC-001… 并非同一套编号，勿混用；当前有效发布阻断 ID 只认 PROJECT-STATUS §6。
 4. **处理方式**：采用「原地标注 Superseded + 历史快照」而非「迁 ID 后改归档指引」。理由：未关闭项已在 PROJECT-STATUS §6 登记、由本计划 HARD-5xx 承接，再迁移一次只会制造第三处跟踪或 ID 冲突；原地标注保留 2026-09-21 决策上下文，符合增量校准、不删历史的约束。
 

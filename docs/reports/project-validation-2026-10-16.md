@@ -34,7 +34,7 @@
 | 项 | 当前证据 | 下一动作 |
 |---|---|---|
 | RC-004 / HARD-501/502 | CI workflow 已统一 Node 22/constraints，上传 JUnit/build/Playwright/security artifacts | 提交并 push 后记录同 SHA Actions URL 与 artifact |
-| RC-008 / HARD-503/504 | 2026-10-12 MiMo/Qwen/Wan3 成功，产物哈希见真实链路报告 | 最终 SHA 重新执行受控 1+1+1 调用并补实际费用 |
+| RC-008 / HARD-503/504 | `78a99ac` MiMo/Qwen/Wan3 受控 1+1+1 调用成功，产物哈希/job ID/配置估算费用已归档 | ✅ 技术 UAT 关闭；实际账单由供应商控制台财务核对 |
 | RC-007 / HARD-505 | Doubao adapter/配置/Mock/失败处理完成 | 账号激活 Seedream/Seedance 或提供 Endpoint ID 后运行真实 UAT |
 | HARD-601/604 tag | `v1.0.0-rc.1` metadata/checklist/manifest 完成 | 只在上述 required checks 全绿后创建 tag |
 

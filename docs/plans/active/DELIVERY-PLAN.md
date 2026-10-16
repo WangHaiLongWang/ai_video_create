@@ -12,11 +12,11 @@
 
 ## 0. 2026-10-16 执行检查点
 
-本地可控 Platform Hardening H0-H4/H6 已实现并通过全量门禁：Backend 2177 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过。当前执行主线只剩 H5 外部证据收敛：最终提交同 SHA Actions、MiMo/Qwen/Wan3 最终 SHA 付费 UAT，以及 Doubao 账号激活；外部证据完成前不创建 RC tag。
+本地可控 Platform Hardening H0-H4/H6 已实现并通过全量门禁：Backend 2177 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过。MiMo/Qwen/Wan3 已在实现提交 `78a99ac` 复证；当前执行主线只剩最终提交同 SHA Actions/制品归档与 Doubao 账号激活，完成前不创建 RC tag。
 
 自 2026-10-12 校准后已有 `332950f`（共享 Node Manifest/真实链路 smoke）和 `ef8ad99`（Agent Trace UI/API）等代码变更。本轮已重新执行前端 unit/type/build 和 Backend 关键专项；测试数字不再沿用 10 月 10 日旧基线。
 
-项目主要功能模块、Phase M3 和本地 Platform Hardening 已完成。当前最高优先级收缩为：提交/推送后同 SHA CI 证据、最终 SHA 真实 Provider 受控复证、Doubao 模型激活和 RC tag 签发。
+项目主要功能模块、Phase M3、本地 Platform Hardening 和真实主链受控复证已完成。当前最高优先级收缩为：提交/推送后同 SHA CI 证据、Doubao 模型激活和 RC tag 签发。
 
 ### 已完成
 
@@ -31,14 +31,14 @@
 | AVC-401 Asset 表/API 基础 | Done/需深化 | Migration 003、Repository 和 API 存在 |
 | AVC-501 capability 独立 Provider | Done | image/video 可分别选择 DashScope/Wan3/ComfyUI |
 | Qwen Image 3.0 | Done（单次 UAT） | 真实生成 1280×720 PNG |
-| Wan3.0 480P Provider | Historical UAT Done/当前需复现 | 报告记录真实任务通过；当前证据待复现（RC-008） |
+| Wan3.0 480P Provider | Done | `78a99ac` 真实 2s/480P 复证通过（RC-008 已关闭） |
 | Xiaomi MiMo v2.5 Pro | Done（单次 UAT） | 自定义配置、Contract、`/models` 和真实 Chat Completions 已通过 |
 | AVC-201 NodeResult/ArtifactRef | Done | contracts 与 handlers 已接入 |
 | AVC-203 scene map/input assembly | Done | scene mapping integration tests |
 | AVC-205 取消竞态 | Done | 状态条件更新和递归取消 |
 | AVC-207 WorkerPool | Done | 多 Worker tests |
 | AVC-302/303 WebSocket executionStore | Done/需 E2E | 客户端与单元测试已通过，浏览器断线恢复待验收 |
-| AVC-508 Wan3 external job | Done/需复现 | Migration 006、UAT 报告存在；当前证据待复现（RC-008） |
+| AVC-508 Wan3 external job | Done | Migration 006；`78a99ac` external job 复证已归档 |
 
 ### 当前质量基线（2026-10-16 实测，待同 SHA CI 复证）
 
@@ -65,7 +65,7 @@ H0 可复现工具链
 已实现但不得误标为产品完成：
 
 - 模块 Palette/Designer、扩展端口 Binding、effective-ports 校验、真实 Mock Backend 浏览器链、Agent Modify 增量 diff/破坏性确认均已关闭（Phase M3），但同 SHA CI 与真实 Provider UAT 证据仍缺。
-- 发布阻断：RC-001/002/003 已关闭；RC-004（同 SHA CI run 证据）、RC-008（真实 Qwen/Wan3 当前证据）待办；RC-007（Doubao 模型未激活）外部阻断。
+- 发布阻断：RC-001/002/003/008 已关闭；RC-004（同 SHA CI run/制品证据）与 RC-007（Doubao 模型未激活）仍为外部边界。
 - 剩余工作是 H 系列工单（HARD-xxx）与发布证据，不是新功能。
 
 ### 剩余工作量重估（2026-10-16）

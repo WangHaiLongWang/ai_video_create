@@ -14,7 +14,7 @@
 
 本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
 
-2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 有 10 月 12 日真实产物和 SHA-256，但最终提交的付费复证、远端同 SHA CI、Doubao 模型激活仍是发布边界，不能用本地结果替代。
+2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 已在实现提交 `78a99ac` 受控复证；剩余发布边界只有远端同 SHA CI/制品归档和 Doubao 模型激活。
 
 ### 当前评分
 
@@ -29,7 +29,7 @@
 | 安全与秘密管理 | 100% | AES-GCM、脱敏、多配置持久化、Trace、审计与 warning gate 完成 |
 | Provider 与媒体（代码/Mock） | 100% | MiMo/Qwen/Wan3/Doubao 契约及失败演练完成 |
 | 发布工程（本地可控） | 100% | 版本、constraints、备份恢复、manifest、checklist 完成 |
-| RC 外部证据 | **未关闭** | 当前 SHA Actions、付费 UAT 成本、Doubao 激活依赖外部状态 |
+| RC 外部证据 | **未关闭** | 当前 SHA Actions/制品归档与 Doubao 激活依赖外部状态；真实主链已关闭 |
 
 ## 2. 当前可重复测试基线
 
@@ -89,7 +89,7 @@
 
 第二轮新增：Workflow create/update/import/duplicate/delete 同步 module_usage；capability 过滤按 Provider Policy；Seedream 模块展示→拖入→override→刷新保真和 Designer create/save/publish 浏览器通过；Agent image-only、2 scenes×2 variants×5s、Seedream module ref、unknown/draft module gate 通过。
 
-剩余关闭项（与 §3.2 / §6 一致）：同 SHA CI 证据（RC-004）、真实 Qwen/Wan3 当前证据（RC-008）和真实 Seedream UAT（RC-007，外部阻断）。扩展端口 Binding、effective-ports 校验、真实 Mock Backend 联调、Modify E2E、Vitest 隔离治理已由 Phase M3 关闭。
+剩余关闭项（与 §3.2 / §6 一致）：同 SHA CI 证据（RC-004）和真实 Seedream UAT（RC-007，外部阻断）。RC-008 已由 `78a99ac` 真实链路关闭；扩展端口 Binding、effective-ports 校验、真实 Mock Backend 联调、Modify E2E、Vitest 隔离治理已由 Phase M3 关闭。
 
 ### 3.0.1 2026-09-22 历史实现说明
 
@@ -181,7 +181,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
 | RC-004 | P0 | 最终 commit 同 SHA CI 证据 | 本地 2177 backend + 414 frontend + 143 Chromium 全绿；CI/artifact 配置完成 | push 后三平台 required checks + run/artifact URL | ⛔ 外部发布动作（HARD-501/502） |
 | RC-007 | P1 | Doubao 模型未激活 | 合同/配置/Mock 已完成；真实请求 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
-| RC-008 | P1 | 最终 commit 真实 Qwen/Wan3 证据 | 2026-10-12 主链全绿并已归档产物 SHA-256 | 最终 SHA 受控 UAT，补实际费用 | ⛔ 外部付费复证 |
+| RC-008 | P1 | 最终实现 commit 真实 Qwen/Wan3 证据 | `78a99ac` MiMo→Qwen→Wan3 全绿，产物 SHA-256、耗时、job ID、估算费用已归档 | 最终实现 SHA 受控 UAT | ✅ 关闭（2026-10-16） |
 
 RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。此后 2026-10-10 的干净 venv 复测为 **2123 passed / 8 skipped / 0 failed**（新增 Phase M3 测试所致，非回退）；§2 基线表采用后者。
 
@@ -209,7 +209,7 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 1. 将 `.env` 中该值改为合理值（建议 4096，与 `Settings` 默认一致）；
 2. 在 `OpenAICompatProvider` 构造时按模型上限校验/钳位，非法值直接报配置错误而不是打到 API 才 400。
 
-历史证据已整理到 [`reports/real-chain-uat-2026-10-12.md`](reports/real-chain-uat-2026-10-12.md)，包含模型参数、耗时、字节数和 SHA-256。执行时未捕获 commit/费用，所以最终提交仍需受控付费复证；这是一条证据边界，不是代码缺口。
+历史证据和 `78a99ac` 最终实现提交复证均已整理到 [`reports/real-chain-uat-2026-10-12.md`](reports/real-chain-uat-2026-10-12.md)，包含模型参数、耗时、字节数、SHA-256、脱敏 job ID 与配置估算费用。供应商实际账单不由 API 返回，财务核账以控制台为准，不阻断技术 UAT。
 
 ## 7. 后续开发路线
 
