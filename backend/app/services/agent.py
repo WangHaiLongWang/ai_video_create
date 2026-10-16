@@ -100,7 +100,9 @@ class AgentService:
         if self._provider_name:
             return get_provider(self._provider_name)
         from backend.app.config import get_settings
-        configured = get_provider(get_settings().DEFAULT_LLM_PROVIDER.value)
+        from backend.app.repositories.provider_configs import get_default_provider_config_id
+        configured_id = get_default_provider_config_id("text")
+        configured = get_provider(configured_id) if configured_id else get_provider(get_settings().DEFAULT_LLM_PROVIDER.value)
         if configured and configured.capabilities.text:
             return configured
         # 按优先级尝试

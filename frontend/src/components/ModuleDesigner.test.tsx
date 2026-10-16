@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { ModuleDesigner } from './ModuleDesigner'
 import type { ModuleDefinition, ConfigSchemaField, ModulePort } from '../schemas/module-definition'
 
@@ -241,9 +241,10 @@ describe('ModuleDesigner', () => {
     fireEvent.click(saveBtn)
 
     expect(mockSaveDraft).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText('Save')).toBeDefined())
   })
 
-  it('publish button calls publishDraft', () => {
+  it('publish button calls publishDraft', async () => {
     openWith(sampleDraft)
 
     render(<ModuleDesigner />)
@@ -252,6 +253,7 @@ describe('ModuleDesigner', () => {
     fireEvent.click(publishBtn)
 
     expect(mockPublishDraft).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText('Publish')).toBeDefined())
   })
 
   it('save button is disabled when not dirty', () => {

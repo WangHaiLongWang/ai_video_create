@@ -22,7 +22,23 @@ def register_provider(provider: BaseProvider) -> None:
 
 def get_provider(name: str) -> BaseProvider | None:
     """Get a registered provider by name."""
-    return _providers.get(name)
+    provider = _providers.get(name)
+    if provider is not None:
+        return provider
+    # A workflow stores a stable provider-config ID, never credentials. Build
+    # the corresponding instance lazily so older name-based workflows remain
+    # compatible while new workflows can select one of several profiles of
+    # the same provider type.
+    try:
+        from backend.app.providers.configured import build_configured_provider
+
+        provider = build_configured_provider(name)
+    except Exception as exc:
+        logger.warning("Failed to load provider config %s: %s", name, exc)
+        return None
+    if provider is not None:
+        _providers[name] = provider
+    return provider
 
 
 def list_providers() -> list[dict]:

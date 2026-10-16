@@ -43,7 +43,10 @@ const FRONTEND_PORT_CONTRACT: Record<
     outputs: [['video', 'video', false, 'one']],
   },
   output: {
-    inputs: [['video', 'video', true, 'one']],
+    inputs: [
+      ['video', 'video', false, 'one'],
+      ['asset', 'any', false, 'one'],
+    ],
     outputs: [],
   },
 }
@@ -104,9 +107,11 @@ describe('NODE_CATALOG', () => {
     expect(NODE_CATALOG.output.ports.outputs).toHaveLength(0)
   })
 
-  it('output has one video input', () => {
-    expect(NODE_CATALOG.output.ports.inputs).toHaveLength(1)
+  it('output has optional video and generic asset inputs', () => {
+    expect(NODE_CATALOG.output.ports.inputs).toHaveLength(2)
     expect(NODE_CATALOG.output.ports.inputs[0].type).toBe('video')
+    expect(NODE_CATALOG.output.ports.inputs[1].type).toBe('any')
+    expect(NODE_CATALOG.output.ports.inputs.every((port) => !port.required)).toBe(true)
   })
 
   it('storyboard has prompt input and scenes output', () => {

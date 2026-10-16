@@ -40,6 +40,7 @@ export interface ProviderPolicy {
   allowed: string[]        // provider names
   default?: string
   locked: boolean
+  providerConfigId?: string | null
 }
 
 // ---------------------------------------------------------------------------

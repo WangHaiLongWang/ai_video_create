@@ -46,10 +46,11 @@ info "========== 1/6 关键文件检查 =========="
 
 KEY_FILES=(
     "backend/app/main.py"
-    "backend/app/config.py"
+    "backend/app/config/__init__.py"
     "backend/app/models.py"
     "backend/app/middleware.py"
     "backend/requirements.txt"
+    "backend/constraints.txt"
     "backend/pyproject.toml"
     "frontend/package.json"
     "frontend/tsconfig.json"
@@ -59,6 +60,7 @@ KEY_FILES=(
     ".gitignore"
     "package.json"
     "README.md"
+    "VERSION"
 )
 
 for f in "${KEY_FILES[@]}"; do
@@ -68,6 +70,12 @@ for f in "${KEY_FILES[@]}"; do
         fail "关键文件缺失: $f"
     fi
 done
+
+if python3 scripts/verify-release-metadata.py; then
+    pass "发布版本元数据一致"
+else
+    fail "发布版本元数据不一致"
+fi
 
 # 数据库迁移文件检查
 info "---------- 数据库迁移文件 ----------"

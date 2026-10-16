@@ -60,12 +60,12 @@ class TestParser01SimpleImage:
 
     def test_node_count(self):
         intent = _template_fallback("只生成一张图片")
-        assert len(intent.nodes) == 3  # textInput, storyboard, textToImage
+        assert len(intent.nodes) == 4  # textInput, storyboard, textToImage, output
 
     def test_node_kinds(self):
         intent = _template_fallback("只生成一张图片")
         kinds = {n.kind for n in intent.nodes}
-        assert kinds == {"textInput", "storyboard", "textToImage"}
+        assert kinds == {"textInput", "storyboard", "textToImage", "output"}
 
     def test_no_video_nodes(self):
         intent = _template_fallback("只生成一张图片")
@@ -187,7 +187,7 @@ class TestParser05ExplicitNoVideo:
     def test_node_count(self):
         intent = _template_fallback("只生成图片，不要视频")
         # textInput, storyboard, textToImage; image is the terminal asset
-        assert len(intent.nodes) == 3
+        assert len(intent.nodes) == 4
 
     def test_connections_end_at_image_generator(self):
         intent = _template_fallback("只生成图片，不要视频")

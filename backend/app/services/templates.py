@@ -6,7 +6,15 @@ import json
 import uuid
 from typing import Any
 
-from backend.app.models import WorkflowSpec, TemplateInfo, TemplateDetail
+from backend.app.models import (
+    NodeData,
+    Position,
+    TemplateDetail,
+    TemplateInfo,
+    WorkflowEdge,
+    WorkflowNode,
+    WorkflowSpec,
+)
 from backend.app.db.connection import get_connection
 
 
@@ -377,8 +385,7 @@ class TemplateService:
             return False
 
     @staticmethod
-    def _dict_to_node(d: dict) -> "WorkflowNode":
-        from backend.app.models import WorkflowNode, NodeData, Position
+    def _dict_to_node(d: dict) -> WorkflowNode:
         return WorkflowNode(
             id=d["id"],
             type=d.get("type", "studio"),
@@ -387,12 +394,11 @@ class TemplateService:
         )
 
     @staticmethod
-    def _dict_to_edge(d: dict) -> "WorkflowEdge":
-        from backend.app.models import WorkflowEdge
+    def _dict_to_edge(d: dict) -> WorkflowEdge:
         return WorkflowEdge(**d)
 
     @staticmethod
-    def _node_to_dict(node: "WorkflowNode") -> dict:
+    def _node_to_dict(node: WorkflowNode) -> dict:
         return {
             "id": node.id,
             "type": node.type,
@@ -409,7 +415,7 @@ class TemplateService:
         }
 
     @staticmethod
-    def _edge_to_dict(edge: "WorkflowEdge") -> dict:
+    def _edge_to_dict(edge: WorkflowEdge) -> dict:
         return {"id": edge.id, "source": edge.source, "target": edge.target, "type": edge.type}
 
 

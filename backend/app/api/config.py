@@ -5,12 +5,23 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.app.config import get_settings, ProviderType
 from backend.app.providers import list_providers, get_provider, clear_providers, init_providers
 from backend.app.handlers import init_handlers
 from backend.app.services.asset_manager import get_asset_manager
+from backend.app.repositories.configs import set_encrypted, set_plain
+from backend.app.repositories.provider_configs import (
+    ProviderConfigNotFoundError,
+    ProviderConfigValidationError,
+    create_provider_config,
+    delete_provider_config,
+    get_provider_config,
+    list_provider_configs,
+    set_default,
+    update_provider_config,
+)
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -140,6 +151,125 @@ class UpdateSettingsRequest(BaseModel):
 class TestProviderRequest(BaseModel):
     """Provider test request."""
     provider_name: str
+
+
+class ProviderConfigRequest(BaseModel):
+    """Create/update a named provider profile.
+
+    ``secrets`` is write-only and is never returned by this API.
+    """
+    name: str
+    provider_type: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    capabilities: dict[str, bool] = Field(default_factory=dict)
+    default_capabilities: list[str] = Field(default_factory=list)
+    enabled: bool = True
+    secrets: dict[str, str] = Field(default_factory=dict)
+
+
+class ProviderConfigPatch(BaseModel):
+    name: str | None = None
+    provider_type: str | None = None
+    config: dict[str, Any] | None = None
+    capabilities: dict[str, bool] | None = None
+    default_capabilities: list[str] | None = None
+    enabled: bool | None = None
+    secrets: dict[str, str] | None = None
+
+
+def _public_provider_config(value: dict[str, Any]) -> dict[str, Any]:
+    """Return a JSON-safe profile without credentials."""
+    return {k: v for k, v in value.items() if k != "secrets"}
+
+
+@router.get("/provider-configs")
+async def get_provider_configs() -> list[dict[str, Any]]:
+    return [_public_provider_config(v) for v in list_provider_configs()]
+
+
+@router.post("/provider-configs", status_code=201)
+async def create_provider_config_endpoint(request: ProviderConfigRequest) -> dict[str, Any]:
+    try:
+        return _public_provider_config(create_provider_config(**request.model_dump()))
+    except ProviderConfigValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        # Do not leak SQLite details (including values) to clients.
+        if "UNIQUE constraint" in str(exc):
+            raise HTTPException(409, "provider config name or id already exists") from exc
+        raise
+
+
+@router.get("/provider-configs/{config_id}")
+async def get_provider_config_endpoint(config_id: str) -> dict[str, Any]:
+    try:
+        return _public_provider_config(get_provider_config(config_id))
+    except ProviderConfigNotFoundError as exc:
+        raise HTTPException(404, "provider config not found") from exc
+
+
+@router.patch("/provider-configs/{config_id}")
+async def update_provider_config_endpoint(config_id: str, request: ProviderConfigPatch) -> dict[str, Any]:
+    try:
+        return _public_provider_config(update_provider_config(config_id, **request.model_dump(exclude_none=True)))
+    except ProviderConfigNotFoundError as exc:
+        raise HTTPException(404, "provider config not found") from exc
+    except ProviderConfigValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.delete("/provider-configs/{config_id}", status_code=204, response_model=None)
+async def delete_provider_config_endpoint(config_id: str) -> None:
+    try:
+        delete_provider_config(config_id)
+    except ProviderConfigNotFoundError as exc:
+        raise HTTPException(404, "provider config not found") from exc
+
+
+@router.post("/provider-configs/{config_id}/default/{capability}")
+async def set_provider_default_endpoint(config_id: str, capability: str) -> dict[str, Any]:
+    try:
+        return _public_provider_config(set_default(config_id, capability))
+    except ProviderConfigNotFoundError as exc:
+        raise HTTPException(404, "provider config not found") from exc
+    except ProviderConfigValidationError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/provider-configs/{config_id}/models")
+async def discover_provider_models(config_id: str) -> dict[str, Any]:
+    """Return configured model candidates without making an implicit paid call.
+
+    Providers can supply an explicit ``models`` list; otherwise the configured
+    model is returned as the deterministic local discovery result.
+    """
+    try:
+        item = get_provider_config(config_id)
+    except ProviderConfigNotFoundError as exc:
+        raise HTTPException(404, "provider config not found") from exc
+    config = item.get("config", {})
+    provider = get_provider(config_id)
+    models = await provider.discover_models() if provider is not None else (
+        config.get("models") or ([config.get("model")] if config.get("model") else [])
+    )
+    return {"config_id": config_id, "provider_type": item["provider_type"], "models": [m for m in models if m]}
+
+
+@router.post("/provider-configs/{config_id}/test")
+async def test_provider_config(config_id: str) -> dict[str, Any]:
+    """Test a named profile using a registered provider when available."""
+    try:
+        item = get_provider_config(config_id)
+    except ProviderConfigNotFoundError as exc:
+        raise HTTPException(404, "provider config not found") from exc
+    provider = get_provider(config_id)
+    if provider is None:
+        return {"status": "error", "config_id": config_id, "healthy": False, "error": "provider is not registered"}
+    try:
+        healthy = await provider.health_check()
+        return {"status": "ok" if healthy else "error", "config_id": config_id, "healthy": bool(healthy)}
+    except Exception as exc:
+        return {"status": "error", "config_id": config_id, "healthy": False, "error": str(exc)}
 
 
 class AssetInfo(BaseModel):
@@ -393,6 +523,20 @@ async def update_settings(request: UpdateSettingsRequest) -> dict[str, str]:
         if request.doubao_timeout < 60:
             raise HTTPException(400, "doubao_timeout must be at least 60 seconds")
         settings.DOUBAO_TIMEOUT = request.doubao_timeout
+
+    # Persist only after every field passed validation. Secrets are encrypted
+    # at rest; GET responses never include them.
+    secret_fields = {
+        "openai_api_key", "openai_compat_api_key", "dashscope_api_key",
+        "wan3_api_key", "doubao_api_key",
+    }
+    for field_name, value in request.model_dump(exclude_none=True).items():
+        key = f"provider.{field_name}"
+        serialized = str(value).lower() if isinstance(value, bool) else str(value)
+        if field_name in secret_fields:
+            set_encrypted(key, serialized)
+        else:
+            set_plain(key, serialized)
 
     # Reinitialize providers
     clear_providers()

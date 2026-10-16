@@ -78,8 +78,9 @@ async def test_real_parser_normalizes_image_only_output_semantics():
     intent = await parse_workflow_intent("只生成一张图片，不要视频", provider)
 
     assert provider.calls == 1
-    assert [node.kind for node in intent.nodes] == ["textInput", "storyboard", "textToImage"]
-    assert all(c.target.node != "output" for c in intent.connections)
+    assert [node.kind for node in intent.nodes] == ["textInput", "storyboard", "textToImage", "output"]
+    output_edge = next(c for c in intent.connections if c.target.node == "output")
+    assert output_edge.target.port == "asset"
     assert next(n for n in intent.nodes if n.kind == "storyboard").config["scenes"] == 1
 
 

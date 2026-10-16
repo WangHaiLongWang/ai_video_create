@@ -12,6 +12,7 @@ from backend.app.domain.graph_validation import (
 from backend.app.models import WorkflowSpec
 from backend.app.repositories.workflows import (
     OptimisticLockError,
+    WorkflowAlreadyExistsError,
     WorkflowNotFoundError,
     create_workflow,
     delete_workflow,
@@ -71,7 +72,10 @@ def api_create_workflow(spec: WorkflowSpec) -> dict:
     dumped = spec.model_dump(by_alias=True)
     nodes, edges = extract_nodes_edges_from_spec(dumped)
     raise_if_invalid(nodes, edges)
-    return create_workflow(dumped)
+    try:
+        return create_workflow(dumped)
+    except WorkflowAlreadyExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{workflow_id}", response_model=WorkflowDetail)

@@ -1,5 +1,7 @@
 node_modules/
 frontend/dist/
+dist/
+.secret_key
 backend/.venv/
 __pycache__/
 .pytest_cache/

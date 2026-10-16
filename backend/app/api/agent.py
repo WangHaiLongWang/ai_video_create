@@ -74,7 +74,7 @@ def _validate_patched_spec(spec: WorkflowSpec, patch: GraphPatch) -> None:
     raise_if_invalid(nodes_dicts, edges_dicts)
 
 
-@router.post("/generate", response_model=WorkflowSpec)
+@router.post("/generate", response_model=WorkflowSpec, deprecated=True)
 async def generate_workflow(request: AgentRequest) -> WorkflowSpec:
     """从提示词生成工作流。"""
     service = get_agent_service()
@@ -92,7 +92,7 @@ async def generate_workflow(request: AgentRequest) -> WorkflowSpec:
     return spec
 
 
-@router.post("/generate-preview")
+@router.post("/generate-preview", deprecated=True)
 async def generate_preview(request: AgentRequest) -> dict:
     """生成工作流预览（不写库）。"""
     service = get_agent_service()
@@ -108,7 +108,7 @@ async def generate_preview(request: AgentRequest) -> dict:
     }
 
 
-@router.post("/modify")
+@router.post("/modify", deprecated=True)
 async def modify_workflow(request: ModifyRequest) -> dict:
     """修改工作流（返回 GraphPatch，待确认）。"""
     # 获取当前工作流
@@ -135,7 +135,7 @@ async def modify_workflow(request: ModifyRequest) -> dict:
     }
 
 
-@router.post("/modify-preview")
+@router.post("/modify-preview", deprecated=True)
 async def modify_preview(request: ModifyRequest) -> dict:
     """修改工作流预览（返回 GraphPatch）。"""
     # 获取当前工作流
@@ -167,7 +167,7 @@ async def modify_preview(request: ModifyRequest) -> dict:
     }
 
 
-@router.post("/explain")
+@router.post("/explain", deprecated=True)
 async def explain_workflow(request: ExplainRequest) -> dict:
     """解释工作流功能。"""
     conn = get_connection()
@@ -191,7 +191,7 @@ async def explain_workflow(request: ExplainRequest) -> dict:
     }
 
 
-@router.post("/apply-patch", response_model=WorkflowSpec)
+@router.post("/apply-patch", response_model=WorkflowSpec, deprecated=True)
 async def apply_patch(request: ApplyPatchRequest) -> WorkflowSpec:
     """应用 GraphPatch 到工作流。"""
     patch = request.patch

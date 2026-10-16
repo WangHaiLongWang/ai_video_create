@@ -1,79 +1,56 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+所有用户可见变更按版本记录；格式遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)。安装、升级、回滚与 RC 检查见 [`docs/operations/`](docs/operations/README.md)。
 
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
-## [1.0.0-rc.1] - 2026-09-22
+## [1.0.0-rc.1] - 2026-10-16
 
 ### Added
-- **Browser E2E CI job**: Playwright Chromium tests run on every PR (Linux, Mock backend + Vite)
-- **Three-platform CI**: Backend and Frontend jobs run on Windows, macOS, and Linux
-- **AES-GCM secret encryption**: `cryptography` dependency for secure API key storage
-- **Port-based graph validation**: Authoritative backend validation with self-loop, duplicate, type mismatch, cardinality, cycle, and direction checks
-- **Agent v2 structured intent**: `WorkflowIntent` with validation, cost estimation, and repair steps
-- **Scene JSON import/export**: Export/import scene bundles as JSON with scene_id, ordering, lock state, and prompts preserved
-- **Doubao Seedream/Seedance provider**: Optional provider integration for ByteDance models
-- **Variant fan-out**: Multi-variant image/video generation with scene_id::variant_id keying
-- **Realistic Ski Lesson template**: 1-scene, 2-variant write-realistic workflow template
+
+- 统一发布版本来源 [`VERSION`](VERSION)，并让前端 package、后端 API health/OpenAPI 使用同一版本。
+- 可复现发布清单与 SHA-256 依赖/构建元数据校验。
+- SQLite 备份、恢复与升级前安全备份脚本（PowerShell 与 POSIX shell）。
+- RC 发布检查、安装/升级/回滚演练文档。
+- Browser E2E 与 Linux/Windows/macOS CI、Agent v2 structured intent、Scene JSON roundtrip、模块化节点与 Doubao Provider 契约。
+
+### Verification
+
+- 本地发布清单：`python scripts/verify-release-metadata.py`
+- 生成校验文件：`python scripts/release-manifest.py`
+- 完整门禁：`npm run preflight`、前端 Vitest/typecheck/build、后端 pytest。
+
+### Known issues
+
+- 同 SHA 远端三平台 CI 证据需在 GitHub Actions 运行后归档。
+- Doubao Seedream/Seedance 真实 UAT 仍依赖火山方舟账号激活；Mock/契约测试不代表上游可用。
 
 ### Fixed
-- **Port ID alignment** (RC-002): Backend `imageToVideo` output and `videoConcat` input now use singular `video` port, matching frontend canonical IDs
-- **Pane click deselect** (RC-003A): E2E tests correctly target `.react-flow__pane` instead of `.react-flow__viewport`
-- **Multi-node drag stability** (RC-003B): Hover-first approach, 8-step movement, click-before-drag for focus, and settling pauses prevent zero-delta drags
-- **CI health probe**: Uses `/api/health` (correct path) instead of `/health`
-- **CI integration tests**: Removed `|| true` that silently swallowed failures; external tests use `-m "not external"` marker
-- **Pydantic deprecation**: Migrated `WorkflowSpec` from class-based `Config` to `ConfigDict`
 
-### Changed
-- **CI workflow restructured**: 4 jobs — `backend` (3 OS), `frontend` (3 OS), `integration` (Linux), `browser-e2e` (Linux)
-- **Playwright config**: `reuseExistingServer: true` for local and CI environments
-- **Mock provider edges**: All edge handles use canonical singular port IDs
-
-### Test Results (baseline)
-```
-Backend:        1561 passed, 29 skipped, 0 failed
-Acceptance:     170 passed, 0 failed
-Frontend unit:  295+ passed
-Browser E2E:    134 passed, 1 skipped (Chromium)
-```
-
-### Known Issues
-- Pydantic V3 migration not yet complete (V2 `ConfigDict` used, V3 may require further changes)
-- Doubao Seedream/Seedance provider integration is optional; not required for core workflow
-- Scene roundtrip test requires backend running (skips gracefully when unavailable)
-- Some performance and external provider tests are skipped by design in CI
+- 端口 ID/方向/基数校验、React Flow 连线和多节点拖拽、CI health probe、Agent v1 兼容层。
+- Provider 错误不再生成假成功资产；密钥使用 AES-GCM 加密且 API 不回显。
 
 ## [1.0.0-beta.3] - 2026-09-18
 
 ### Added
-- Scene Draft persistence with SQLite backend
-- Scene Editor with lock/unlock, read-only mode, and add/delete scenes
-- TaskPreview component for viewing generated images/videos
-- Provider error UI — shows real error messages instead of faking success
-- Undo/redo for canvas operations (viewport, selection, copy/paste)
+
+- Scene Draft SQLite 持久化、Scene Editor 锁定/解锁、TaskPreview 与 Provider 错误 UI。
+- Canvas viewport/selection/copy-paste 的 undo/redo。
 
 ### Fixed
-- React Flow edge reconnection stability
-- Dynamic port deletion cascading to associated edges
-- Canvas zoom/pan target coordinates after viewport transform
+
+- React Flow edge reconnect、动态端口删除级联、viewport transform 后的坐标处理。
 
 ## [1.0.0-beta.2] - 2026-09-15
 
 ### Added
-- WorkflowSpec v2 typed node manifest with port-based validation
-- Agent v1 → v2 migration path with structured intent
-- Template service with SQLite persistence for custom templates
-- 4 built-in templates: prompt-to-video, image-storyboard, quick-video, realistic-ski-lesson
+
+- WorkflowSpec v2 typed node manifest、Agent v1→v2 structured intent、模板持久化与四套内置模板。
 
 ### Fixed
-- Template edge handles mismatch with frontend port IDs
-- Agent compiler port reference consistency
+
+- Template 与 Agent compiler 的 edge handle/port ID 一致性。
 
 ## [1.0.0-beta.1] - 2026-09-10
 
 ### Added
-- Initial React Flow canvas with custom studio nodes
-- FastAPI backend with workflow CRUD, execution, and provider management
-- Mock provider for offline development
-- Basic CI pipeline (backend pytest, frontend build)
+
+- React Flow canvas、FastAPI workflow CRUD/execution/provider、Mock provider 与基础 CI。

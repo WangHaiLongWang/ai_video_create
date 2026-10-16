@@ -137,6 +137,10 @@ function CostPreview({ cost }: { cost: CostEstimate }) {
           <span className="agent-cost-value">{formatDuration(cost.estimated_duration_seconds)}</span>
           <span className="agent-cost-label">预计时长</span>
         </div>
+        <div className="agent-cost-item">
+          <span className="agent-cost-value">${cost.estimated_cost_usd.toFixed(4)}</span>
+          <span className="agent-cost-label">预计费用</span>
+        </div>
       </div>
     </div>
   )

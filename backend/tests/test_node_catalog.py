@@ -68,7 +68,12 @@ FRONTEND_PORT_CONTRACT: dict[str, dict[str, list[tuple[str, str, bool, str]]]] =
         "outputs": [("video", "video", False, "one")],
     },
     "output": {
-        "inputs": [("video", "video", True, "one")],
+        # Output is an explicit polymorphic sink: video pipelines terminate on
+        # ``video`` while image-only pipelines terminate on ``asset``.
+        "inputs": [
+            ("video", "video", False, "one"),
+            ("asset", "any", False, "one"),
+        ],
         "outputs": [],
     },
 }

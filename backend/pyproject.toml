@@ -1,13 +1,32 @@
 [project]
 name = "ai-video-create-api"
-version = "0.1.0"
-requires-python = ">=3.10"
+version = "1.0.0rc1"
+requires-python = ">=3.12,<3.13"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".."]
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "error",
+    # Starlette 0.41.3 imports AnyIO's compatibility alias. Keep this narrow
+    # approval until FastAPI's supported Starlette range removes the alias.
+    "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated.*:DeprecationWarning:starlette\\.testclient",
+]
 markers = [
     "performance: performance benchmark tests (deselect with '-m not performance')",
     "external: tests requiring external binaries such as FFmpeg (deselect with '-m not external')",
 ]
+
+[tool.ruff.lint]
+# CI blocks syntax errors and undefined names. Broader style modernization is
+# tracked separately so an upgrade of Ruff cannot retroactively break the RC.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = false

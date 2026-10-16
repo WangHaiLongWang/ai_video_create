@@ -14,6 +14,13 @@ import pytest
 
 # Disable rate limiting during tests (rate limiter tests set their own apps)
 os.environ["DISABLE_RATE_LIMIT"] = "1"
+# The default test suite is hermetic even when the developer has real keys or
+# persisted provider defaults in their local database. Explicit external tests
+# construct their own Settings/provider instances.
+os.environ["AI_VIDEO_DEFAULT_LLM_PROVIDER"] = "mock"
+os.environ["AI_VIDEO_DEFAULT_IMAGE_PROVIDER"] = "mock"
+os.environ["AI_VIDEO_DEFAULT_VIDEO_PROVIDER"] = "mock"
+os.environ["AI_VIDEO_DISABLE_PERSISTED_SETTINGS"] = "1"
 
 # Ensure the project root is on sys.path so that ``backend`` is importable
 # when running tests from within the ``backend/`` directory.

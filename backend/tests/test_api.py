@@ -73,6 +73,11 @@ class TestWorkflowCRUD:
         assert body["id"] == "api-test-1"
         assert body["version"] == 1
 
+    def test_create_duplicate_id_returns_conflict(self):
+        assert client.post("/api/workflows", json=SAMPLE_SPEC).status_code == 201
+        response = client.post("/api/workflows", json=SAMPLE_SPEC)
+        assert response.status_code == 409
+
     def test_get_workflow(self):
         client.post("/api/workflows", json=SAMPLE_SPEC)
         response = client.get("/api/workflows/api-test-1")

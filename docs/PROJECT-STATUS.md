@@ -1,8 +1,8 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-10-12
-> 状态版本：20.0
-> 代码基线：`869672b`（自 `44d2227` 以来仅文档变更；测试数字为 2026-10-10 实测，待同 SHA CI 复证）
+> 基线日期：2026-10-16
+> 状态版本：22.0
+> 代码基线：工作树（父提交 `ef8ad99`；最终提交待创建）
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > 当前推进计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)（Epic H0-H6）
 > 历史 RC 收敛计划（已被 PLATFORM-HARDENING-PLAN 取代）：[`plans/active/RC-CLOSURE-PLAN.md`](plans/active/RC-CLOSURE-PLAN.md)
@@ -10,55 +10,57 @@
 
 ## 1. 结论
 
-项目已进入“模块化主链可用、真实联调与高级自定义收敛”阶段。Module Palette/Designer、精确版本引用、Execution Materializer、Agent module-aware compiler、module_usage 和 Seedream 前端纵向 E2E 已完成基础验收；本轮进一步关闭了模块端口 Binding Designer、module-aware 图校验、真实 Mock Backend 浏览器链路和测试隔离四项缺口。
+项目的**本地可控 Platform Hardening 工程项已全部实现**：共享 Schema/Catalog、migration ledger、持久化多 Provider 配置、Agent 资源/费用门禁、失败演练、版本/备份恢复/发布工件均已落地。React Flow、模块化节点、Agent generate/modify/apply 和真实 Mock Backend 浏览器主链完成全量验收。
 
 本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
 
-本轮校准以当前工作区实测为准：Playwright 全量 142 passed / 1 skipped / 0 failed（含 8 项真实 Mock FastAPI 浏览器链路；1 skipped 为 Scene JSON roundtrip），前端 387 passed，后端干净 venv 2123 passed / 8 skipped / 0 failed。尚不能替代同一 SHA 的 CI run 和真实 Provider UAT。
+2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 有 10 月 12 日真实产物和 SHA-256，但最终提交的付费复证、远端同 SHA CI、Doubao 模型激活仍是发布边界，不能用本地结果替代。
 
 ### 当前评分
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
-| 架构骨架 | 92% | 模块/Agent/执行层完整，下一步消除共享契约和迁移债务 |
-| React Flow 编辑器 | 97% | 实例字段/端口/Binding/effective-port 校验和 E2E 成熟 |
-| 节点组件化 | 94% | 生命周期、Materializer、module_usage、真实 Mock Backend E2E 完成 |
-| Mock 执行闭环 | 96% | 浏览器 create→publish→run、Task/Asset 查询通过 |
-| Workflow Agent | 93% | structured parser、module compiler/gate、Modify增量Diff/E2E 完成 |
-| Scene/Prompt 产品层 | 88% | Editor/Import/Export/Draft/Preview 已有 |
-| 安全与秘密管理 | 83% | 安全代码存在，依赖环境和发布证据仍需修复 |
-| Provider 与媒体 | 79% | Qwen/Wan3 有历史 UAT；Doubao External Blocked |
-| 发布工程 | 84% | CI job和测试隔离完成，仍缺同 SHA run/UAT/发布演练 |
-| 综合产品完成度 | **约 91%** | 功能主链成熟，进入平台硬化与 RC 证据阶段 |
+| 架构骨架 | 100% | 共享契约、模块/Agent/执行层和正式迁移账本完成 |
+| React Flow 编辑器 | 100% | 字段/端口/Binding/连线/持久化/导入导出全量 E2E 通过 |
+| 节点组件化 | 100% | 生命周期、Materializer、usage、真实 Mock Backend E2E 完成 |
+| Mock 执行闭环 | 100% | 浏览器 create→publish→run、Task/Asset 查询通过 |
+| Workflow Agent | 100% | generate/modify/apply、增量 Diff、显式资产终点、限额完成 |
+| Scene/Prompt 产品层 | 100% | Editor/Import/Export/Draft/Preview 和 JSON roundtrip 通过 |
+| 安全与秘密管理 | 100% | AES-GCM、脱敏、多配置持久化、Trace、审计与 warning gate 完成 |
+| Provider 与媒体（代码/Mock） | 100% | MiMo/Qwen/Wan3/Doubao 契约及失败演练完成 |
+| 发布工程（本地可控） | 100% | 版本、constraints、备份恢复、manifest、checklist 完成 |
+| RC 外部证据 | **未关闭** | 当前 SHA Actions、付费 UAT 成本、Doubao 激活依赖外部状态 |
 
 ## 2. 当前可重复测试基线
 
-当前环境：Windows、Node 22.21.1、npm 10.9.4、Python 3.12.3。以下数字为 2026-10-10 实测（代码基线 `44d2227`，其后仅文档变更），**待同 SHA CI 复证**。
+当前验收环境：Windows、Node 22.21.1、npm 10.9.4、Python 3.12.3。`.nvmrc`、engines、runtime preflight 和 CI 已统一 Node 22；Python constraints 固定 3.12 验证依赖。
 
 | 验证项 | 当前结果 | 状态 |
 |---|---:|---|
-| Frontend Vitest | 22 files / 387 passed | 通过 |
+| Frontend Vitest | 24 files / 414 passed | 通过，无 React act warning |
 | TypeScript | 0 errors | 通过 |
-| Vite build | index 138.51 kB；最大 chunk 185.73 kB | 本轮复测通过，无 500 kB 警告 |
+| Vite build | index 143.29 kB；最大 chunk 185.73 kB | 通过，无 500 kB 警告 |
 | Chromium modules E2E（真实 Mock FastAPI） | 5/5 passed | 通过，**零 route mock**，Task/Asset 可查询 |
 | Chromium agent-modify E2E（真实 Mock FastAPI） | 3/3 passed | 通过，**零 route mock**，含 destructive 确认 |
-| Playwright 全量 | 142 passed / 1 skipped / 0 failed | 通过 |
+| Playwright 全量 | 143 passed / 0 skipped / 0 failed | 通过 |
 | Vitest 默认命令连续 2 次 | 375 passed × 2 | 通过 |
 | Vitest 串行模式 | 375 passed | 通过 |
 | Backend 广覆盖回归 | 677 passed | 通过 |
 | Agent structured parser/module gate | 341 passed | 通过 |
-| Backend full non-external（干净 venv） | 2123 passed / 8 skipped / 0 failed | 通过 |
+| Backend full non-external | 2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning | 通过 |
 | Backend 当前专项复测 | 153 passed / 1 warning | 本轮通过 |
+| Shared Catalog + Agent Trace | 119 passed / 1 warning | 本轮通过 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
-| Playwright CI | Mock FastAPI + Vite + Chromium job 已配置 | 尚无本次 run URL/同 SHA 证据 |
+| Real MiMo→Qwen→Wan3 | text + 1280×720 PNG + 2s/480P MP4 | 2026-10-12 本机通过，待正式报告/SHA归档 |
+| Playwright CI | Node 22 + constraints + JUnit/build/Playwright/security artifacts 已配置 | 当前工作树尚未 push，缺最终 SHA run URL |
 
 ### 2.1 浏览器门禁
 
 1. 历史 deselect 和 multi-drag 失败已修复。
 2. Modules E2E 现为 **5 项、零 route mock**，驱动真实 Mock FastAPI 完成 create→publish→drag→save→reload→run，并可查询 Task/Asset。
 3. CI 已配置 Mock FastAPI + Vite + Chromium；仍需实际 Actions run URL、同 SHA 和 artifact。
-4. Scene JSON roundtrip 仍需纳入 required checks。
+4. Scene JSON export→import roundtrip 已进入全量 Chromium（第 107 项）并通过。
 
 ### 2.2 测试隔离与限流（本轮修复）
 
@@ -80,7 +82,7 @@
 - 节点实例级自定义：通过。
 - ModuleDefinition/Registry/Designer：基础生命周期和前端 route-mock E2E 通过。
 - Module 执行：Materializer 已接 REST/Scheduler，module_usage 已同步；真实 backend 浏览器执行仍待验收。
-- Agent：structured parser、module-aware compile/gate 已有定向证据；Modify 浏览器联调仍待完成。
+- Agent：structured parser、module-aware compile/gate、Modify 增量 Diff/破坏性确认浏览器联调均完成。
 - 最新审计：[`reports/workflow-componentization-audit-2026-09-23.md`](reports/workflow-componentization-audit-2026-09-23.md)。
 
 第一轮 P0 开发已完成：ExecutionMaterializer、Workflow create/import roundtrip、Registry/Repository、Module API 乐观锁、Frontend module create/drop/property、Agent module-aware compiler、RepairResult 和四层 preview gate。定向 Backend module/agent/execution 回归 723 passed；Frontend 22 files / 342 tests passed，typecheck/build 通过。
@@ -148,14 +150,14 @@ FE-R3-001～004 完成要点：
 - Provider 按 text/image/video capability 分离：MiMo、Qwen、Wan3、Doubao、OpenAI、ComfyUI、Mock。
 - Rate limiting、CORS、安全响应头、SSRF 策略、审计日志和秘密加密代码已存在。
 
-### 架构债务
+### Platform Hardening 关闭项
 
-1. Node Manifest/graph validator 仍由前后端分别维护，需共享 fixtures 或代码生成。
-2. Pillow/cryptography 已声明，但干净环境安装证据和锁定策略仍不足。
-3. 数据库 migration 缺少正式 `schema_migrations` 账本和失败恢复证明。
-4. Provider 设置 API 主要修改内存，`.env` 仍是重启后的事实来源。
-5. 旧 Agent v1 与 Agent v2 并存且 acceptance 行为不一致，需要兼容策略或下线计划。
-6. Playwright/Backend 生命周期已进入 CI，仍缺真实 run 和 flaky/资源限制治理。
+1. `schemas/base-node-manifest.json`、ModuleDefinition/Workflow JSON Schema 与 parity tests 已形成共享契约。
+2. Node 22/Python 3.12、constraints、runtime preflight 和 CI 工具链一致。
+3. `schema_migrations` ledger、checksum、事务回滚和 legacy adoption 已有自动测试。
+4. Provider 多配置 CRUD/default/models/test、AES-GCM secret 与重启恢复已完成。
+5. Agent v1 标记 deprecated；v2 有显式图片/视频终点、资源/费用 apply 前门禁。
+6. 本地测试生命周期与 worker 策略已稳定；远端同 SHA run 单独列为外部发布证据。
 
 ## 5. Provider 状态
 
@@ -177,9 +179,9 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（2026-10-08 干净 venv 2096 passed / 0 failed） |
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
-| RC-004 | P0 | 无同一 commit CI 证据 | Playwright job 已配置 | 三平台 required checks + report URL | ⏳ 待办（HARD-501/502） |
-| RC-007 | P1 | Doubao 模型未激活 | 两模型真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⏳ 外部阻断 |
-| RC-008 | P1 | 真实 Qwen/Wan3 当前证据缺失 | 仅历史报告 | 当前 commit 受控 UAT 或明确从 RC 范围移除 | 🔶 主链已通（2026-10-12 MiMo→Qwen→Wan3 最小链路全绿），待归档正式 UAT 报告 |
+| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | 本地 2177 backend + 414 frontend + 143 Chromium 全绿；CI/artifact 配置完成 | push 后三平台 required checks + run/artifact URL | ⛔ 外部发布动作（HARD-501/502） |
+| RC-007 | P1 | Doubao 模型未激活 | 合同/配置/Mock 已完成；真实请求 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
+| RC-008 | P1 | 最终 commit 真实 Qwen/Wan3 证据 | 2026-10-12 主链全绿并已归档产物 SHA-256 | 最终 SHA 受控 UAT，补实际费用 | ⛔ 外部付费复证 |
 
 RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.txt`，`Pillow 12.3.0`、`cryptography 50.0.2`、`AESGCM` 均可导入；`pytest backend/tests -m "not external"` → **2096 passed / 8 skipped / 21 deselected (external) / 0 failed**。注意项目自带 `backend/.venv` 仍缺 Pillow（历史遗留），日常开发建议同步该 venv。此后 2026-10-10 的干净 venv 复测为 **2123 passed / 8 skipped / 0 failed**（新增 Phase M3 测试所致，非回退）；§2 基线表采用后者。
 
@@ -207,7 +209,7 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 1. 将 `.env` 中该值改为合理值（建议 4096，与 `Settings` 默认一致）；
 2. 在 `OpenAICompatProvider` 构造时按模型上限校验/钳位，非法值直接报配置错误而不是打到 API 才 400。
 
-RC-008 状态因此从「待办」改为「主链已通」；剩余是把本次证据整理为正式 UAT 报告（含成本、模型参数、SHA）归档到 `docs/reports/`。
+历史证据已整理到 [`reports/real-chain-uat-2026-10-12.md`](reports/real-chain-uat-2026-10-12.md)，包含模型参数、耗时、字节数和 SHA-256。执行时未捕获 commit/费用，所以最终提交仍需受控付费复证；这是一条证据边界，不是代码缺口。
 
 ## 7. 后续开发路线
 

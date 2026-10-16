@@ -32,9 +32,13 @@ from backend.app.schemas.agent_preview import (
     CostEstimate,
     RepairStep,
 )
-from backend.app.schemas.workflow_intent import WorkflowIntent
+from backend.app.schemas.workflow_intent import NodeIntent, WorkflowIntent
 from backend.app.services import agent_trace
-from backend.app.services.agent_tools import estimate_calls, validate_intent
+from backend.app.services.agent_tools import (
+    enforce_resource_limits,
+    estimate_calls,
+    validate_intent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +83,11 @@ def _build_cost_estimate(intent: WorkflowIntent) -> CostEstimate:
     if not result.success:
         return CostEstimate()
     return CostEstimate(**result.data)
+
+
+def _resource_limit_errors(intent: WorkflowIntent) -> list[dict]:
+    """Return stable validation errors for the preview/apply safety gate."""
+    return list(enforce_resource_limits(intent).data.get("errors", []))
 
 
 def _compile_intent(intent: WorkflowIntent) -> tuple[dict | None, str | None]:
@@ -408,26 +417,24 @@ def _spec_to_intent(spec: Any, name: str) -> WorkflowIntent:
 
 
 def _output_port_for_kind(kind: str) -> str:
-    port_map = {
-        "textInput": "text",
-        "storyboard": "scenes",
-        "textToImage": "image",
-        "imageToVideo": "video",
-        "videoConcat": "video",
-    }
-    return port_map.get(kind, "output")
+    from backend.app.schemas.node_catalog import load_node_catalog
+
+    manifest = load_node_catalog().get(kind)
+    if manifest and manifest.ports.outputs:
+        return manifest.ports.outputs[0].id
+    return "output"
 
 
 def _input_port_for_kind(kind: str) -> str:
-    port_map = {
-        "textInput": "prompt",
-        "storyboard": "prompt",
-        "textToImage": "scene",
-        "imageToVideo": "image",
-        "videoConcat": "video",
-        "output": "video",
-    }
-    return port_map.get(kind, "input")
+    from backend.app.schemas.node_catalog import load_node_catalog
+
+    manifest = load_node_catalog().get(kind)
+    if manifest and manifest.ports.inputs:
+        return next(
+            (port.id for port in manifest.ports.inputs if port.required),
+            manifest.ports.inputs[0].id,
+        )
+    return "input"
 
 
 def _default_intent(prompt: str) -> WorkflowIntent:
@@ -536,6 +543,7 @@ async def generate_preview_v2(request: GeneratePreviewRequest) -> AgentPreviewRe
         # 5. Cost estimate
         cost = _build_cost_estimate(intent)
         warnings.extend(cost.warnings)
+        errors.extend(_resource_limit_errors(intent))
 
         can_apply = len(errors) == 0
 
@@ -599,6 +607,7 @@ async def modify_preview_v2(request: ModifyPreviewRequest) -> AgentPreviewRespon
         # 5. Cost estimate
         cost = _build_cost_estimate(intent)
         warnings.extend(cost.warnings)
+        errors.extend(_resource_limit_errors(intent))
 
         # 6. Incremental diff vs the existing workflow (MOD-R3-004)
         from backend.app.services.agent_diff import (
@@ -657,6 +666,7 @@ async def apply_v2(request: AgentApplyRequest) -> AgentApplyResponse:
     - Uses expected_version for optimistic concurrency (409 on conflict).
     """
     intent = request.intent
+
     prompt_for_hash = intent.description or intent.name or ""
 
     with agent_trace.trace_operation(
@@ -690,6 +700,25 @@ def _apply_v2_impl(
 ) -> tuple[AgentApplyResponse, dict | None]:
     """Run the apply-v2 pipeline.  Returns (response, module_diff_summary)."""
     intent = request.intent
+
+    # Preview output is client-controlled and may be stale or edited, so apply
+    # must independently repeat the resource gate before compilation/storage.
+    limit_errors = _resource_limit_errors(intent)
+    if limit_errors:
+        agent_trace.safe_add_step(
+            None, "validate", "resource_limits", "error", 0,
+            {"error_count": len(limit_errors)},
+        )
+        return (
+            AgentApplyResponse(
+                success=False,
+                error=(
+                    f"Resource limits exceeded with {len(limit_errors)} error(s): "
+                    f"{limit_errors[0].get('message', '')}"
+                ),
+            ),
+            None,
+        )
 
     # Validate before applying
     val = validate_intent(intent)

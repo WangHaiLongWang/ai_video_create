@@ -36,6 +36,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 }
 
 .brand-mark { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 8px; color: var(--accent-ink); background: var(--accent); }
+.app-version { color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .02em; }
 .title-group { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 13px; }
 .title-group > span { color: #52584f; }
 .title-group button, .panel-heading button, .agent-title button { border: 0; background: transparent; cursor: pointer; }

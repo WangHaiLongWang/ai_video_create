@@ -28,6 +28,7 @@
 | [已知问题](operations/KNOWN-ISSUES.md) | 当前版本的已知问题和平台限制 |
 | [问题排查](operations/TROUBLESHOOTING.md) | 常见问题诊断和解决方案 |
 | [安全指南](operations/SECURITY.md) | 安全特性、配置建议和漏洞报告 |
+| [运维文档索引](operations/README.md) | 发布检查、数据库备份恢复与运维入口 |
 
 ## AI Provider 集成
 
@@ -57,6 +58,7 @@
 - [Workflow 组件化审计 2026-09-23](reports/workflow-componentization-audit-2026-09-23.md)
 - [模块化第二轮纵向验收 2026-09-28](reports/module-round2-validation-2026-09-28.md)
 - [Platform Hardening 审计 2026-10-10](reports/platform-audit-2026-10-10.md)
+- [项目验证 2026-10-15](reports/project-validation-2026-10-15.md)
 
 报告是特定环境下的证据，不自动代表当前分支门禁通过。报告必须包含日期、commit、环境、命令和原始结果。
 

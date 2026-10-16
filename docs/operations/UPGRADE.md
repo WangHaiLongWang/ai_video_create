@@ -10,16 +10,14 @@
 
 数据库文件位于 `data/ai_video_create.db`，包含所有工作流、执行记录和模板数据。
 
-**Windows (PowerShell)：**
+使用 SQLite 在线备份 API 创建一致性快照（支持 WAL），并生成 SHA-256 元数据：
+
 ```powershell
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-Copy-Item data\ai_video_create.db "backups\ai_video_create_$timestamp.db"
+.\scripts\backup-db.ps1
 ```
 
-**macOS / Linux：**
 ```bash
-mkdir -p backups
-cp data/ai_video_create.db "backups/ai_video_create_$(date +%Y%m%d_%H%M%S).db"
+./scripts/backup-db.sh
 ```
 
 ### 2. 备份资产目录
@@ -74,14 +72,14 @@ git pull origin main
 ```powershell
 cd backend
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 ```
 
 **macOS / Linux：**
 ```bash
 cd backend
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 ```
 
 如果 `requirements.txt` 中新增了依赖，pip 会自动安装。如果有依赖版本冲突，可尝试：
@@ -150,9 +148,9 @@ npm run build
 
 ### 数据库迁移兼容性
 
-- 当前版本共 10 个迁移文件（`001` 至 `010`）
+- 当前版本包含编号迁移文件；以 `backend/app/db/migrations/` 和 `schema_migrations` ledger 为准，不依赖文档中的固定数量
 - 迁移只做**增操作**（新增表、新增列），不修改或删除现有结构
-- 迁移文件按编号顺序在后端启动时自动执行，已执行的迁移不会重复执行
+- 迁移文件按编号顺序在后端启动时自动执行，ledger 同时校验文件 checksum；已执行的迁移不会重复执行
 - 回滚到旧版本时，旧版本会忽略新列，但新列中的数据会丢失
 
 ### API 向后兼容性

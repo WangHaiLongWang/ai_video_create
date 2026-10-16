@@ -7,7 +7,7 @@
 | 软件 | 最低版本 | 说明 |
 |------|---------|------|
 | Python | 3.12+ | 后端运行时，需包含 pip |
-| Node.js | 20+ | 前端构建，需包含 npm |
+| Node.js | 22.x | 前端构建；与 `.nvmrc` 和 CI 一致 |
 | FFmpeg | 4+ | 可选，用于视频拼接合成 |
 | Git | 2.0+ | 版本控制 |
 
@@ -32,15 +32,15 @@ sudo apt install python3.12 python3.12-venv python3-pip
 **Windows / macOS / Linux：**
 推荐使用 [nvm](https://github.com/nvm-sh/nvm) 管理 Node.js 版本：
 ```bash
-nvm install 20
-nvm use 20
+nvm install 22.21.1
+nvm use 22.21.1
 ```
 
 或从 [nodejs.org](https://nodejs.org/) 下载 LTS 版本安装包。
 
 验证安装：
 ```bash
-node --version   # 应显示 v20.x.x 或更高
+node --version   # 应显示 v22.x.x
 npm --version    # 应显示 10.x.x 或更高
 ```
 
@@ -94,7 +94,7 @@ cd ai_video_create
 cd backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 cd ..
 ```
 
@@ -103,7 +103,7 @@ cd ..
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 cd ..
 ```
 

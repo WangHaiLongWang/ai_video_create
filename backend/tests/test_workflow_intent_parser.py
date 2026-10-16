@@ -38,6 +38,17 @@ from backend.app.services.workflow_intent_parser import (
 )
 
 
+def test_parser_catalog_is_derived_from_shared_manifest():
+    from backend.app.schemas.node_catalog import load_node_catalog
+    from backend.app.services.workflow_intent_parser import NODE_KINDS, PORT_DEFINITIONS
+
+    catalog = load_node_catalog()
+    assert NODE_KINDS == list(catalog)
+    for kind, manifest in catalog.items():
+        assert PORT_DEFINITIONS[kind]["input"] == [p.id for p in manifest.ports.inputs]
+        assert PORT_DEFINITIONS[kind]["output"] == [p.id for p in manifest.ports.outputs]
+
+
 # ---------------------------------------------------------------------------
 # Helper: fake provider that returns controlled JSON
 # ---------------------------------------------------------------------------
@@ -240,11 +251,11 @@ class TestTemplateFallback:
 
     def test_no_video_uses_image_generator_as_terminal_node(self):
         intent = _template_fallback("只生成一张图片，不要视频")
-        assert len(intent.nodes) == 3
+        assert len(intent.nodes) == 4
         kinds = [n.kind for n in intent.nodes]
         assert "imageToVideo" not in kinds
         assert "videoConcat" not in kinds
-        assert "output" not in kinds
+        assert "output" in kinds
 
     def test_scene_count_from_prompt(self):
         intent = _template_fallback("生成三个场景")

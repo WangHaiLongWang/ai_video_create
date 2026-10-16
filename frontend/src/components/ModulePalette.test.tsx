@@ -74,9 +74,10 @@ describe('ModulePalette', () => {
     mockFetchModules.mockResolvedValue([])
   })
 
-  it('renders the palette header', () => {
-    render(<ModulePalette />)
+  it('renders the palette header', async () => {
+    const { container } = render(<ModulePalette />)
     expect(screen.getByText('模块库')).toBeDefined()
+    await waitForBuiltin(container)
   })
 
   it('displays loading state', () => {

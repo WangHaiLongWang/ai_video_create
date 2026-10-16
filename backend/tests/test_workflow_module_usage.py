@@ -93,23 +93,22 @@ class TestRepositoryUsageSynchronization:
 
 class TestApiUsageSynchronization:
     def test_create_update_duplicate_and_import_keep_usage_in_sync(self):
-        client = TestClient(app)
+        with TestClient(app) as client:
+            assert client.post("/api/workflows", json=_spec("api-create")).status_code == 201
+            assert _usage("api-create")[0]["module_id"] == "module.image"
 
-        assert client.post("/api/workflows", json=_spec("api-create")).status_code == 201
-        assert _usage("api-create")[0]["module_id"] == "module.image"
+            update = client.put(
+                "/api/workflows/api-create",
+                json={"spec": _spec("api-create", "module.updated"), "expected_version": 1},
+            )
+            assert update.status_code == 200
+            assert [row["module_id"] for row in _usage("api-create")] == ["module.updated"]
 
-        update = client.put(
-            "/api/workflows/api-create",
-            json={"spec": _spec("api-create", "module.updated"), "expected_version": 1},
-        )
-        assert update.status_code == 200
-        assert [row["module_id"] for row in _usage("api-create")] == ["module.updated"]
+            duplicate = client.post("/api/workflows/api-create/duplicate")
+            assert duplicate.status_code == 201
+            duplicate_id = duplicate.json()["id"]
+            assert [row["module_id"] for row in _usage(duplicate_id)] == ["module.updated"]
 
-        duplicate = client.post("/api/workflows/api-create/duplicate")
-        assert duplicate.status_code == 201
-        duplicate_id = duplicate.json()["id"]
-        assert [row["module_id"] for row in _usage(duplicate_id)] == ["module.updated"]
-
-        imported = client.post("/api/workflows/import", json=_spec("api-import"))
-        assert imported.status_code == 201
-        assert [row["module_id"] for row in _usage("api-import")] == ["module.image"]
+            imported = client.post("/api/workflows/import", json=_spec("api-import"))
+            assert imported.status_code == 201
+            assert [row["module_id"] for row in _usage("api-import")] == ["module.image"]

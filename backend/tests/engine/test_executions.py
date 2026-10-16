@@ -48,6 +48,25 @@ class TestStartExecution:
         resp = client.post("/api/executions/nonexistent/start")
         assert resp.status_code == 404
 
+    def test_execution_rechecks_resource_limits_before_creating_record(self, monkeypatch):
+        from backend.app.config import reset_settings
+        from backend.app.db.connection import get_connection
+
+        wf_id = _create_workflow()
+        monkeypatch.setenv("AI_VIDEO_AGENT_MAX_NODES", "0")
+        reset_settings()
+        try:
+            resp = client.post(f"/api/executions/{wf_id}/start")
+            assert resp.status_code == 422
+            assert resp.json()["detail"]["errors"][0]["code"] == "NODE_LIMIT_EXCEEDED"
+            count = get_connection().execute(
+                "SELECT COUNT(*) FROM executions WHERE workflow_id = ?", (wf_id,)
+            ).fetchone()[0]
+            assert count == 0
+        finally:
+            monkeypatch.delenv("AI_VIDEO_AGENT_MAX_NODES", raising=False)
+            reset_settings()
+
     def test_module_effective_config_reaches_queued_task(self):
         spec = {
             "schemaVersion": "2.0",

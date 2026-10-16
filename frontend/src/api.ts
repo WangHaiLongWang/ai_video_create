@@ -289,6 +289,7 @@ export interface CostEstimate {
   concat_calls: number
   total_calls: number
   estimated_duration_seconds: number
+  estimated_cost_usd: number
   warnings?: string[]
 }
 

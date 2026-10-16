@@ -55,7 +55,7 @@ class TestPreviewImageOnlyWorkflow:
         kinds = {n["kind"] for n in data["intent"]["nodes"]}
         assert "textInput" in kinds
         assert "textToImage" in kinds
-        assert "output" not in kinds
+        assert "output" in kinds
         # No video nodes for image-only
         assert "imageToVideo" not in kinds
         assert "videoConcat" not in kinds

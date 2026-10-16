@@ -21,7 +21,7 @@ concurrency:
 # 环境变量（从 secrets 注入敏感信息）
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  NODE_VERSION: "22.21.1"
   # 测试时使用 mock provider，无需真实 API Key
   AI_VIDEO_DEFAULT_LLM_PROVIDER: mock
   AI_VIDEO_DEFAULT_IMAGE_PROVIDER: mock
@@ -58,14 +58,16 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
-          cache-dependency-path: "backend/requirements.txt"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/constraints.txt
 
       # ---------- 安装 Python 依赖 ----------
       - name: 安装 Python 依赖
         run: |
           cd backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r constraints.txt -r requirements.txt
           # 代码质量工具
           pip install ruff mypy
 
@@ -77,10 +79,11 @@ jobs:
           echo "Ruff lint 检查通过"
 
       # ---------- 类型检查 (mypy) ----------
-      - name: 类型检查 (mypy)
+      - name: 类型检查 (mypy hardened contracts)
         run: |
           cd backend
-          mypy app/ --ignore-missing-imports --no-error-summary
+          mypy app/version.py app/schemas/node_manifest.py app/schemas/module_definition.py \
+            --follow-imports=skip --ignore-missing-imports --no-error-summary
           echo "Mypy 类型检查通过"
 
       # ---------- 运行 pytest 测试 ----------
@@ -91,7 +94,16 @@ jobs:
           python -m pytest tests/ -v --tb=short \
             --ignore=tests/integration \
             --ignore=tests/performance \
+            --junitxml="junit-${{ runner.os }}.xml" \
             -x
+
+      - name: 上传 Backend JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-junit-${{ runner.os }}
+          path: backend/junit-${{ runner.os }}.xml
+          retention-days: 14
 
       # ---------- 运行集成测试 (仅 Linux) ----------
       - name: 运行集成测试
@@ -133,6 +145,9 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Runtime preflight
+        run: node scripts/check-runtime.cjs
+
       # ---------- TypeScript 编译检查 ----------
       - name: TypeScript 编译检查
         working-directory: frontend
@@ -142,6 +157,14 @@ jobs:
       - name: Vite 构建
         working-directory: frontend
         run: npm run build
+
+      - name: 上传 Frontend build
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist/
+          retention-days: 14
 
       # ---------- 运行前端测试 ----------
       - name: 运行前端测试
@@ -172,7 +195,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
-          cache-dependency-path: "backend/requirements.txt"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/constraints.txt
 
       # ---------- 设置 Node.js ----------
       - name: 设置 Node.js ${{ env.NODE_VERSION }}
@@ -187,7 +212,7 @@ jobs:
         run: |
           cd backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r constraints.txt -r requirements.txt
           pip install httpx
 
       # ---------- 安装前端依赖 ----------
@@ -262,7 +287,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
-          cache-dependency-path: "backend/requirements.txt"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/constraints.txt
 
       # ---------- 设置 Node.js ----------
       - name: 设置 Node.js ${{ env.NODE_VERSION }}
@@ -277,7 +304,7 @@ jobs:
         run: |
           cd backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r constraints.txt -r requirements.txt
 
       # ---------- 安装前端依赖 ----------
       - name: 安装前端依赖

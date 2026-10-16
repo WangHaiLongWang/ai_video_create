@@ -12,6 +12,7 @@ import { useExecutionStore } from '../stores/executionStore'
 import { computeCallEstimate } from '../utils/callEstimate'
 import { ExportDialog } from './ExportDialog'
 import { ImportDialog } from './ImportDialog'
+import frontendPackage from '../../package.json'
 
 const AgentTracePanel = lazy(() => import('./AgentTracePanel').then(m => ({ default: m.AgentTracePanel })))
 const AssetPanel = lazy(() => import('./AssetPanel').then(m => ({ default: m.AssetPanel })))
@@ -83,6 +84,7 @@ export function TopBar({ onToggleSceneEditor }: { onToggleSceneEditor?: () => vo
         <div className="brand-mark"><SquaresFour size={19} weight="fill" /></div>
         <div className="title-group">
           <strong>ai_video_create</strong>
+          <small className="app-version" title="应用版本">v{frontendPackage.version}</small>
           <span>/</span>
           <button>{workflow.name}<CaretDown size={12} /></button>
         </div>

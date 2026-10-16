@@ -86,6 +86,22 @@ class BaseProvider(ABC):
         """
         return True
 
+    async def discover_models(self) -> list[str]:
+        """Return models available to this configured adapter.
+
+        Network-capable adapters may override this.  The safe default exposes
+        only explicitly configured model identifiers and never makes a paid
+        generation request.
+        """
+        explicit = getattr(self, "configured_models", None)
+        if explicit:
+            return list(dict.fromkeys(str(value) for value in explicit if value))
+        values = [
+            getattr(self, field, None)
+            for field in ("model", "image_model", "video_model")
+        ]
+        return list(dict.fromkeys(str(value) for value in values if value))
+
 
 class ProviderError(Exception):
     """Base exception for provider errors."""

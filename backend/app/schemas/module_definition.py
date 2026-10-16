@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal
 
 from .node_manifest import PortDefinition, ExecutionHints
@@ -13,6 +13,7 @@ class ProviderPolicy(BaseModel):
     allowed: list[str] = Field(default_factory=list)
     default: str | None = None
     locked: bool = False
+    provider_config_id: str | None = Field(default=None, alias="providerConfigId")
 
 
 class ModuleDefinition(BaseModel):
@@ -37,6 +38,29 @@ class ModuleDefinition(BaseModel):
     ports: dict = Field(default_factory=lambda: {"inputs": [], "outputs": []})
     execution: ExecutionHints | None = None
     metadata: dict = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _remove_persisted_credentials(self) -> "ModuleDefinition":
+        """Module definitions reference profiles; credentials live separately."""
+        secret_names = {
+            "api_key", "access_token", "secret", "password", "token",
+            "api_url", "base_url", "endpoint_url",
+        }
+
+        def clean(value):
+            if isinstance(value, dict):
+                return {
+                    key: clean(item)
+                    for key, item in value.items()
+                    if str(key).lower() not in secret_names
+                    and not str(key).lower().endswith("_api_key")
+                }
+            if isinstance(value, list):
+                return [clean(item) for item in value]
+            return value
+
+        self.default_config = clean(self.default_config)
+        return self
 
 
 class NodeInstanceData(BaseModel):

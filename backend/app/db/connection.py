@@ -4,12 +4,117 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 _DB_PATH: Path | None = None
 _CONNECTION: sqlite3.Connection | None = None
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+
+
+class MigrationError(RuntimeError):
+    """Raised when a database migration cannot be applied safely."""
+
+
+class MigrationChecksumError(MigrationError):
+    """Raised when an already-applied migration file was modified."""
+
+
+def _migration_statements(sql: str) -> list[str]:
+    """Split repository migration SQL into executable statements."""
+    statements: list[str] = []
+    current: list[str] = []
+    for line in sql.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("--"):
+            continue
+        current.append(line)
+        if stripped.endswith(";"):
+            statements.append("\n".join(current).strip())
+            current = []
+    if current:
+        statements.append("\n".join(current).strip())
+    return [statement for statement in statements if statement]
+
+
+def _ensure_migration_ledger(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            checksum TEXT NOT NULL,
+            applied_at TEXT NOT NULL
+        )"""
+    )
+    conn.commit()
+
+
+def apply_migrations(
+    conn: sqlite3.Connection,
+    migrations_dir: Path | None = None,
+) -> list[str]:
+    """Apply pending migrations transactionally and verify checksums.
+
+    Returns the versions applied during this call. Existing legacy databases
+    are supported: idempotent DDL and duplicate-column ALTER statements are
+    replayed once, then recorded in the ledger.
+    """
+    directory = migrations_dir or MIGRATIONS_DIR
+    _ensure_migration_ledger(conn)
+    applied_now: list[str] = []
+
+    for migration_file in sorted(directory.glob("*.sql")):
+        version = migration_file.name.split("_", 1)[0]
+        sql = migration_file.read_text(encoding="utf-8")
+        checksum = hashlib.sha256(sql.encode("utf-8")).hexdigest()
+        existing = conn.execute(
+            "SELECT filename, checksum FROM schema_migrations WHERE version = ?",
+            (version,),
+        ).fetchone()
+        if existing is not None:
+            if existing["checksum"] != checksum:
+                raise MigrationChecksumError(
+                    f"Migration {version} checksum mismatch: "
+                    f"recorded {existing['filename']}, current {migration_file.name}"
+                )
+            continue
+
+        savepoint = f"migration_{version.replace('-', '_')}"
+        conn.execute(f"SAVEPOINT {savepoint}")
+        try:
+            for statement in _migration_statements(sql):
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError as exc:
+                    # One-time adoption path for databases created by the old
+                    # replay-on-start runner. After ledgering, this is no
+                    # longer used for the migration.
+                    if "duplicate column name" in str(exc).lower():
+                        continue
+                    raise
+            conn.execute(
+                "INSERT INTO schema_migrations "
+                "(version, filename, checksum, applied_at) VALUES (?, ?, ?, ?)",
+                (
+                    version,
+                    migration_file.name,
+                    checksum,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+            applied_now.append(version)
+        except Exception as exc:
+            conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+            raise MigrationError(
+                f"Failed to apply migration {migration_file.name}: {exc}"
+            ) from exc
+
+    conn.commit()
+    return applied_now
 
 
 def _get_db_path() -> Path:
@@ -67,37 +172,6 @@ def close_connection() -> None:
 
 
 def init_db() -> None:
-    """执行迁移脚本初始化数据库（幂等）。"""
+    """Apply versioned migrations and initialize the database."""
     conn = get_connection()
-    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    for mf in migration_files:
-        sql = mf.read_text(encoding="utf-8")
-        # 按分号分割语句并逐个执行
-        # 这样可以单独处理 ALTER TABLE 的 duplicate column 错误
-        statements = []
-        current = []
-        for line in sql.split('\n'):
-            stripped = line.strip()
-            # 跳过空行和纯注释行
-            if not stripped or stripped.startswith('--'):
-                if current:  # 如果当前有积累的语句，保留注释
-                    current.append(line)
-                continue
-            current.append(line)
-            if stripped.endswith(';'):
-                statements.append('\n'.join(current))
-                current = []
-        if current:
-            statements.append('\n'.join(current))
-
-        for stmt in statements:
-            stmt = stmt.strip()
-            if not stmt:
-                continue
-            try:
-                conn.execute(stmt)
-            except sqlite3.OperationalError as e:
-                if "duplicate column name" in str(e):
-                    continue  # 列已存在，跳过
-                raise
-    conn.commit()
+    apply_migrations(conn)

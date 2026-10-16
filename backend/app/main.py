@@ -32,6 +32,7 @@ from .middleware import SecurityMiddleware, InputSanitizeMiddleware, SecretsMask
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 from .config.cors import get_cors_config
+from .version import APP_VERSION
 
 # 配置密钥脱敏日志过滤器
 _masking_filter = SecretsMaskingFilter()
@@ -233,7 +234,7 @@ async def lifespan(app: FastAPI):
     close_connection()
 
 
-app = FastAPI(title="ai_video_create API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="ai_video_create API", version=APP_VERSION, lifespan=lifespan)
 app.add_middleware(CORSMiddleware, **get_cors_config())
 app.add_middleware(RateLimitMiddleware, default_limit=60, agent_limit=20)
 app.add_middleware(SecurityMiddleware, rate_limit=200)
@@ -268,7 +269,7 @@ async def health() -> dict[str, object]:
         "python": sys.version.split()[0],
         "ffmpeg": shutil.which(settings.FFMPEG_PATH) is not None,
         "mode": "local",
-        "version": "0.2.0",
+        "version": APP_VERSION,
     }
 
 

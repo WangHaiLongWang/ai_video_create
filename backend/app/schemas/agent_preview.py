@@ -21,6 +21,7 @@ class CostEstimate(BaseModel):
     concat_calls: int = 0
     total_calls: int = 0
     estimated_duration_seconds: int = 0
+    estimated_cost_usd: float = 0.0
     warnings: list[str] = Field(default_factory=list)
 
 

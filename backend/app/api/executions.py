@@ -17,6 +17,7 @@ from backend.app.domain.graph_validation import (
 from backend.app.db.connection import get_connection
 from backend.app.engine.compiler import compile_workflow, CompileError
 from backend.app.services.execution_resolver import materialize_execution_spec
+from backend.app.services.agent_tools import enforce_workflow_resource_limits
 from backend.app.engine.queue import (
     get_tasks_by_execution,
     get_task,
@@ -109,6 +110,16 @@ def start_execution(workflow_id: str) -> dict:
         )
 
     # 编译
+    resource_gate = enforce_workflow_resource_limits(materialized_spec)
+    if not resource_gate.success:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": resource_gate.error,
+                "errors": resource_gate.data.get("errors", []),
+            },
+        )
+
     try:
         plan = compile_workflow(materialized_spec)
     except CompileError as e:

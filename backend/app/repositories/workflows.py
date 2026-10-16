@@ -3,9 +3,29 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timezone
 
 from backend.app.db.connection import get_connection
+
+_SECRET_FIELDS = {
+    "api_key", "access_token", "secret", "password", "token",
+    "api_url", "base_url", "endpoint_url",
+}
+
+
+def _sanitize_provider_references(value):
+    """Strip credentials before a workflow spec crosses the DB boundary."""
+    if isinstance(value, dict):
+        return {
+            key: _sanitize_provider_references(item)
+            for key, item in value.items()
+            if str(key).lower() not in _SECRET_FIELDS
+            and not str(key).lower().endswith("_api_key")
+        }
+    if isinstance(value, list):
+        return [_sanitize_provider_references(item) for item in value]
+    return value
 
 
 class OptimisticLockError(Exception):
@@ -14,6 +34,10 @@ class OptimisticLockError(Exception):
 
 class WorkflowNotFoundError(Exception):
     """工作流不存在。"""
+
+
+class WorkflowAlreadyExistsError(Exception):
+    """工作流 ID 已存在。"""
 
 
 def _sync_module_usage(conn, workflow_id: str, spec: dict) -> None:
@@ -65,15 +89,19 @@ def get_workflow(workflow_id: str) -> dict:
 
 def create_workflow(spec: dict, name: str | None = None, description: str = "") -> dict:
     """创建工作流，返回摘要。"""
+    spec = _sanitize_provider_references(spec)
     conn = get_connection()
     wf_id = spec.get("id", "")
     wf_name = name or spec.get("name", "未命名工作流")
     now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
-        "INSERT INTO workflows (id, name, description, schema_version, spec_json, version, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-        (wf_id, wf_name, description, spec.get("schemaVersion", "1.0"), json.dumps(spec, ensure_ascii=False), now, now),
-    )
+    try:
+        conn.execute(
+            "INSERT INTO workflows (id, name, description, schema_version, spec_json, version, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+            (wf_id, wf_name, description, spec.get("schemaVersion", "1.0"), json.dumps(spec, ensure_ascii=False), now, now),
+        )
+    except sqlite3.IntegrityError as exc:
+        raise WorkflowAlreadyExistsError(f"工作流 {wf_id} 已存在") from exc
     _sync_module_usage(conn, wf_id, spec)
     conn.commit()
     return {"id": wf_id, "name": wf_name, "version": 1, "created_at": now, "updated_at": now}
@@ -81,6 +109,7 @@ def create_workflow(spec: dict, name: str | None = None, description: str = "") 
 
 def update_workflow(workflow_id: str, spec: dict, expected_version: int) -> dict:
     """乐观锁更新工作流。"""
+    spec = _sanitize_provider_references(spec)
     conn = get_connection()
     row = conn.execute("SELECT version, name, created_at FROM workflows WHERE id = ?", (workflow_id,)).fetchone()
     if row is None:

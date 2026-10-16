@@ -59,6 +59,11 @@ def _record_asset(
 def _capability_default(capability: str) -> str:
     """Return the configured default provider name for a capability."""
     from backend.app.config import get_settings
+    from backend.app.repositories.provider_configs import get_default_provider_config_id
+
+    profile_id = get_default_provider_config_id(capability)
+    if profile_id:
+        return profile_id
 
     settings = get_settings()
     defaults = {
@@ -79,7 +84,7 @@ def _provider_name(config: dict, capability: str) -> str:
     this path — a missing provider there still surfaces as ``NO_*_PROVIDER`` —
     so production behaviour is unchanged.
     """
-    configured = config.get("provider")
+    configured = config.get("providerConfigId") or config.get("provider_config_id") or config.get("provider")
     if configured:
         name = str(configured).lower()
         if get_provider(name) is None and _capability_default(capability) == "mock":
@@ -174,7 +179,8 @@ Requirements:
 User request: {prompt}"""
 
         # Try to use LLM provider
-        provider = get_provider(_provider_name(config, "text"))
+        provider_name = _provider_name(config, "text")
+        provider = get_provider(provider_name)
         if provider and provider.capabilities.text:
             try:
                 response_text = await provider.generate_text(storyboard_prompt, {
@@ -193,9 +199,19 @@ User request: {prompt}"""
                     ),
                 )
             except ProviderError as e:
-                logger.warning(f"Provider failed, generating mock storyboard: {e}")
+                logger.error(f"Storyboard generation failed: {e}")
+                return NodeResult.fail(code="PROVIDER_ERROR", message=str(e))
 
-        # Fallback: generate basic storyboard
+        # Never turn a missing/misconfigured real provider into a successful
+        # synthetic storyboard.  Such a fallback can trigger downstream paid
+        # generation and makes a failed external run look successful.
+        if provider_name != "mock":
+            return NodeResult.fail(
+                code="NO_TEXT_PROVIDER",
+                message=f"No text provider available: {provider_name}",
+            )
+
+        # Defensive mock-only fallback (normally MockProvider handles this).
         scenes = []
         for i in range(scene_count):
             scenes.append({
@@ -425,11 +441,17 @@ class RealImageToVideoHandler:
         video_prompt = config.get("video_prompt", "") or config.get("prompt", "镜头自然运动")
 
         provider_name = _provider_name(config, "video")
-        if provider_name in {"wan3", "comfyui"}:
-            return await self._use_provider(task, config, actual_scene_id, variant_id, duration, image_path, video_prompt)
         if provider_name == "mock":
             return self._mock_video_output(actual_scene_id, variant_id, duration, task)
-        return await self._use_ffmpeg(task, config, actual_scene_id, variant_id, image_path, duration)
+        provider = get_provider(provider_name)
+        if provider and provider.capabilities.video:
+            return await self._use_provider(
+                task, config, actual_scene_id, variant_id, duration, image_path, video_prompt
+            )
+        return NodeResult.fail(
+            code="NO_VIDEO_PROVIDER",
+            message=f"No video provider available: {provider_name}",
+        )
 
     async def _use_provider(
         self, task: dict, config: dict, scene_id: str, variant_id: str,

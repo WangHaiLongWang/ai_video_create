@@ -76,6 +76,7 @@ const mockPreviewResponse: api.AgentPreviewResponse_v2 = {
     concat_calls: 1,
     total_calls: 8,
     estimated_duration_seconds: 120,
+    estimated_cost_usd: 0.42,
   },
   warnings: [],
   can_apply: true,
@@ -137,6 +138,7 @@ describe('AgentComposer', () => {
 
     await waitFor(() => {
       expect(screen.getByText('调用预估')).toBeDefined()
+      expect(screen.getByText('$0.4200')).toBeDefined()
     })
   })
 

@@ -76,12 +76,12 @@ describe('createNode — port population', () => {
     expect(node.data.ports!.outputs[0].id).toBe('video')
   })
 
-  it('output node has 1 input and no outputs', () => {
+  it('output node exposes video and generic asset sinks', () => {
     const node = createNode('output', 0, 0, 'test-4')
     expect(node.data.ports).toBeDefined()
-    expect(node.data.ports!.inputs).toHaveLength(1)
-    expect(node.data.ports!.inputs[0].id).toBe('video')
-    expect(node.data.ports!.inputs[0].required).toBe(true)
+    expect(node.data.ports!.inputs).toHaveLength(2)
+    expect(node.data.ports!.inputs.map((port) => port.id)).toEqual(['video', 'asset'])
+    expect(node.data.ports!.inputs.every((port) => !port.required)).toBe(true)
     expect(node.data.ports!.outputs).toHaveLength(0)
   })
 
@@ -107,7 +107,7 @@ describe('createNode — port population', () => {
     expect(storyboard.data.ports!.inputs[0].required).toBe(true)
 
     const output = createNode('output', 0, 0, 'n3')
-    expect(output.data.ports!.inputs[0].required).toBe(true)
+    expect(output.data.ports!.inputs.every((port) => !port.required)).toBe(true)
   })
 })
 

@@ -10,6 +10,9 @@
 | [Workflow 组件化审计 2026-09-23](workflow-componentization-audit-2026-09-23.md) | 模块骨架完成，执行/Agent 主链存在 P0 断点 | 当前最新专项基线 |
 | [模块化第二轮纵向验收 2026-09-28](module-round2-validation-2026-09-28.md) | Module E2E、module_usage、Agent Parser/gate 通过 | 当前最新纵向证据 |
 | [Platform Hardening 审计 2026-10-10](platform-audit-2026-10-10.md) | Phase M3 完成，转入共享契约/迁移/配置/发布治理 | 当前最新状态基线 |
+| [项目验证 2026-10-15](project-validation-2026-10-15.md) | Frontend 387、Backend专项153、共享Catalog/Trace119；真实主链已通 | 当前最新状态基线 |
+| [项目全量验证 2026-10-16](project-validation-2026-10-16.md) | 本地 H0-H4/H6 收口；Backend 2177、Frontend 414、Chromium 143 全绿 | 当前最新本地验收基线 |
+| [真实链路 UAT 2026-10-12](real-chain-uat-2026-10-12.md) | MiMo/Qwen Image/Wan3 最小链路成功，含产物哈希 | 历史真实证据；执行 SHA/费用未捕获，不能替代当前提交复证 |
 
 ## 证据要求
 

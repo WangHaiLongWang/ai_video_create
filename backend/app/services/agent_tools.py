@@ -351,8 +351,11 @@ def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
         * imageToVideo: ~30s per video (at specified duration)
         * videoConcat: ~10s total
     """
-    scene_count = intent.scene_count or _infer_scene_count(intent)
-    variant_count = intent.variant_count or 1
+    # Use the largest value declared anywhere in the intent.  This prevents a
+    # caller from presenting a cheap top-level count while hiding a larger
+    # execution fan-out in node config/configOverrides.
+    scene_count = max(intent.scene_count or 0, _infer_scene_count(intent))
+    variant_count = max(intent.variant_count or 0, _infer_variant_count(intent), 1)
     image_calls = 0
     video_calls = 0
     storyboard_calls = 0
@@ -385,6 +388,17 @@ def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
 
     total_duration = storyboard_duration + image_duration + video_duration + concat_duration
 
+    # Conservative configurable ceiling, not a billing quote.  Provider
+    # prices vary; operators can pin the unit estimates to their contract.
+    from backend.app.config import get_settings
+    settings = get_settings()
+    estimated_cost_usd = round(
+        storyboard_calls * settings.AGENT_STORYBOARD_COST_USD
+        + image_calls * settings.AGENT_IMAGE_COST_USD
+        + video_calls * settings.AGENT_VIDEO_COST_USD,
+        4,
+    )
+
     # Build warnings for high costs
     warnings: list[str] = []
     if total > 50:
@@ -408,19 +422,106 @@ def estimate_calls(intent: WorkflowIntent) -> AgentToolResult:
             "concat_calls": concat_calls,
             "total_calls": total,
             "estimated_duration_seconds": total_duration,
+            "estimated_cost_usd": estimated_cost_usd,
             "warnings": warnings,
         },
     )
 
 
+def enforce_resource_limits(intent: WorkflowIntent) -> AgentToolResult:
+    """Reject intents exceeding operator-defined resource/cost ceilings."""
+    from backend.app.config import get_settings
+
+    settings = get_settings()
+    estimate = estimate_calls(intent).data
+    scene_count = int(estimate["scene_count"])
+    variant_count = int(estimate["variant_count"])
+    total_calls = int(estimate["total_calls"])
+    estimated_cost = float(estimate["estimated_cost_usd"])
+    checks = (
+        ("NODE_LIMIT_EXCEEDED", len(intent.nodes), settings.AGENT_MAX_NODES, "nodes"),
+        ("SCENE_LIMIT_EXCEEDED", scene_count, settings.AGENT_MAX_SCENES, "scenes"),
+        ("VARIANT_LIMIT_EXCEEDED", variant_count, settings.AGENT_MAX_VARIANTS, "variants"),
+        ("CALL_LIMIT_EXCEEDED", total_calls, settings.AGENT_MAX_CALLS, "provider calls"),
+        (
+            "COST_LIMIT_EXCEEDED",
+            estimated_cost,
+            settings.AGENT_MAX_ESTIMATED_COST_USD,
+            "estimated USD cost",
+        ),
+    )
+    errors = [
+        {
+            "code": code,
+            "message": f"{label} {actual} exceeds configured limit {limit}",
+            "actual": actual,
+            "limit": limit,
+        }
+        for code, actual, limit, label in checks
+        if actual > limit
+    ]
+    return AgentToolResult(
+        success=not errors,
+        data={"errors": errors, "estimate": estimate},
+        error=f"Resource limits exceeded ({len(errors)} error(s))" if errors else None,
+    )
+
+
+def enforce_workflow_resource_limits(spec: dict[str, Any]) -> AgentToolResult:
+    """Apply the intent safety gate to a persisted/materialized workflow."""
+    nodes: list[NodeIntent] = []
+    for index, raw in enumerate(spec.get("nodes", []) or []):
+        if not isinstance(raw, dict):
+            continue
+        data = raw.get("data", {}) if isinstance(raw.get("data"), dict) else {}
+        kind = data.get("kind")
+        if not isinstance(kind, str) or not kind:
+            continue
+        nodes.append(NodeIntent(
+            alias=str(raw.get("id") or f"node-{index}"),
+            kind=kind,
+            config=data.get("config", {}) if isinstance(data.get("config"), dict) else {},
+            config_overrides=(
+                data.get("configOverrides", {})
+                if isinstance(data.get("configOverrides"), dict)
+                else {}
+            ),
+        ))
+    if not nodes:
+        return AgentToolResult(
+            success=False,
+            data={"errors": [{"code": "NODE_LIMIT_INVALID", "message": "Workflow contains no executable nodes"}]},
+            error="Workflow contains no executable nodes",
+        )
+    return enforce_resource_limits(WorkflowIntent(name=str(spec.get("name") or "execution"), nodes=nodes))
+
+
 def _infer_scene_count(intent: WorkflowIntent) -> int:
     """Try to infer scene count from node configs or connections."""
+    inferred = 1
     for node in intent.nodes:
         if node.kind == "storyboard":
-            scenes = node.config.get("scenes")
-            if isinstance(scenes, int) and scenes > 0:
-                return scenes
-    return 1  # default
+            for config in (node.config, node.config_overrides):
+                scenes = config.get("scenes")
+                if isinstance(scenes, int) and not isinstance(scenes, bool) and scenes > 0:
+                    inferred = max(inferred, scenes)
+                scenes_data = config.get("scenes_data") or config.get("scenesData")
+                if isinstance(scenes_data, list):
+                    inferred = max(inferred, len(scenes_data))
+    return inferred
+
+
+def _infer_variant_count(intent: WorkflowIntent) -> int:
+    inferred = 1
+    for node in intent.nodes:
+        if node.kind != "textToImage":
+            continue
+        for config in (node.config, node.config_overrides):
+            for key in ("variantCount", "variant_count"):
+                value = config.get(key)
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    inferred = max(inferred, value)
+    return inferred
 
 
 # ---------------------------------------------------------------------------

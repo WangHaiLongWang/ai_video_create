@@ -264,6 +264,22 @@ class MockProvider(BaseProvider):
 
         data = json.loads(json.dumps(context))  # deep copy via JSON
         nodes = [n for n in data.get("nodes", []) if isinstance(n, dict)]
+        instruction = prompt.split("\nInstruction:", 1)[-1] if "\nInstruction:" in prompt else ""
+        if "删除输出" in instruction or "remove output" in instruction.lower():
+            output_aliases = {
+                node.get("alias") for node in nodes if node.get("kind") == "output"
+            }
+            data["nodes"] = [
+                node for node in nodes if node.get("alias") not in output_aliases
+            ]
+            data["connections"] = [
+                connection
+                for connection in data.get("connections", [])
+                if connection.get("source", {}).get("node") not in output_aliases
+                and connection.get("target", {}).get("node") not in output_aliases
+            ]
+            data["description"] = "模拟修改：删除输出节点"
+            return json.dumps(data, ensure_ascii=False)
         target = next((n for n in nodes if n.get("kind") == "storyboard"), None) or (
             nodes[0] if nodes else None
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -112,6 +113,17 @@ class Settings(BaseSettings):
     WORKER_LEASE_SECONDS: int = 30
     WORKER_COUNT: int = 2
 
+    # Agent safety limits.  These are enforced both at preview and apply
+    # boundaries so a stale/hand-crafted intent cannot bypass the gate.
+    AGENT_MAX_NODES: int = 50
+    AGENT_MAX_SCENES: int = 20
+    AGENT_MAX_VARIANTS: int = 4
+    AGENT_MAX_CALLS: int = 100
+    AGENT_MAX_ESTIMATED_COST_USD: float = 50.0
+    AGENT_STORYBOARD_COST_USD: float = 0.02
+    AGENT_IMAGE_COST_USD: float = 0.04
+    AGENT_VIDEO_COST_USD: float = 0.20
+
     # Database
     DB_PATH: str = "data/ai_video_create.db"
 
@@ -133,6 +145,11 @@ class Settings(BaseSettings):
             self.WORKER_COUNT = 1
         elif self.WORKER_COUNT > 8:
             self.WORKER_COUNT = 8
+        if not 1 <= self.OPENAI_COMPAT_MAX_TOKENS <= 131072:
+            # Keep application startup recoverable when an old .env contains
+            # an unsupported MiMo value; the Settings API enforces the same
+            # upper bound for future writes.
+            self.OPENAI_COMPAT_MAX_TOKENS = 4096
         return self
 
     def get_provider_config(self, provider_type: ProviderType) -> ProviderConfig:
@@ -237,7 +254,43 @@ def get_settings() -> Settings:
     global _settings
     if _settings is None:
         _settings = Settings()
+        _apply_persisted_settings(_settings)
     return _settings
+
+
+def _apply_persisted_settings(settings: Settings) -> None:
+    """Overlay DB-persisted provider settings when the config table exists."""
+    if os.getenv("AI_VIDEO_DISABLE_PERSISTED_SETTINGS", "").lower() in {"1", "true", "yes"}:
+        return
+    try:
+        from backend.app.repositories.configs import get_decrypted, list_all_keys
+
+        for key in list_all_keys():
+            if not key.startswith("provider."):
+                continue
+            field_name = key.removeprefix("provider.").upper()
+            if field_name not in Settings.model_fields:
+                continue
+            raw = get_decrypted(key)
+            annotation = Settings.model_fields[field_name].annotation
+            try:
+                if annotation is bool:
+                    value: Any = raw.lower() in {"1", "true", "yes", "on"}
+                elif annotation is int:
+                    value = int(raw)
+                elif annotation is float:
+                    value = float(raw)
+                elif annotation is ProviderType:
+                    value = ProviderType(raw)
+                else:
+                    value = json.loads(raw) if raw.startswith(("{", "[")) else raw
+                setattr(settings, field_name, value)
+            except (ValueError, TypeError, json.JSONDecodeError):
+                continue
+    except Exception:
+        # Configuration can be read before init_db in CLI/tests. Environment
+        # settings remain the safe fallback until the DB is initialized.
+        return
 
 
 def reset_settings() -> None:

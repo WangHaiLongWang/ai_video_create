@@ -1,8 +1,8 @@
 # ai_video_create 公司级研发交付计划
 
-> 计划版本：1.8
+> 计划版本：2.0
 > 制定日期：2026-10-10
-> 校准日期：2026-10-12
+> 校准日期：2026-10-16
 > 计划状态：Active，后续开发的唯一主计划
 > 当前推进计划：`docs/plans/active/PLATFORM-HARDENING-PLAN.md`（Epic H0-H6，工单以 HARD-xxx 为准）
 > 状态基线：`docs/PROJECT-STATUS.md`
@@ -10,11 +10,13 @@
 > 架构参考：`docs/architecture/SYSTEM-DESIGN.md`
 > 历史计划：`docs/plans/archive/`
 
-## 0. 2026-10-12 执行检查点
+## 0. 2026-10-16 执行检查点
 
-自 2026-10-10 状态基线（`docs/PROJECT-STATUS.md` 状态版本 19.0，代码基线 `44d2227`）以来 **无代码变更**：git 工作区干净，其后仅有文档提交。本节测试数字沿用 2026-10-10 实测，**均待同 SHA CI 复证**，不得直接作为 RC 证据。
+本地可控 Platform Hardening H0-H4/H6 已实现并通过全量门禁：Backend 2177 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过。当前执行主线只剩 H5 外部证据收敛：最终提交同 SHA Actions、MiMo/Qwen/Wan3 最终 SHA 付费 UAT，以及 Doubao 账号激活；外部证据完成前不创建 RC tag。
 
-项目主要功能模块、两轮模块化纵向开发和 Phase M3 已完成，当前重点是 Platform Hardening（Epic H0-H6）：共享契约、正式迁移、Provider 持久化、同 SHA CI、真实 Provider UAT 与 RC 发布。后续 Sprint/里程碑统一指向 [`PLATFORM-HARDENING-PLAN.md`](PLATFORM-HARDENING-PLAN.md)，本文件不再重复展开已关闭的 AVC/FE-R3/MOD-R3 旧工单。
+自 2026-10-12 校准后已有 `332950f`（共享 Node Manifest/真实链路 smoke）和 `ef8ad99`（Agent Trace UI/API）等代码变更。本轮已重新执行前端 unit/type/build 和 Backend 关键专项；测试数字不再沿用 10 月 10 日旧基线。
+
+项目主要功能模块、Phase M3 和本地 Platform Hardening 已完成。当前最高优先级收缩为：提交/推送后同 SHA CI 证据、最终 SHA 真实 Provider 受控复证、Doubao 模型激活和 RC tag 签发。
 
 ### 已完成
 
@@ -38,15 +40,15 @@
 | AVC-302/303 WebSocket executionStore | Done/需 E2E | 客户端与单元测试已通过，浏览器断线恢复待验收 |
 | AVC-508 Wan3 external job | Done/需复现 | Migration 006、UAT 报告存在；当前证据待复现（RC-008） |
 
-### 当前质量基线（2026-10-10 实测，待同 SHA CI 复证）
+### 当前质量基线（2026-10-16 实测，待同 SHA CI 复证）
 
-- 前端 Vitest：22 files / 387 passed；TypeScript 0 errors。
-- 生产构建：index 138.51 kB；最大 chunk 185.73 kB，无 500 kB 警告。
-- Playwright 全量：142 passed / 1 skipped / 0 failed（含 Modules 5/5 与 Agent Modify 3/3 真实 Mock FastAPI，零 route mock）。
-- 后端干净 venv non-external：2123 passed / 8 skipped / 0 failed。
-- 当前 Node 22.21.1 / Python 3.12.3；本机默认 shell 可能解析到 Node 16，Playwright 需 Node 20+（见 HARD-001）。
+- 前端 Vitest：24 files / 414 passed；TypeScript 0 errors。
+- 生产构建：index 143.29 kB；最大 chunk 185.73 kB，无 500 kB 警告。
+- Playwright 全量：143 passed / 0 skipped / 0 failed（真实 Mock FastAPI）。
+- 后端 non-external：2177 passed / 11 skipped / 21 deselected / 0 failed / 0 warning。
+- 当前 Node 22.21.1 / Python 3.12.3，runtime preflight/constraints/CI 已统一。
 - 三平台 + browser-e2e CI workflow 已配置，尚无同 SHA run 证据。
-- 当前综合产品完成度约 91%；功能主链成熟，进入平台硬化与 RC 证据阶段，未达到 RC。
+- 本地可控产品/工程任务 100%；外部发布证据未关闭，因此尚未达到 RC。
 
 ### 当前关键路径：Platform Hardening（H0-H6）
 
@@ -66,10 +68,10 @@ H0 可复现工具链
 - 发布阻断：RC-001/002/003 已关闭；RC-004（同 SHA CI run 证据）、RC-008（真实 Qwen/Wan3 当前证据）待办；RC-007（Doubao 模型未激活）外部阻断。
 - 剩余工作是 H 系列工单（HARD-xxx）与发布证据，不是新功能。
 
-### 剩余工作量重估（对齐 H 系列）
+### 剩余工作量重估（2026-10-16）
 
-- 两人并行约 7-10 个工作日；单人约 12-16 个工作日（外部模型激活等待不计入工程工期）。
-- 最大不确定性：共享契约收敛、migration ledger 旧库升级与中断恢复、同 SHA CI 证据、真实 Provider UAT。
+- 工程实现剩余 0 人日；同 SHA CI/制品归档预计 0.5 天，最终真实链路复证与报告约 0.5 天。
+- Doubao 激活等待不计工程工期，且必须由账号管理员/供应商完成。
 
 ## 1. 计划目标
 

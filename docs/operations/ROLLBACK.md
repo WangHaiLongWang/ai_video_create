@@ -28,20 +28,18 @@
 
 **Windows (PowerShell)：**
 ```powershell
-# 查看可用备份
-Get-ChildItem backups\*.db | Sort-Object LastWriteTime -Descending
-
-# 恢复指定备份
-Copy-Item "backups\ai_video_create_20260916_143000.db" data\ai_video_create.db -Force
+# 查看可用备份并恢复指定文件（会先创建 pre-restore 安全备份）
+Get-ChildItem data\backups\*.db | Sort-Object LastWriteTime -Descending
+.\scripts\restore-db.ps1 -BackupFile "data\backups\ai_video_create_20261016T120000Z.db"
 ```
 
 **macOS / Linux：**
 ```bash
 # 查看可用备份
-ls -lt backups/*.db
+ls -lt data/backups/*.db
 
 # 恢复指定备份
-cp backups/ai_video_create_20260916_143000.db data/ai_video_create.db
+./scripts/restore-db.sh data/backups/ai_video_create_20261016T120000Z.db
 ```
 
 > **重要：** 确认后端服务已停止后再恢复数据库，避免文件锁定冲突。

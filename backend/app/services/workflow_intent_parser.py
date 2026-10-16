@@ -19,6 +19,7 @@ from backend.app.schemas.workflow_intent import (
     WorkflowIntent,
 )
 from backend.app.services import agent_trace
+from backend.app.schemas.node_catalog import load_node_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -113,23 +114,27 @@ def _parse_unicode_number(text: str) -> int | None:
 # Available node kinds and port definitions (from the unified manifest)
 # ---------------------------------------------------------------------------
 
-NODE_KINDS = [
-    "textInput",
-    "storyboard",
-    "textToImage",
-    "imageToVideo",
-    "videoConcat",
-    "output",
-]
-
+_SHARED_CATALOG = load_node_catalog()
+NODE_KINDS = list(_SHARED_CATALOG)
 PORT_DEFINITIONS = {
-    "textInput": {"input": [], "output": ["text"]},
-    "storyboard": {"input": ["prompt"], "output": ["scenes"]},
-    "textToImage": {"input": ["scene"], "output": ["image"]},
-    "imageToVideo": {"input": ["image"], "output": ["video"]},
-    "videoConcat": {"input": ["video"], "output": ["video"]},
-    "output": {"input": ["video"], "output": []},
+    kind: {
+        "input": [port.id for port in manifest.ports.inputs],
+        "output": [port.id for port in manifest.ports.outputs],
+    }
+    for kind, manifest in _SHARED_CATALOG.items()
 }
+
+
+def _catalog_prompt_section() -> str:
+    lines = ["## 可用节点类型", ""]
+    for manifest in _SHARED_CATALOG.values():
+        lines.append(f"- {manifest.kind}: {manifest.description or manifest.label}")
+    lines.extend(["", "## 端口定义", ""])
+    for kind, manifest in _SHARED_CATALOG.items():
+        inputs = ", ".join(port.id for port in manifest.ports.inputs) or "none"
+        outputs = ", ".join(port.id for port in manifest.ports.outputs) or "none"
+        lines.append(f"- {kind}: input ports: {inputs}, output ports: {outputs}")
+    return "\n".join(lines)
 
 # ---------------------------------------------------------------------------
 # System prompt for MiMo
@@ -137,24 +142,6 @@ PORT_DEFINITIONS = {
 
 _SYSTEM_PROMPT = """\
 你是一个视频创作工作流意图解析器。你的任务是将用户的自然语言描述解析为一个结构化的 WorkflowIntent JSON。
-
-## 可用节点类型
-
-- textInput: 工作流起点，接收用户文本提示词
-- storyboard: 将文本拆分为多个场景（分镜），每个场景包含叙述、图片提示词、视频提示词
-- textToImage: 为每个场景生成一张图片（支持 mapOver 展开）
-- imageToVideo: 将图片转为视频片段（支持 mapOver 展开）
-- videoConcat: 将多个视频片段拼接为一个完整视频
-- output: 工作流终点，输出最终视频
-
-## 端口定义
-
-- textInput: output ports: text
-- storyboard: input ports: prompt, output ports: scenes
-- textToImage: input ports: scene, output ports: image
-- imageToVideo: input ports: image, output ports: video
-- videoConcat: input ports: video, output ports: video
-- output: input ports: video
 
 ## 连线规则
 
@@ -196,7 +183,7 @@ _SYSTEM_PROMPT = """\
 1. scene_count: 从用户描述中提取场景数量。常见模式："N个场景"、"N个镜头"、"N个场景"。未提及则为 null。
 2. variant_count: 从用户描述中提取每个场景的变体数量。常见模式："每张图N张"、"每个场景N个变体"。未提及则为 null。
 3. 如果用户明确说"不要视频"、"只生成图片"、"不要合成"等，不要包含 imageToVideo 和 videoConcat 节点。
-4. 如果用户说"只生成一张图片"，只使用 textInput -> textToImage -> output（或仅textInput -> textToImage）。
+4. 如果用户说"只生成一张图片"，使用 textInput -> storyboard -> textToImage -> output.asset。
 5. 输出必须是合法的 JSON，不要包含 markdown 代码块标记。
 6. 节点 alias 必须唯一。
 7. 连线必须遵循连线规则。
@@ -218,15 +205,17 @@ _EXAMPLES = """
   "nodes": [
     {"alias": "input", "kind": "textInput", "config": {"prompt": "只生成一张图片，不要视频，不要合成"}},
     {"alias": "storyboard", "kind": "storyboard", "config": {"scenes": 1}},
-    {"alias": "textToImage", "kind": "textToImage", "config": {}}
+    {"alias": "textToImage", "kind": "textToImage", "config": {}},
+    {"alias": "output", "kind": "output", "config": {}}
   ],
   "connections": [
     {"source": {"node": "input", "port": "text"}, "target": {"node": "storyboard", "port": "prompt"}, "mode": "direct"},
-    {"source": {"node": "storyboard", "port": "scenes"}, "target": {"node": "textToImage", "port": "scene"}, "mode": "map"}
+    {"source": {"node": "storyboard", "port": "scenes"}, "target": {"node": "textToImage", "port": "scene"}, "mode": "map"},
+    {"source": {"node": "textToImage", "port": "image"}, "target": {"node": "output", "port": "asset"}, "mode": "direct"}
   ],
   "scene_count": 1,
   "variant_count": null,
-  "reasoning": "用户明确要求只生成图片，不要视频和合成，因此只保留 textInput -> storyboard -> textToImage"
+  "reasoning": "用户明确要求只生成图片，不要视频和合成，因此输出图片资产到 output.asset"
 }
 
 ### 示例 2: 多场景多变体
@@ -258,7 +247,7 @@ _EXAMPLES = """
 
 def _build_system_prompt() -> str:
     """Build the full system prompt with examples."""
-    base = _SYSTEM_PROMPT + _EXAMPLES
+    base = _SYSTEM_PROMPT + "\n\n" + _catalog_prompt_section() + _EXAMPLES
 
     # Append available modules section
     try:
@@ -476,26 +465,24 @@ def _dict_to_intent(data: dict, prompt: str) -> WorkflowIntent | None:
 
 
 def _normalize_image_only_intent(intent: WorkflowIntent) -> WorkflowIntent:
-    """Remove the video-only output sink from image-only workflows.
-
-    Providers sometimes follow the older example and connect ``image`` to
-    ``output.video``.  That graph can never pass the typed-port validator.
-    Images are valid terminal assets, so the image generator itself is the
-    terminal node until a polymorphic asset-output module is introduced.
-    """
+    """Normalize image-only workflows to the explicit polymorphic asset sink."""
     kinds = {node.kind for node in intent.nodes}
     if "textToImage" not in kinds or "imageToVideo" in kinds:
         return intent
     output_aliases = {node.alias for node in intent.nodes if node.kind == "output"}
     if not output_aliases:
         return intent
+    connections: list[ConnectionIntent] = []
+    for conn in intent.connections:
+        if conn.target.node in output_aliases:
+            connections.append(conn.model_copy(update={
+                "target": PortRef(node=conn.target.node, port="asset"),
+            }))
+        elif conn.source.node not in output_aliases:
+            connections.append(conn)
     return intent.model_copy(update={
-        "nodes": [node for node in intent.nodes if node.alias not in output_aliases],
-        "connections": [
-            conn for conn in intent.connections
-            if conn.source.node not in output_aliases and conn.target.node not in output_aliases
-        ],
-        "warnings": [*intent.warnings, "Image assets are emitted by the terminal textToImage node"],
+        "connections": connections,
+        "warnings": [*intent.warnings, "Image output normalized to output.asset"],
     })
 
 
@@ -572,10 +559,13 @@ def _template_fallback(prompt: str) -> WorkflowIntent:
             ),
         ])
     else:
-        # Image assets are terminal outputs themselves.  The built-in output
-        # node accepts video only, so adding it here creates TYPE_MISMATCH.
-        # A future polymorphic asset-output module can make this explicit.
-        pass
+        nodes.append(NodeIntent(alias="output", kind="output"))
+        connections.append(
+            ConnectionIntent(
+                source=PortRef(node="textToImage", port="image"),
+                target=PortRef(node="output", port="asset"),
+            )
+        )
 
     return WorkflowIntent(
         name=prompt[:50] if prompt else "Generated Workflow",

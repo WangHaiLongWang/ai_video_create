@@ -224,7 +224,8 @@
       "description": "预览与下载最终结果",
       "ports": {
         "inputs": [
-          { "id": "video", "type": "video", "required": true, "cardinality": "one" }
+          { "id": "video", "type": "video", "required": false, "cardinality": "one" },
+          { "id": "asset", "type": "any", "required": false, "cardinality": "one", "label": "任意资产" }
         ],
         "outputs": []
       },
