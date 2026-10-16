@@ -18,12 +18,6 @@ def fresh_db(tmp_path, monkeypatch):
 
 client = TestClient(app)
 
-
-@pytest.fixture(scope="module", autouse=True)
-def managed_client():
-    with client:
-        yield
-
 SAMPLE_SPEC = {
     "schemaVersion": "1.0",
     "id": "exec-api-test",

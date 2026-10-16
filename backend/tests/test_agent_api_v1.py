@@ -20,12 +20,6 @@ def fresh_db(tmp_path, monkeypatch):
 client = TestClient(app)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def managed_client():
-    with client:
-        yield
-
-
 # ---------------------------------------------------------------------------
 # POST /api/agent/generate-preview-v2
 # ---------------------------------------------------------------------------

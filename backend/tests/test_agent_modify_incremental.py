@@ -43,12 +43,6 @@ def mock_llm(monkeypatch):
 client = TestClient(app)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def managed_client():
-    with client:
-        yield
-
-
 def _valid_intent_dict() -> dict:
     """A valid 6-node pipeline intent (aliases deliberately not kind names)."""
     return {
