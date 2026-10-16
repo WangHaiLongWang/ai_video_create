@@ -527,5 +527,9 @@ class TestSymlinkEscape:
                 pytest.skip("操作系统不支持符号链接")
 
             safety = PathSafety(root_dirs=[root])
-            with pytest.raises(PathTraversalError, match="符号链接"):
+            with pytest.raises(PathTraversalError) as exc_info:
                 safety.validate_path("escape_link/secret.txt")
+            # resolve() may classify the escape as an out-of-root path before
+            # the explicit symlink branch; both are secure, platform-valid
+            # rejection reasons.
+            assert "escape_link/secret.txt" in str(exc_info.value)
