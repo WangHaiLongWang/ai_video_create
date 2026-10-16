@@ -166,7 +166,7 @@ FE-R3-001～004 完成要点：
 | MiMo `mimo-v2.5-pro` | adapter/config 完成 | **2026-10-12 当前链路复测通过**（`scripts/smoke_real_chain.py`，1 次文本调用 6.2s） |
 | Qwen Image 3.0 | adapter/config 完成 | **2026-10-12 当前链路复测通过**（1 张 1280×720 PNG，1.47 MB，72.4s） |
 | Wan3 Video | async job/poll/persist 完成 | **2026-10-12 当前链路复测通过**（2s/480P 图生视频，2.24 MB MP4，44.3s，external_job_id 已生成） |
-| Doubao Seedream/Seedance 2.5 | image/video adapter、UI、Contract 完成 | Key/目录成功，账号未激活模型，External Blocked |
+| Doubao Seedream/Seedance 2.5 | image/video adapter、UI、Contract 完成 | 2026-10-16 health/目录成功；两模型真实最小请求均 404 未激活，External Blocked |
 | ComfyUI | T2I 基础存在 | 当前环境未验证；I2V 仍非发布主路径 |
 | Mock | 全能力基础 | 当前 Frontend/Backend/Chromium/acceptance 全量门禁通过；旧 Agent 失败仅为历史记录 |
 
@@ -180,7 +180,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
 | RC-004 | P0 | 最终 commit 同 SHA CI 证据 | 本地 2181 backend + 414 frontend + 143 Chromium 全绿；CI/artifact 配置完成 | push 后三平台 required checks + run/artifact URL | ⛔ GitHub 443 超时（HARD-501/502） |
-| RC-007 | P1 | Doubao 模型未激活 | 合同/配置/Mock 已完成；真实请求 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
+| RC-007 | P1 | Doubao 模型未激活 | 2026-10-16 复证：模型目录可见，但 Seedream/Seedance 最小真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
 | RC-008 | P1 | 最终实现 commit 真实 Qwen/Wan3 证据 | `78a99ac` MiMo→Qwen→Wan3 全绿，产物 SHA-256、耗时、job ID、估算费用已归档 | 最终实现 SHA 受控 UAT | ✅ 关闭（2026-10-16） |
 | RC-009 | P1 内容 | 滑雪教学固定器/后脚姿态不稳定 | 3 批 6 张真实 Qwen 图片人工检查；技术 2图→2视频→6.06s 合成通过 | 两张首帧同时满足“前脚固定、后脚踩雪、空后固定器可见” | ⛔ External Content Blocked（需局部重绘/ControlNet/换模型） |
 
