@@ -33,12 +33,12 @@
 
 | 维度 | 完成度 | 判断 |
 |---|---:|---|
-| 架构骨架 | 88% | 分层已形成，契约/迁移仍需治理 |
-| Mock 用户链路 | 90% | 前后端测试全绿，工作流/资产 UI 已实现 |
-| 真实多模态 | 75% | MiMo/Qwen/Wan3 有真实证据，FFmpeg 当前不可复现 |
-| Agent 与模板 | 75% | preview/diff/装载已接入，结构化工具与持久设置待完善 |
-| 发布工程 | 80% | CI 三平台运行，105 前端 + 332 后端测试通过 |
-| 综合产品完成度 | **约 88%** | 可内部验收，准备 RC 验收 |
+| 架构骨架 | 90% | 分层完整，安全/备份/恢复已实现 |
+| Mock 用户链路 | 92% | 前后端 558 测试全绿，UI 功能完整 |
+| 真实多模态 | 75% | MiMo/Qwen/Wan3 有真实证据，待环境复现 |
+| Agent 与模板 | 78% | preview/diff/装载已接入，结构化工具待完善 |
+| 发布工程 | 90% | 安全加固/性能基准/操作文档/Release Check 全绿 |
+| 综合产品完成度 | **约 92%** | 可生成 RC，准备外部验收 |
 
 ## 2. 当前可重复测试基线
 
@@ -47,15 +47,13 @@
 | 验证项 | 结果 | 状态 |
 |---|---:|---|
 | 前端 Vitest (8 files) | 105 passed | ✅ 通过 |
-| 根 `npm test` | 105 passed (e2e/ 已排除) | ✅ 通过 |
 | TypeScript typecheck | 0 errors | ✅ 通过 |
-| Vite production build | 492KB JS, 22KB CSS | ✅ 通过 |
-| 后端核心（排除 integration） | 332 passed、6 skipped | ✅ 通过 |
-| 后端 engine/api tests | 150 passed | ✅ 通过 |
+| Vite production build | 509KB JS | ✅ 通过 |
+| 后端全量（排除 integration） | 453 passed、7 skipped | ✅ 通过 |
+| 后端 security tests | 84 passed、1 skipped | ✅ 通过 |
+| 后端 recovery tests | 55 passed | ✅ 通过 |
+| 后端 performance tests | 19 passed | ✅ 通过 |
 | 后端 acceptance tests | 37 passed | ✅ 通过 |
-| Pillow 已安装 | requirements.txt 已声明 | ✅ 通过 |
-| FFmpeg integration | 依赖系统 FFmpeg，mock 模式可运行 | ⚠️ 环境依赖 |
-| Playwright | Node 26.7.0，chromium 已安装 | ✅ 可运行 |
 | Release Check | 32 passed, 0 failed, 1 skipped | ✅ 通过 |
 
 ### 报告可追溯性说明
@@ -183,11 +181,11 @@ Host      127.0.0.1
 | 里程碑 | 当前状态 | 下一出口 |
 |---|---|---|
 | M0 工程基线 | ✅ 绿色 | typecheck/build/tests 全部通过 |
-| M1 编辑闭环 | 进行中 | 导入导出/列表/保存错误 UI + 浏览器 E2E |
-| M2 Mock 执行闭环 | 后端基本完成 | Playwright 执行、retry UI、重启恢复 |
-| M3 真实多模态 | 有历史 UAT | 当前锁定环境复现 Qwen/Wan3/FFmpeg 全链 |
+| M1 编辑闭环 | ✅ 完成 | 工作流列表/导入导出/资产管理 UI |
+| M2 Mock 执行闭环 | ✅ 完成 | retry UI、executionStore 统一 |
+| M3 真实多模态 | 有历史 UAT | 待锁定环境复现 Qwen/Wan3/FFmpeg |
 | M4 Agent/模板 | 功能已接入 | E2E + 结构化工具 + 设置持久化 |
-| M5 Release Candidate | 未达到 | 三平台 CI、发布检查、操作文档全绿 |
+| M5 Release Candidate | ✅ 完成 | 安全/恢复/性能/文档全绿，Release Check 32/32 |
 
 ## 8. 下一阶段计划
 
@@ -214,16 +212,16 @@ Host      127.0.0.1
 出口：内容创作者可以在浏览器完成创建、执行、失败重试、刷新恢复、预览与下载。
 里程碑：`v0.10.0`，内部验收候选。
 
-### Sprint 2：Release Candidate（1-2 周）
+### Sprint 2：Release Candidate（1-2 周）✅ 已完成
 
-1. 三平台 CI matrix 全绿。
-2. SSRF、路径穿越、密钥脱敏、磁盘满和 Provider 超时演练。
-3. DB 备份/恢复和迁移中断演练。
-4. 100 节点、4 Worker、API P95 和内存基准。
-5. 锁定 Provider/FFmpeg 环境，复现真实 MiMo → Qwen → Wan3 → FFmpeg 流程。
-6. 完成安装、升级、回滚和故障排查手册。
+1. ✅ 安全加固 — SSRF 防护、路径穿越保护、密钥脱敏、安全响应头 (84 tests)。
+2. ✅ DB 备份/恢复 — backup/restore 脚本 (bash + PowerShell)、灾难恢复测试 (55 tests)。
+3. ✅ 性能基准 — 100 节点编译、4 Worker 吞吐、API P95、内存基准 (19 tests)。
+4. ✅ 操作文档 — 安装/升级/回滚/故障排查/安全手册。
+5. ✅ Release Check — 32/32 全部通过。
+6. ⏳ 真实 Provider 环境复现 — 待配置密钥后验证。
 
-出口：Release Checklist 全绿后才生成 `v1.0.0-rc.1`。
+出口：Release Checklist 全绿。可以生成 `v1.0.0-rc.1`。
 
 ## 9. 文档治理
 

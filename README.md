@@ -23,22 +23,23 @@ MiMo 分镜 → Qwen Image 图片 → Wan3 视频片段 → FFmpeg 合成
 - FFmpeg 4+，通过 `AI_VIDEO_FFMPEG_PATH` 指定
 - 可选外部服务：MiMo、阿里云百炼、Ollama、ComfyUI、OpenAI
 
-## 安装
+## 快速开始
+
+> 完整安装指南请参阅 [安装文档](docs/operations/INSTALL.md)。
 
 ```powershell
-npm install
-npm --prefix frontend install
+# 1. 克隆并进入项目
+git clone <repo-url> && cd ai_video_create
 
-python -m venv backend/.venv
-backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
-```
+# 2. 后端安装
+cd backend && python -m venv .venv
+.venv\Scripts\activate && pip install -r requirements.txt
 
-macOS/Linux 使用 `backend/.venv/bin/python`。
+# 3. 前端安装
+cd ../frontend && npm install
 
-复制配置：
-
-```powershell
-Copy-Item .env.example .env
+# 4. 配置环境变量
+cd .. && Copy-Item .env.example .env
 ```
 
 不要提交 `.env` 或 API Key。
@@ -66,6 +67,16 @@ npm --prefix frontend run test:e2e:chromium
 ```
 
 截至 2026-09-16，根测试、typecheck/build、完整 pytest 和 Playwright 仍有环境/配置阻断。真实结果与修复顺序见 [项目状态](docs/PROJECT-STATUS.md)。
+
+## 运维文档
+
+| 文档 | 用途 |
+|------|------|
+| [安装指南](docs/operations/INSTALL.md) | 从零开始的完整安装步骤、配置参考、平台说明 |
+| [升级指南](docs/operations/UPGRADE.md) | 版本升级流程、兼容性说明 |
+| [回滚指南](docs/operations/ROLLBACK.md) | 回滚到旧版本的步骤和数据考量 |
+| [问题排查](docs/operations/TROUBLESHOOTING.md) | 常见问题诊断和解决方案 |
+| [安全指南](docs/operations/SECURITY.md) | 安全特性、配置建议和漏洞报告 |
 
 ## Provider 文档
 

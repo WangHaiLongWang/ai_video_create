@@ -94,6 +94,7 @@ class TestPathTraversal:
     def test_asset_read_traversal(self):
         """读取资产时路径遍历。"""
         from backend.app.services.asset_manager import AssetManager
+        from backend.app.security.path_safety import PathTraversalError
         import tempfile
         import shutil
 
@@ -101,12 +102,12 @@ class TestPathTraversal:
         try:
             manager = AssetManager(temp_dir)
 
-            # 尝试读取系统文件
-            with pytest.raises(FileNotFoundError):
+            # 尝试读取系统文件 — 被路径安全拦截
+            with pytest.raises((FileNotFoundError, PathTraversalError)):
                 manager.read_asset("../../etc/passwd")
 
-            # 尝试读取绝对路径
-            with pytest.raises(FileNotFoundError):
+            # 尝试读取绝对路径 — 被路径安全拦截
+            with pytest.raises((FileNotFoundError, PathTraversalError)):
                 manager.read_asset("/etc/passwd")
         finally:
             shutil.rmtree(temp_dir)

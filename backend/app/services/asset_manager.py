@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from backend.app.security.path_safety import PathSafety, PathTraversalError
+
 
 class AssetManager:
     """Manages file assets (images, videos) for the application.
@@ -26,6 +28,7 @@ class AssetManager:
         """
         self.asset_dir = Path(asset_dir)
         self.asset_dir.mkdir(parents=True, exist_ok=True)
+        self._path_safety = PathSafety(root_dirs=[self.asset_dir])
 
         # Create subdirectories
         (self.asset_dir / "images").mkdir(exist_ok=True)
@@ -109,7 +112,9 @@ class AssetManager:
 
         Raises:
             FileNotFoundError: If asset doesn't exist
+            PathTraversalError: If path escapes asset directory
         """
+        self._path_safety.validate_path(relative_path)
         full_path = self.asset_dir / relative_path
         if not full_path.exists():
             raise FileNotFoundError(f"Asset not found: {relative_path}")
@@ -123,7 +128,11 @@ class AssetManager:
 
         Returns:
             True if deleted, False if not found
+
+        Raises:
+            PathTraversalError: If path escapes asset directory
         """
+        self._path_safety.validate_path(relative_path)
         full_path = self.asset_dir / relative_path
         if full_path.exists():
             full_path.unlink()
@@ -139,6 +148,10 @@ class AssetManager:
         Returns:
             True if exists
         """
+        try:
+            self._path_safety.validate_path(relative_path)
+        except PathTraversalError:
+            return False
         return (self.asset_dir / relative_path).exists()
 
     def get_asset_info(self, relative_path: str) -> dict[str, Any] | None:
@@ -149,7 +162,11 @@ class AssetManager:
 
         Returns:
             Dictionary with file info, or None if not found
+
+        Raises:
+            PathTraversalError: If path escapes asset directory
         """
+        self._path_safety.validate_path(relative_path)
         full_path = self.asset_dir / relative_path
         if not full_path.exists():
             return None

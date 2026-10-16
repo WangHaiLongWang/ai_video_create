@@ -25,7 +25,11 @@ from .config import get_settings
 from .providers import init_providers
 from .handlers import init_handlers
 from .services.asset_manager import get_asset_manager
-from .middleware import SecurityMiddleware, InputSanitizeMiddleware
+from .middleware import SecurityMiddleware, InputSanitizeMiddleware, SecretsMaskingFilter
+
+# 配置密钥脱敏日志过滤器
+_masking_filter = SecretsMaskingFilter()
+logging.getLogger().addFilter(_masking_filter)
 
 
 _worker_pool: WorkerPool | None = None

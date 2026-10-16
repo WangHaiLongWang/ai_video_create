@@ -1,7 +1,8 @@
-"""Security middleware — request limits, security headers."""
+"""Security middleware — request limits, security headers, secrets masking."""
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 from typing import Callable
@@ -9,6 +10,10 @@ from typing import Callable
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from backend.app.security.secrets_mask import mask_secrets
+
+logger = logging.getLogger(__name__)
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
@@ -65,8 +70,33 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
 
         return response
+
+
+class SecretsMaskingFilter(logging.Filter):
+    """日志过滤器 — 自动脱敏日志中的敏感信息。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """对日志记录进行脱敏处理。"""
+        if isinstance(record.msg, str):
+            record.msg = mask_secrets(record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {
+                    k: mask_secrets(str(v)) if isinstance(v, str) else v
+                    for k, v in record.args.items()
+                }
+            elif isinstance(record.args, tuple):
+                record.args = tuple(
+                    mask_secrets(str(a)) if isinstance(a, str) else a
+                    for a in record.args
+                )
+        return True
 
 
 class InputSanitizeMiddleware(BaseHTTPMiddleware):
