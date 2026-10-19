@@ -1,8 +1,8 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-10-16
-> 状态版本：22.0
-> 代码基线：Platform Hardening `78a99ac` + UAT 文档 `3241e93` + 当前验收收口变更
+> 基线日期：2026-10-19
+> 状态版本：23.0
+> 发布基线：`a2b60791dc228796e090f3d20f6730110c0fbc07` / `v1.0.0-rc.1`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > 当前推进计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)（Epic H0-H6）
 > 历史 RC 收敛计划（已归档并被 PLATFORM-HARDENING-PLAN 取代）：[`plans/archive/RC-CLOSURE-PLAN.md`](plans/archive/RC-CLOSURE-PLAN.md)
@@ -181,7 +181,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（2026-10-08 干净 venv 2096 passed / 0 failed） |
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
-| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | 本地 2181 backend + 414 frontend + 143 Chromium 全绿；CI/artifact 配置完成 | push 后三平台 required checks + run/artifact URL | ⛔ GitHub 443 超时（HARD-501/502） |
+| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | [`a2b6079` CI run](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39222357198) 与 [Security](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39222357209) 全绿；六类 artifact 已归档 | 三平台 Backend/Frontend + Integration + Browser E2E + Security | ✅ 关闭（2026-10-19） |
 | RC-007 | P1 | Doubao 模型未激活 | 2026-10-16 复证：模型目录可见，但 Seedream/Seedance 最小真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
 | RC-008 | P1 | 最终实现 commit 真实 Qwen/Wan3 证据 | `78a99ac` MiMo→Qwen→Wan3 全绿，产物 SHA-256、耗时、job ID、估算费用已归档 | 最终实现 SHA 受控 UAT | ✅ 关闭（2026-10-16） |
 | RC-009 | P1 内容 | 滑雪教学固定器/后脚姿态不稳定 | 3 批 6 张真实 Qwen 图片人工检查；技术 2图→2视频→6.06s 合成通过 | 两张首帧同时满足“前脚固定、后脚踩雪、空后固定器可见” | ⛔ External Content Blocked（需局部重绘/ControlNet/换模型） |

@@ -15,6 +15,7 @@
 | [真实链路 UAT 2026-10-12](real-chain-uat-2026-10-12.md) | MiMo/Qwen Image/Wan3 最小链路成功，含产物哈希 | 历史真实证据；执行 SHA/费用未捕获，不能替代当前提交复证 |
 | [滑雪教学真实工作流 UAT 2026-10-16](ski-lesson-uat-2026-10-16.md) | 2 图→2×3s 视频→6.06s 合成技术链通过；内容固定器硬约束未通过 | 技术通过 / 内容外部阻断 |
 | [Performance/Recovery 2026-10-16](performance-recovery-validation-2026-10-16.md) | Performance 19 passed；Recovery 55 passed | 当前本地基线 |
+| [v1.0.0-rc.1 发布证据 2026-10-19](rc-release-2026-10-19.md) | `a2b6079` 三平台、Integration、Browser E2E、Security 全绿；tag/artifacts 已归档 | 当前 RC 发布基线 |
 
 ## 证据要求
 

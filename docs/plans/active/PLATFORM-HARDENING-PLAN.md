@@ -92,8 +92,8 @@ Settings API 当前主要修改内存，重启以 `.env` 为准；不满足用�
 
 | ID | 工作量 | 任务 | 验收 | 状态 |
 |---|---:|---|---|---|
-| HARD-501 | 0.5d | 触发同 SHA 三平台 CI + browser-e2e | required checks 全绿 | ⛔ External：workflow 已修复并本地全绿；需 push 当前提交后取得 Actions URL |
-| HARD-502 | 0.5d | 归档 JUnit、Playwright report/trace、安全报告、build | 报告记录 Actions URL/SHA | 🔶 本地完成：CI 已上传 JUnit/build/Playwright/security；远端 artifact URL 依赖 HARD-501 |
+| HARD-501 | 0.5d | 触发同 SHA 三平台 CI + browser-e2e | required checks 全绿 | ✅ `a2b6079` CI run `39222357198` 全绿 |
+| HARD-502 | 0.5d | 归档 JUnit、Playwright report/trace、安全报告、build | 报告记录 Actions URL/SHA | ✅ 三平台 JUnit、build、Playwright、security artifact 已归档 |
 | HARD-503 | 0.5d | MiMo 当前 commit smoke | structured intent 成功 | ✅ 完成：`78a99ac` 实测成功，8.20 s |
 | HARD-504 | 0.5d | Qwen Image + Wan3 最小真实链路 | 1 scene/1 variant/最低时长 | ✅ 完成：`78a99ac` PNG + 2s/480P MP4，哈希/job ID/估算费用归档 |
 | HARD-505 | 外部 | 激活 Seedream/Seedance 或配置 Endpoint | Doubao UAT 不再 404 | ⛔ External：代码/契约/Mock 已完成，账号模型未激活 |
@@ -105,10 +105,10 @@ Settings API 当前主要修改内存，重启以 `.env` 为准；不满足用�
 
 | ID | 工作量 | 任务 | 验收 | 状态 |
 |---|---:|---|---|---|
-| HARD-601 | 0.5d | 统一 package/backend/version/tag | UI/API/tag 同版本 | 🔶 代码完成：`v1.0.0-rc.1` 单一版本源；tag 必须等待同 SHA CI |
+| HARD-601 | 0.5d | 统一 package/backend/version/tag | UI/API/tag 同版本 | ✅ `v1.0.0-rc.1` 指向已验证 `a2b6079` |
 | HARD-602 | 0.5d | 更新 CHANGELOG 日期、测试数字、Known Issues | 与当前 SHA 一致 | ✅ 完成：CHANGELOG/版本/已知问题一致 |
 | HARD-603 | 0.5d | 安装、升级、回滚、数据库备份恢复演练 | 新机器按文档成功 | ✅ 完成：在线备份/校验/恢复前备份，文档与自动测试通过 |
-| HARD-604 | 0.5d | RC checklist、签名/哈希/依赖清单 | artifact 可验证 | 🔶 本地完成：checklist/manifest/SHA-256/preflight；签发 tag 等待 HARD-501 |
+| HARD-604 | 0.5d | RC checklist、签名/哈希/依赖清单 | artifact 可验证 | ✅ checklist/manifest/SHA-256/artifacts/tag 完成 |
 
 ## 10. HARD 与发布阻断 / DoD 映射
 
@@ -176,10 +176,10 @@ Sprint H3（2-3 天）
 - [x] 数据库 migration 有 ledger、checksum、中断恢复和旧库升级证据。
 - [x] Provider 设置重启恢复，Key 不回显且可轮换。
 - [x] Agent v2 契约冻结，v1 有明确弃用策略。
-- [ ] 同一 SHA 的三平台、browser-e2e、security、media required checks 全绿。
+- [x] 同一 SHA 的三平台、browser-e2e、security、media required checks 全绿。
 - [x] MiMo/Qwen/Wan3 最终实现 commit 最小 UAT 通过，Doubao 状态明确。
 - [x] 版本、CHANGELOG、Known Issues、安装/升级/回滚文档一致。
-- [ ] `v1.0.0-rc.1` tag 只指向已验证 SHA。
+- [x] `v1.0.0-rc.1` tag 只指向已验证 SHA。
 
 ## 13. 与 RC-CLOSURE-PLAN 的关系
 

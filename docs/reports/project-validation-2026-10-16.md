@@ -34,10 +34,10 @@
 
 | 项 | 当前证据 | 下一动作 |
 |---|---|---|
-| RC-004 / HARD-501/502 | CI workflow 已统一 Node 22/constraints，上传 JUnit/build/Playwright/security artifacts | 提交并 push 后记录同 SHA Actions URL 与 artifact |
+| RC-004 / HARD-501/502 | `a2b6079` 的 [CI](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39222357198) 与 [Security](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39222357209) 全绿；三平台 JUnit/build/Playwright/security artifacts 已归档 | ✅ 关闭 |
 | RC-008 / HARD-503/504 | `78a99ac` MiMo/Qwen/Wan3 受控 1+1+1 调用成功，产物哈希/job ID/配置估算费用已归档 | ✅ 技术 UAT 关闭；实际账单由供应商控制台财务核对 |
 | RC-007 / HARD-505 | Doubao adapter/配置/Mock/失败处理完成 | 账号激活 Seedream/Seedance 或提供 Endpoint ID 后运行真实 UAT |
-| HARD-601/604 tag | `v1.0.0-rc.1` metadata/checklist/manifest 完成 | 只在上述 required checks 全绿后创建 tag |
+| HARD-601/604 tag | `v1.0.0-rc.1` metadata/checklist/manifest 完成 | ✅ tag 指向已验证 `a2b6079` |
 | RC-009 滑雪内容 | 三批 6 图；2 图→2×3s 视频→6.06s 合成技术通过 | 后脚/空固定器硬约束未稳定满足；需局部重绘/ControlNet/换模型 |
 
 远端只读复核：`git push --dry-run origin main` 与 `git ls-remote` 均因 GitHub 443 超时失败；REST API 只能查询到旧 SHA `ef8ad99` 的 Security success / CI failure。因此本轮无法形成新 SHA Actions URL，属于可复现的网络/远端状态阻断。

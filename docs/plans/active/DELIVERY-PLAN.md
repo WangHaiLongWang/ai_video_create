@@ -12,7 +12,7 @@
 
 ## 0. 2026-10-16 执行检查点
 
-本地可控 Platform Hardening H0-H4/H6 已实现并通过全量门禁：Backend 2181 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过。MiMo/Qwen/Wan3 已在实现提交 `78a99ac` 复证；当前执行主线只剩最终提交同 SHA Actions/制品归档与 Doubao 账号激活，完成前不创建 RC tag。
+本地可控 Platform Hardening H0-H6 已完成：Backend 2181 passed、Frontend 414 passed、Chromium 143 passed，typecheck/build/release/backup-restore 通过；`a2b6079` 的三平台 CI、Integration、Browser E2E、Security 全绿，`v1.0.0-rc.1` 已签发。Doubao 未激活作为可选 Provider 的 External Blocked 已知问题，不影响默认 MiMo/Qwen/Wan3 路径。
 
 自 2026-10-12 校准后已有 `332950f`（共享 Node Manifest/真实链路 smoke）和 `ef8ad99`（Agent Trace UI/API）等代码变更。本轮已重新执行前端 unit/type/build 和 Backend 关键专项；测试数字不再沿用 10 月 10 日旧基线。
 
@@ -65,7 +65,7 @@ H0 可复现工具链
 已实现但不得误标为产品完成：
 
 - 模块 Palette/Designer、扩展端口 Binding、effective-ports 校验、真实 Mock Backend 浏览器链、Agent Modify 增量 diff/破坏性确认均已关闭（Phase M3），但同 SHA CI 与真实 Provider UAT 证据仍缺。
-- 发布阻断：RC-001/002/003/008 已关闭；RC-004（同 SHA CI run/制品证据）与 RC-007（Doubao 模型未激活）仍为外部边界。
+- 发布阻断：RC-001/002/003/004/008 已关闭；RC-007（可选 Doubao 模型未激活）为已知外部限制，不阻断默认发布路径。
 - 内容验收：滑雪工作流技术链已 100%，RC-009 的固定器/后脚姿态属于模型内容遵循外部阻断，不回退工程完成度。
 - 剩余工作是 H 系列工单（HARD-xxx）与发布证据，不是新功能。
 
@@ -446,7 +446,7 @@ RC 门禁现状（2026-10-12，与 `PROJECT-STATUS.md` §6 一致）：
 1. ✅ RC-001 干净环境依赖证据（干净 venv non-external 通过）
 2. ✅ RC-002 模块真实 Backend 浏览器链路（Modules 5/5 零 route mock）
 3. ✅ RC-003 Vitest 资源/隔离治理（连续两次与串行全绿）
-4. ⛔ RC-004 同一 commit CI 证据 → HARD-501/502（等待 push/Actions）
+4. ✅ RC-004 同一 commit CI 证据 → HARD-501/502
 5. ✅ RC-008 真实 Qwen/Wan3 当前证据 → HARD-503/504
 6. ⛔ RC-007 Doubao 模型激活（外部阻断）→ HARD-505
 
