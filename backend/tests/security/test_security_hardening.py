@@ -532,4 +532,4 @@ class TestSymlinkEscape:
             # resolve() may classify the escape as an out-of-root path before
             # the explicit symlink branch; both are secure, platform-valid
             # rejection reasons.
-            assert "escape_link/secret.txt" in str(exc_info.value)
+            assert "escape_link/secret.txt" in str(exc_info.value).replace("\\", "/")
