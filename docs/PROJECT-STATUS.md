@@ -1,8 +1,8 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-10-19
-> 状态版本：23.0
-> 发布基线：`a2b60791dc228796e090f3d20f6730110c0fbc07` / `v1.0.0-rc.1`
+> 基线日期：2026-10-21
+> 状态版本：24.0
+> 发布基线：`a2b60791dc228796e090f3d20f6730110c0fbc07` / `v1.0.0-rc.1`；主分支复验 `6ffca37`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > 当前推进计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)（Epic H0-H6）
 > 历史 RC 收敛计划（已归档并被 PLATFORM-HARDENING-PLAN 取代）：[`plans/archive/RC-CLOSURE-PLAN.md`](plans/archive/RC-CLOSURE-PLAN.md)
