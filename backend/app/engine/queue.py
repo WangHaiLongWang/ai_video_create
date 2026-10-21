@@ -225,6 +225,10 @@ def fail_task(
 
     # 递归传播：找到所有直接或间接依赖此任务的 pending 任务
     skipped = _propagate_failure_recursive(task_id, now)
+    # ``Worker`` calls this queue-level function directly. Without the same
+    # convergence hook used by ``complete_task``, a terminal failure left the
+    # execution row stuck at ``running`` even though every task was terminal.
+    _check_execution_convergence(task_id)
     return skipped
 
 

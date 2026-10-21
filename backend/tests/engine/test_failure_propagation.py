@@ -213,6 +213,18 @@ class TestRaceProtection:
         complete_task("t2", result={"data": "nope"})
         assert get_task("t2")["status"] == "skipped"
 
+    def test_terminal_failure_finalizes_execution(self):
+        """Queue-level worker failures must not leave execution running."""
+        enqueue_tasks(WORKFLOW_ID, EXECUTION_ID, CHAIN_TASKS)
+        claim_task("worker-1")
+        for _ in range(3):
+            fail_task("t1", "terminal", max_retries=3)
+
+        row = get_connection().execute(
+            "SELECT status FROM executions WHERE id = ?", (EXECUTION_ID,)
+        ).fetchone()
+        assert row["status"] == "failed"
+
 
 # ------------------------------------------------------------------ #
 #  4. Retry then fail

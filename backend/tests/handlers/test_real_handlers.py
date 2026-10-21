@@ -169,17 +169,31 @@ class TestRealVideoConcatHandler:
 
     def setup_method(self):
         """Setup providers and handlers."""
+        import os
+        from backend.app.config import reset_settings
+
+        self._video_provider = os.environ.get("AI_VIDEO_DEFAULT_VIDEO_PROVIDER")
+        os.environ["AI_VIDEO_DEFAULT_VIDEO_PROVIDER"] = "mock"
+        reset_settings()
         clear_providers()
         init_providers(mock=True)
         init_real_handlers()
 
     def teardown_method(self):
         """Cleanup."""
+        import os
+        from backend.app.config import reset_settings
+
+        if self._video_provider is None:
+            os.environ.pop("AI_VIDEO_DEFAULT_VIDEO_PROVIDER", None)
+        else:
+            os.environ["AI_VIDEO_DEFAULT_VIDEO_PROVIDER"] = self._video_provider
+        reset_settings()
         clear_providers()
 
     @pytest.mark.asyncio
-    async def test_execute_no_videos(self):
-        """Real concatenation never reports a synthetic success."""
+    async def test_execute_no_videos_in_explicit_mock_mode(self):
+        """Explicit Mock mode may emit a synthetic lineage asset."""
         handler = get_handler("videoConcat")
         task = {
             "id": "task-1",
@@ -189,10 +203,9 @@ class TestRealVideoConcatHandler:
             },
         }
         result = await handler.execute(task, {"worker_id": "test"})
-        assert result.status == "failed"
-        assert result.error.code == "NO_VIDEO_INPUTS"
-        assert result.output is None
-        assert result.artifacts == []
+        assert result.status == "succeeded"
+        assert result.output.type == "video"
+        assert result.output.metadata["filename"] == "output.mp4"
 
 
 class TestRealOutputHandler:

@@ -185,7 +185,11 @@ async function runWorkflowAndCollectEvidence(page: Page, request: APIRequestCont
         return (await res.json()).status as string
       },
       {
-        timeout: 25_000,
+        // The real Mock FastAPI worker may take several seconds to initialize
+        // on a fresh GitHub runner. Keep the enclosing test's 60s budget while
+        // avoiding a false failure during worker warm-up.
+        timeout: 50_000,
+        intervals: [250, 500, 1_000],
         message: `execution ${execution.id} never reached a terminal state`,
       },
     )
@@ -333,7 +337,7 @@ test.describe('Module workflow vertical acceptance', () => {
   })
 
   test('chain: create→publish→drag→save→reload→run yields queryable Task and Asset', async ({ page, request }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(90_000)
     const label = `Chain Module ${Date.now()}`
 
     // --- create + publish through the Module Designer (real API) ---
@@ -388,7 +392,7 @@ test.describe('Module workflow vertical acceptance', () => {
   })
 
   test('Seedream module pinned to doubao runs under the Mock backend and records assets', async ({ page, request }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(90_000)
 
     await dragModuleToCanvas(page, SEEDREAM_LABEL)
     await connectStoryboardToModule(page, SEEDREAM_LABEL)

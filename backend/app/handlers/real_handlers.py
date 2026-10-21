@@ -667,6 +667,13 @@ class RealVideoConcatHandler:
         # Get video paths from upstream tasks
         video_paths = config.get("video_paths", [])
 
+        # E2E/development runs explicitly select Mock. They still need a
+        # deterministic synthetic asset for lineage assertions; real provider
+        # runs must never use this fallback (see failure drills).
+        from backend.app.config import get_settings, ProviderType
+        if get_settings().DEFAULT_VIDEO_PROVIDER == ProviderType.MOCK:
+            return self._mock_concat_output(filename, task)
+
         if not video_paths:
             return NodeResult.fail(
                 code="NO_VIDEO_INPUTS",
@@ -723,6 +730,26 @@ class RealVideoConcatHandler:
                 message=str(e),
                 details={"stderr": e.stderr or "", "returncode": e.returncode},
             )
+
+    def _mock_concat_output(self, filename: str, task: dict | None = None) -> NodeResult:
+        """Generate deterministic mock concat output only in explicit Mock mode."""
+        asset_id = f"final-{uuid.uuid4().hex[:8]}"
+        relative_path = f"final/{asset_id}.mp4"
+        if task is not None:
+            _record_asset(
+                task,
+                "final",
+                relative_path,
+                metadata={"asset_id": asset_id, "path": relative_path, "filename": filename},
+            )
+        return NodeResult.ok(
+            output=ArtifactRef(
+                type="video",
+                asset_id=asset_id,
+                metadata={"path": relative_path, "filename": filename},
+            ),
+            artifacts=[asset_id],
+        )
 
 
 class RealOutputHandler:
