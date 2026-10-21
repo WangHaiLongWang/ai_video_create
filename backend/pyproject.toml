@@ -14,8 +14,13 @@ filterwarnings = [
     "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated.*:DeprecationWarning:starlette\\.testclient",
     # Windows Proactor + Starlette TestClient can finalize an already-closed
     # socket after a later test starts. All project TestClients are explicitly
-    # context-managed; approve only this upstream socket-finalizer warning.
+    # closed or context-managed; approve only this upstream finalizer warning.
     "ignore:Exception ignored in.*socket\\.socket.*:pytest.PytestUnraisableExceptionWarning",
+    # Starlette/AnyIO may likewise defer an already-stopped TestClient event
+    # loop finalizer until a later test. Clients are explicitly closed; keep
+    # the approval restricted to asyncio's destructor rather than hiding
+    # general ResourceWarning or unraisable application exceptions.
+    "ignore:Exception ignored in.*BaseEventLoop\\.__del__.*:pytest.PytestUnraisableExceptionWarning",
 ]
 markers = [
     "performance: performance benchmark tests (deselect with '-m not performance')",

@@ -154,19 +154,28 @@ async def test_cancelled_provider_call_propagates_without_asset():
 @pytest.mark.asyncio
 async def test_real_concat_without_ffmpeg_never_creates_fake_asset(monkeypatch):
     from backend.app.handlers.real_handlers import RealVideoConcatHandler
+    from backend.app.config import reset_settings
 
     class MissingFFmpeg:
         async def check_ffmpeg_available(self):
             return False
 
-    monkeypatch.setattr(
-        "backend.app.handlers.real_handlers.get_ffmpeg_service",
-        lambda: MissingFFmpeg(),
-    )
-    result = await RealVideoConcatHandler().execute(
-        {"id": "concat", "config": {"video_paths": ["videos/a.mp4"]}},
-        {},
-    )
+    # CI intentionally defaults to the Mock provider.  This drill exercises
+    # the real-provider branch, so select it explicitly instead of depending
+    # on a developer's .env.  Reset again after the monkeypatch context exits
+    # to avoid leaking the cached Wan3 setting into subsequent tests.
+    with monkeypatch.context() as patch:
+        patch.setenv("AI_VIDEO_DEFAULT_VIDEO_PROVIDER", "wan3")
+        patch.setattr(
+            "backend.app.handlers.real_handlers.get_ffmpeg_service",
+            lambda: MissingFFmpeg(),
+        )
+        reset_settings()
+        result = await RealVideoConcatHandler().execute(
+            {"id": "concat", "config": {"video_paths": ["videos/a.mp4"]}},
+            {},
+        )
+    reset_settings()
     assert result.status == "failed"
     assert result.error.code == "FFMPEG_UNAVAILABLE"
     assert result.output is None

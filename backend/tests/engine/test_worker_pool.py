@@ -49,7 +49,8 @@ CHAIN_TASKS = [
 
 
 class TestWorker:
-    def test_worker_starts_and_stops(self):
+    @pytest.mark.asyncio
+    async def test_worker_starts_and_stops(self):
         """Worker 可以正常启动和停止。"""
         worker = Worker("test-worker", poll_interval=0.05)
         assert worker._running is False
@@ -62,14 +63,15 @@ class TestWorker:
             await task
             assert worker._running is False
 
-        asyncio.get_event_loop().run_until_complete(run())
+        await run()
 
 
 # --- Test WorkerPool lifecycle ---
 
 
 class TestWorkerPoolLifecycle:
-    def test_pool_starts_correct_count(self):
+    @pytest.mark.asyncio
+    async def test_pool_starts_correct_count(self):
         """WorkerPool 启动指定数量的 Worker。"""
         pool = WorkerPool(worker_count=3, poll_interval=0.05)
 
@@ -85,9 +87,10 @@ class TestWorkerPoolLifecycle:
             await asyncio.sleep(0.1)
             assert pool.active_count == 0
 
-        asyncio.get_event_loop().run_until_complete(run())
+        await run()
 
-    def test_pool_stop_cancels_tasks(self):
+    @pytest.mark.asyncio
+    async def test_pool_stop_cancels_tasks(self):
         """WorkerPool stop 会取消所有 asyncio Task。"""
         pool = WorkerPool(worker_count=2, poll_interval=0.05)
 
@@ -98,7 +101,7 @@ class TestWorkerPoolLifecycle:
             for t in pool._tasks:
                 assert t.cancelled() or t.done()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        await run()
 
 
 # --- Test concurrent claim (no duplicate) ---
@@ -191,7 +194,8 @@ class TestClaimAtomicity:
 
 
 class TestWorkerCrashResilience:
-    def test_other_workers_continue_after_crash(self):
+    @pytest.mark.asyncio
+    async def test_other_workers_continue_after_crash(self):
         """一个 Worker 崩溃后其他 Worker 继续工作。"""
         enqueue_tasks("wf-test", "exec-test", INDEPENDENT_TASKS)
         pool = WorkerPool(worker_count=2, poll_interval=0.05)
@@ -212,7 +216,7 @@ class TestWorkerCrashResilience:
 
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        await run()
 
     def test_orphan_recovery_across_workers(self):
         """超时任务可以被其他 Worker 回收。"""
@@ -245,7 +249,8 @@ class TestWorkerCrashResilience:
 
 
 class TestWorkerPoolProperties:
-    def test_active_count_reflects_state(self):
+    @pytest.mark.asyncio
+    async def test_active_count_reflects_state(self):
         """active_count 反映实际运行状态。"""
         pool = WorkerPool(worker_count=2, poll_interval=0.05)
 
@@ -258,4 +263,4 @@ class TestWorkerPoolProperties:
             assert pool.active_count == 1
             await pool.stop()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        await run()

@@ -16,7 +16,16 @@ def fresh_db(tmp_path, monkeypatch):
     close_connection()
 
 
-client = TestClient(app)
+client: TestClient
+
+
+@pytest.fixture(autouse=True)
+def managed_client():
+    """Keep the legacy global-style calls while closing transport resources."""
+    global client
+    client = TestClient(app)
+    yield
+    client.close()
 
 SAMPLE_SPEC = {
     "schemaVersion": "1.0",

@@ -40,7 +40,16 @@ def mock_llm(monkeypatch):
     )
 
 
-client = TestClient(app)
+client: TestClient
+
+
+@pytest.fixture(autouse=True)
+def managed_client():
+    """Keep the legacy global-style calls while closing transport resources."""
+    global client
+    client = TestClient(app)
+    yield
+    client.close()
 
 
 def _valid_intent_dict() -> dict:
