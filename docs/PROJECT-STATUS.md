@@ -1,8 +1,8 @@
 # ai_video_create 项目状态
 
-> 基线日期：2026-10-21
-> 状态版本：24.0
-> 发布基线：`a2b60791dc228796e090f3d20f6730110c0fbc07` / `v1.0.0-rc.1`；主分支复验 `6ffca37`
+> 基线日期：2026-10-22
+> 状态版本：25.0
+> 发布基线：`a2b60791dc228796e090f3d20f6730110c0fbc07` / `v1.0.0-rc.1`；主分支复验 `493bf2898644dd68fadfe28a10c05fbd620c7b59`
 > Active 主计划：[`plans/active/DELIVERY-PLAN.md`](plans/active/DELIVERY-PLAN.md)
 > 当前推进计划：[`plans/active/PLATFORM-HARDENING-PLAN.md`](plans/active/PLATFORM-HARDENING-PLAN.md)（Epic H0-H6）
 > 历史 RC 收敛计划（已归档并被 PLATFORM-HARDENING-PLAN 取代）：[`plans/archive/RC-CLOSURE-PLAN.md`](plans/archive/RC-CLOSURE-PLAN.md)
@@ -14,9 +14,9 @@
 
 当前本机持久化默认路径已校准为 `openai_compat`（MiMo）→ `dashscope`（Qwen Image 3.0）→ `wan3`；三者 `/api/config/test-provider` 均返回 healthy，真实 Agent preview 返回六节点、`can_apply=true`、零校验错误。Doubao 保留为可选配置，未激活时不影响默认路径。
 
-本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。剩余重点是同 SHA CI 证据和真实 Provider UAT。
+本轮（Phase M3）已完成 MOD-R3-001/002/003/004/005：扩展端口 Binding 编辑、effective-ports 图校验（含前后端一致性与契约漂移清理）、Playwright 真实 Mock FastAPI 全链（零 route mock，Task/Asset 可查询）、Agent Modify 增量 diff 与破坏性确认（含真实浏览器验收）、Vitest 隔离治理。同 SHA CI 与默认真实 Provider UAT 已关闭；仅保留不影响默认路径的 Doubao 账号激活和滑雪内容遵循外部限制。
 
-2026-10-16 本机最终门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning**；Chromium **143/143 passed**。MiMo→Qwen→Wan3 已在实现提交 `78a99ac` 受控复证；剩余发布边界只有远端同 SHA CI/制品归档和 Doubao 模型激活。
+2026-10-22 当前门禁：Frontend **24 files / 414 passed**，typecheck/build 通过；Backend non-external **2117 passed / 7 skipped / 0 failed**；Integration（not external）**65 passed / 7 skipped / 15 deselected**；Chromium **143/143 passed**。远端同 SHA `493bf28` 的六平台 Backend/Frontend、Integration、Browser E2E、Security 全绿。MiMo→Qwen→Wan3 已在实现提交 `78a99ac` 受控复证；Doubao 模型激活仍是外部可选能力边界。
 
 ### 当前评分
 
@@ -31,7 +31,7 @@
 | 安全与秘密管理 | 100% | AES-GCM、脱敏、多配置持久化、Trace、审计与 warning gate 完成 |
 | Provider 与媒体（代码/Mock） | 100% | MiMo/Qwen/Wan3/Doubao 契约及失败演练完成 |
 | 发布工程（本地可控） | 100% | 版本、constraints、备份恢复、manifest、checklist 完成 |
-| RC 外部证据 | **未关闭** | 当前 SHA Actions/制品归档与 Doubao 激活依赖外部状态；真实主链已关闭 |
+| RC 外部证据 | **100%（默认路径）** | 当前 SHA Actions/Security 全绿；Doubao 激活与特定姿态内容遵循作为非默认外部限制单列 |
 
 ## 2. 当前可重复测试基线
 
@@ -49,19 +49,20 @@
 | Vitest 串行模式 | 375 passed | 通过 |
 | Backend 广覆盖回归 | 677 passed | 通过 |
 | Agent structured parser/module gate | 341 passed | 通过 |
-| Backend full non-external | 2181 passed / 8 skipped / 21 deselected / 0 failed / 0 warning | 通过 |
+| Backend full non-external | 2117 passed / 7 skipped / 0 failed | 通过；CI Windows/macOS/Linux 全绿 |
+| Backend integration (not external) | 65 passed / 7 skipped / 15 deselected | 通过；CI Ubuntu 全绿 |
 | Backend 当前专项复测 | 153 passed / 1 warning | 本轮通过 |
 | Shared Catalog + Agent Trace | 119 passed / 1 warning | 本轮通过 |
 | Doubao Contract + Config | 16 passed | 通过 |
 | All Provider tests | 44 passed | 通过 |
-| Real MiMo→Qwen→Wan3 | text + 1280×720 PNG + 2s/480P MP4 | 2026-10-12 本机通过，待正式报告/SHA归档 |
-| Playwright CI | Node 22 + constraints + JUnit/build/Playwright/security artifacts 已配置 | 当前工作树尚未 push，缺最终 SHA run URL |
+| Real MiMo→Qwen→Wan3 | text + 1280×720 PNG + 2s/480P MP4 | 2026-10-12 本机通过，报告与实现 SHA 已归档 |
+| Playwright CI | Node 22 + constraints + JUnit/build/Playwright/security artifacts | `493bf28` run 39531900960 全绿 |
 
 ### 2.1 浏览器门禁
 
 1. 历史 deselect 和 multi-drag 失败已修复。
 2. Modules E2E 现为 **5 项、零 route mock**，驱动真实 Mock FastAPI 完成 create→publish→drag→save→reload→run，并可查询 Task/Asset。
-3. CI 已配置 Mock FastAPI + Vite + Chromium；仍需实际 Actions run URL、同 SHA 和 artifact。
+3. CI 已用 Mock FastAPI + Vite + Chromium 完成同 SHA 验收；run 39531900960 的 Browser E2E 全绿并生成 artifact。
 4. Scene JSON export→import roundtrip 已进入全量 Chromium（第 107 项）并通过。
 
 ### 2.2 测试隔离与限流（本轮修复）
@@ -72,18 +73,18 @@
 
 ### 2.3 后端环境与测试
 
-- Pillow/cryptography 已进入 requirements；仍需要干净 venv 和三平台 CI 证明依赖可复现。
+- Pillow/cryptography 已进入 requirements；干净环境与三平台 CI 已证明依赖可复现。
 - 第二轮 module_usage/registry/parser/resolver 定向集 173 passed。
 - Agent structured parser/module gate 定向集 93 passed。
-- 完整 non-external pytest 需要在当前工作区重新归档，不沿用旧失败数字。
+- 完整 non-external pytest 已在当前工作区重新归档为 2117 passed / 7 skipped。
 
 ## 3. 前端实现评估
 
 ### 3.0 组件化/Agent 最新判定
 
 - 节点实例级自定义：通过。
-- ModuleDefinition/Registry/Designer：基础生命周期和前端 route-mock E2E 通过。
-- Module 执行：Materializer 已接 REST/Scheduler，module_usage 已同步；真实 backend 浏览器执行仍待验收。
+- ModuleDefinition/Registry/Designer：生命周期和真实 Mock FastAPI E2E 通过。
+- Module 执行：Materializer 已接 REST/Scheduler，module_usage 已同步；真实 backend 浏览器执行已验收。
 - Agent：structured parser、module-aware compile/gate、Modify 增量 Diff/破坏性确认浏览器联调均完成。
 - 最新审计：[`reports/workflow-componentization-audit-2026-09-23.md`](reports/workflow-componentization-audit-2026-09-23.md)。
 
@@ -91,7 +92,7 @@
 
 第二轮新增：Workflow create/update/import/duplicate/delete 同步 module_usage；capability 过滤按 Provider Policy；Seedream 模块展示→拖入→override→刷新保真和 Designer create/save/publish 浏览器通过；Agent image-only、2 scenes×2 variants×5s、Seedream module ref、unknown/draft module gate 通过。
 
-剩余关闭项（与 §3.2 / §6 一致）：同 SHA CI 证据（RC-004）和真实 Seedream UAT（RC-007，外部阻断）。RC-008 已由 `78a99ac` 真实链路关闭；扩展端口 Binding、effective-ports 校验、真实 Mock Backend 联调、Modify E2E、Vitest 隔离治理已由 Phase M3 关闭。
+可控工程关闭项已全部完成：RC-004 已由 `493bf28` 同 SHA CI/Security 关闭，RC-008 已由 `78a99ac` 默认真实链路关闭；RC-007 是不影响默认路径的 Doubao 外部账号激活限制。扩展端口 Binding、effective-ports 校验、真实 Mock Backend 联调、Modify E2E、Vitest 隔离治理均已由 Phase M3 关闭。
 
 ### 3.0.1 2026-09-22 历史实现说明
 
@@ -181,7 +182,7 @@ Doubao 详细计划见 [`plans/active/DOUBAO-SEEDANCE-PLAN.md`](plans/active/DOU
 | RC-001 | P0 | 干净环境依赖证据缺失 | requirements 已更新 | 新 venv 完整 non-external suite | ✅ 关闭（2026-10-08 干净 venv 2096 passed / 0 failed） |
 | RC-002 | P0 | 模块真实 Backend 浏览器链路缺失 | route-mock E2E 3/3 | create→publish→run 全绿 | ✅ 关闭（5/5 零 route mock） |
 | RC-003 | P0 | Vitest 资源/隔离不稳定 | EMFILE 与 DOM 污染 | 默认命令连续两次全绿 | ✅ 关闭（375×2 + 串行全绿） |
-| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | [`a2b6079` CI run](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39222357198) 与 [Security](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39222357209) 全绿；六类 artifact 已归档 | 三平台 Backend/Frontend + Integration + Browser E2E + Security | ✅ 关闭（2026-10-19） |
+| RC-004 | P0 | 最终 commit 同 SHA CI 证据 | [`493bf28` CI run](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39531900960) 与 [Security](https://github.com/WangHaiLongWang/ai_video_create/actions/runs/39531901080) 全绿；六平台、Integration、Browser E2E 均通过 | 三平台 Backend/Frontend + Integration + Browser E2E + Security | ✅ 关闭（2026-10-22） |
 | RC-007 | P1 | Doubao 模型未激活 | 2026-10-16 复证：模型目录可见，但 Seedream/Seedance 最小真实请求均 404 未激活 | 激活或配置 Endpoint 后 image/video/workflow UAT | ⛔ 外部账号阻断 |
 | RC-008 | P1 | 最终实现 commit 真实 Qwen/Wan3 证据 | `78a99ac` MiMo→Qwen→Wan3 全绿，产物 SHA-256、耗时、job ID、估算费用已归档 | 最终实现 SHA 受控 UAT | ✅ 关闭（2026-10-16） |
 | RC-009 | P1 内容 | 滑雪教学固定器/后脚姿态不稳定 | 3 批 6 张真实 Qwen 图片人工检查；技术 2图→2视频→6.06s 合成通过 | 两张首帧同时满足“前脚固定、后脚踩雪、空后固定器可见” | ⛔ External Content Blocked（需局部重绘/ControlNet/换模型） |
@@ -264,4 +265,4 @@ RC-001 关闭证据（2026-10-08）：全新 venv 安装 `backend/requirements.t
 - 模块化节点与 Seedream 历史专项：[`plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md`](plans/archive/MODULAR-NODE-SEEDREAM-PLAN.md)
 - 测试报告：[`reports/`](reports/)
 
-当前状态必须在 P0 门禁关闭后才能升级为 Release Candidate。
+当前所有 P0 门禁均已关闭，`v1.0.0-rc.1` Release Candidate 已发布；后续仅在新增实现提交需要发布时重新执行同 SHA 门禁。
